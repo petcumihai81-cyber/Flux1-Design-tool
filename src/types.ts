@@ -2,6 +2,8 @@ export type SystemId = 'EFR' | 'CA' | 'CCTV' | 'INC' | 'NET'
 
 export interface Device {
   id: string
+  /** Nivelul (planul) pe care e amplasat */
+  levelId: string
   type: string
   x: number
   y: number
@@ -30,6 +32,7 @@ export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim'
 
 export interface ArchElement {
   id: string
+  levelId: string
   kind: ArchKind
   /** Perete: polilinie; cotă: [x1, y1, x2, y2] */
   points?: number[]
@@ -51,6 +54,7 @@ export interface ArchElement {
 
 export interface Cable {
   id: string
+  levelId: string
   code: string
   system: SystemId
   /** Puncte în coordonate plan: [x1, y1, x2, y2, ...] */
@@ -210,8 +214,21 @@ export interface Diagram {
   edges: DiagramEdge[]
 }
 
+/** Nivel / plan al clădirii (Parter, Etaj 1...): fundal, scară și mărimea simbolurilor proprii */
+export interface Level {
+  id: string
+  name: string
+  /** Planul de fundal; null = pagină albă (schiță) */
+  background: Background | null
+  /** Pixeli de plan per metru, din calibrarea scării */
+  pxPerMeter: number | null
+  symbolSize: number
+}
+
 export interface Sheet {
   id: string
+  /** Nivelul afișat (planșele de tip plan) */
+  levelId?: string
   /** plan = plan de amplasare; bloc = schemă bloc generată automat */
   kind: 'plan' | 'bloc'
   titlu: string
@@ -233,10 +250,8 @@ export interface Sheet {
 export interface Project {
   version: 2
   title: TitleBlock
-  background: Background | null
-  /** Pixeli de plan per metru, din calibrarea scării */
-  pxPerMeter: number | null
-  symbolSize: number
+  /** Nivelurile clădirii, fiecare cu fundalul și scara lui */
+  levels: Level[]
   cableReservePct: number
   sheets: Sheet[]
   activeSheetId: string
@@ -253,6 +268,9 @@ export interface Project {
 }
 
 export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
+
+/** Element de arhitectură nou (id-ul și nivelul se completează la adăugare) */
+export type NewArch = Omit<ArchElement, 'id' | 'levelId'>
 
 export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim'
 

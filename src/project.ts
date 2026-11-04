@@ -1,4 +1,4 @@
-import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
+import type { Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
 import { DEFAULT_CALC, defaultCatalog } from './catalog'
 import { defaultMemoriu } from './memoriuDefaults'
 import { SYSTEMS, symbolByType } from './symbols'
@@ -24,8 +24,18 @@ export function newSheet(over: Partial<Sheet> = {}): Sheet {
   }
 }
 
+export const newLevel = (name: string, over: Partial<Level> = {}): Level => ({
+  id: uid(),
+  name,
+  background: null,
+  pxPerMeter: null,
+  symbolSize: 32,
+  ...over,
+})
+
 export function emptyProject(): Project {
-  const sheet = newSheet()
+  const level = newLevel('Parter')
+  const sheet = newSheet({ levelId: level.id })
   return {
     version: 2,
     title: {
@@ -37,9 +47,7 @@ export function emptyProject(): Project {
       intocmit: '',
       verificat: '',
     },
-    background: null,
-    pxPerMeter: null,
-    symbolSize: 32,
+    levels: [level],
     cableReservePct: 10,
     sheets: [sheet],
     activeSheetId: sheet.id,
@@ -55,6 +63,12 @@ export function emptyProject(): Project {
 }
 
 export const activeSheet = (p: Project): Sheet => p.sheets.find((s) => s.id === p.activeSheetId) ?? p.sheets[0]
+
+/** Nivelul cu id-ul dat (sau primul nivel) */
+export const levelOf = (p: Project, id?: string): Level => p.levels.find((l) => l.id === id) ?? p.levels[0]
+
+/** Nivelul afișat de o planșă (la schemele bloc: primul nivel) */
+export const sheetLevel = (p: Project, sh: Sheet): Level => levelOf(p, sh.kind === 'plan' ? sh.levelId : undefined)
 
 const PAPER: Record<Exclude<PageFormat, 'CUSTOM'>, [number, number]> = {
   A0: [1189, 841],
@@ -157,8 +171,9 @@ export function cablePixels(c: Cable, p: Project): number {
 
 export function cableMeters(c: Cable, p: Project): number | null {
   if (c.lengthOverride != null && !Number.isNaN(c.lengthOverride)) return c.lengthOverride
-  if (!p.pxPerMeter) return null
-  const raw = cablePixels(c, p) / p.pxPerMeter
+  const ppm = levelOf(p, c.levelId).pxPerMeter
+  if (!ppm) return null
+  const raw = cablePixels(c, p) / ppm
   return Math.ceil(raw * (1 + p.cableReservePct / 100))
 }
 
@@ -167,18 +182,21 @@ export function nextCableCode(system: SystemId, cables: Cable[]): string {
   return nextLabel(prefix, cables.map((c) => c.code))
 }
 
-export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS) {
-  if (p.background) return { x: 0, y: 0, width: p.background.width, height: p.background.height }
+export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS, levelId?: string) {
+  const level = levelOf(p, levelId)
+  if (level.background) return { x: 0, y: 0, width: level.background.width, height: level.background.height }
   const hidden = new Set(ALL_SYSTEMS.filter((s) => !systems.includes(s)))
   const xs: number[] = []
   const ys: number[] = []
   for (const d of p.devices) {
+    if (d.levelId !== level.id) continue
     const sys = deviceSystem(d)
     if (sys && hidden.has(sys)) continue
     xs.push(d.x)
     ys.push(d.y)
   }
   for (const a of p.arch ?? []) {
+    if (a.levelId !== level.id) continue
     const pts = a.points ?? (a.x != null && a.y != null ? [a.x, a.y] : [])
     for (let i = 0; i < pts.length; i += 2) {
       xs.push(pts[i])
@@ -186,14 +204,14 @@ export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS) {
     }
   }
   for (const c of p.cables) {
-    if (hidden.has(c.system)) continue
+    if (hidden.has(c.system) || c.levelId !== level.id) continue
     for (let i = 0; i < c.points.length; i += 2) {
       xs.push(c.points[i])
       ys.push(c.points[i + 1])
     }
   }
   if (!xs.length) return null
-  const pad = p.symbolSize * 2
+  const pad = level.symbolSize * 2
   const x = Math.min(...xs) - pad
   const y = Math.min(...ys) - pad
   return { x, y, width: Math.max(...xs) + pad - x, height: Math.max(...ys) + pad - y }
@@ -224,21 +242,27 @@ export function normalizeProject(v: Project): Project {
     ]
   }
   const activeSheetId = sheets.some((s) => s.id === v.activeSheetId) ? v.activeSheetId : sheets[0].id
+  // niveluri: proiectele vechi (un singur plan) devin nivelul „Plan 1”
+  const levels: Level[] =
+    Array.isArray(v.levels) && v.levels.length
+      ? v.levels.map((l) => ({ ...newLevel(l.name ?? 'Nivel'), ...l }))
+      : [newLevel('Plan 1', { background: old.background ?? null, pxPerMeter: old.pxPerMeter ?? null, symbolSize: old.symbolSize ?? 32 })]
+  const ids = new Set(levels.map((l) => l.id))
+  const fix = <T extends { levelId?: string }>(x: T): T & { levelId: string } => ({ ...x, levelId: x.levelId && ids.has(x.levelId) ? x.levelId : levels[0].id })
+  sheets = sheets.map((sh) => (sh.kind === 'plan' ? fix(sh) : sh))
   return {
     ...base,
-    background: v.background ?? null,
-    pxPerMeter: v.pxPerMeter ?? null,
-    symbolSize: v.symbolSize ?? base.symbolSize,
+    levels,
     cableReservePct: v.cableReservePct ?? base.cableReservePct,
     title: { ...base.title, ...v.title },
-    devices: v.devices,
+    devices: v.devices.map(fix),
     numberPad: v.numberPad ?? (v.version as number) === 1,
     catalog: Array.isArray(v.catalog) ? v.catalog : base.catalog,
     accessories: Array.isArray(v.accessories) ? v.accessories : [],
     calc: { ...DEFAULT_CALC, ...v.calc },
     memoriu: { ...defaultMemoriu(), ...v.memoriu },
-    cables: v.cables ?? [],
-    arch: Array.isArray(v.arch) ? v.arch : [],
+    cables: (v.cables ?? []).map(fix),
+    arch: (Array.isArray(v.arch) ? v.arch : []).map(fix),
     sheets,
     activeSheetId,
     version: 2,

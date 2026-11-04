@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
-import { cableMeters, cablePixels, catalogItem, deviceSystem } from './project'
+import { cableMeters, cablePixels, catalogItem, deviceSystem, levelOf } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 // ------------------------------------------------------------------ Paleta de simboluri
@@ -250,7 +250,7 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
           <Field label="Distanță vizualizare (m)">
             <Num value={d.range ?? def.camera.range} min={1} max={500} onChange={(v) => onChange({ range: Math.max(1, v) })} />
           </Field>
-          {!project.pxPerMeter && (
+          {!levelOf(project, d.levelId).pxPerMeter && (
             <p className="warn">Scara nu e calibrată: conul folosește o scară provizorie ({FALLBACK_PX_PER_M} px/m).</p>
           )}
         </>
@@ -268,7 +268,7 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
 // ------------------------------------------------------------------ Proprietăți element de arhitectură
 
 export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; project: Project; onChange: (patch: Partial<ArchElement>) => void; onDelete: () => void }) {
-  const ppm = project.pxPerMeter ?? 50
+  const ppm = levelOf(project, a.levelId).pxPerMeter ?? 50
   const len = a.points ? polyLen(a.points) / ppm : 0
   return (
     <div className="props">
@@ -350,7 +350,8 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
   const sys = systemById(c.system)
   const byId = new Map(project.devices.map((d) => [d.id, d]))
   const meters = cableMeters(c, project)
-  const raw = project.pxPerMeter ? cablePixels(c, project) / project.pxPerMeter : null
+  const cppm = levelOf(project, c.levelId).pxPerMeter
+  const raw = cppm ? cablePixels(c, project) / cppm : null
   const via = c.via ? project.cables.find((x) => x.id === c.via!.cableId) : undefined
   const devOptions = [...project.devices]
     .sort((a, b) => Number(deviceSystem(b) === c.system) - Number(deviceSystem(a) === c.system) || a.label.localeCompare(b.label, 'ro', { numeric: true }))
@@ -448,7 +449,7 @@ const TITLE_FIELDS: [keyof TitleBlock, string][] = [
   ['verificat', 'Verificat'],
 ]
 
-export function SheetPanel({ sheet, onChange }: { sheet: Sheet; onChange: (patch: Partial<Sheet>) => void }) {
+export function SheetPanel({ sheet, levels, onChange }: { sheet: Sheet; levels: Level[]; onChange: (patch: Partial<Sheet>) => void }) {
   const toggle = (id: SystemId, on: boolean) =>
     onChange({ systems: on ? SYSTEMS.map((s) => s.id).filter((s) => s === id || sheet.systems.includes(s)) : sheet.systems.filter((s) => s !== id) })
   return (
@@ -457,6 +458,17 @@ export function SheetPanel({ sheet, onChange }: { sheet: Sheet; onChange: (patch
       <Field label="Titlu planșă">
         <input value={sheet.titlu} onChange={(e) => onChange({ titlu: e.target.value })} />
       </Field>
+      {sheet.kind === 'plan' && levels.length > 1 && (
+        <Field label="Nivel afișat">
+          <select value={sheet.levelId} onChange={(e) => onChange({ levelId: e.target.value })}>
+            {levels.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <div className="row2">
         <Field label="Nr. planșă">
           <input value={sheet.nr} onChange={(e) => onChange({ nr: e.target.value })} />
@@ -529,15 +541,64 @@ export function SheetPanel({ sheet, onChange }: { sheet: Sheet; onChange: (patch
   )
 }
 
-export function ProjectPanel({
-  project,
+/** Nivelul planșei curente: nume, plan de fundal, scară, mărimea simbolurilor */
+export function LevelPanel({
+  level,
+  canDelete,
   onChange,
+  onLoadPlan,
   onCalibrate,
+  onDelete,
 }: {
-  project: Project
-  onChange: (patch: Partial<Project>) => void
+  level: Level
+  canDelete: boolean
+  onChange: (patch: Partial<Level>) => void
+  onLoadPlan: () => void
   onCalibrate: () => void
+  onDelete: () => void
 }) {
+  return (
+    <div className="props">
+      <h4>Nivel (plan)</h4>
+      <Field label="Nume nivel">
+        <input value={level.name} placeholder="ex. Parter, Etaj 1" onChange={(e) => onChange({ name: e.target.value })} />
+      </Field>
+      <Field label="Plan de fundal">
+        <div className="inline">
+          <span className="hint">{level.background ? level.background.name : 'pagină albă (schiță)'}</span>
+          <button onClick={onLoadPlan}>{level.background ? 'Înlocuiește' : 'Încarcă'}</button>
+        </div>
+      </Field>
+      {level.background && (
+        <button onClick={() => window.confirm('Scoți planul de fundal? Echipamentele și schița rămân.') && onChange({ background: null })}>
+          Scoate fundalul (pagină albă)
+        </button>
+      )}
+      <Field label="Scară">
+        <div className="inline">
+          <span className={level.pxPerMeter ? 'ok' : 'warn'}>{level.pxPerMeter ? `${level.pxPerMeter.toFixed(2)} px/m` : 'necalibrată'}</span>
+          <button onClick={onCalibrate}>Calibrează</button>
+        </div>
+      </Field>
+      <Field label={`Mărime simboluri (${level.symbolSize})`}>
+        <input
+          type="range"
+          min={8}
+          max={Math.max(120, level.symbolSize)}
+          value={level.symbolSize}
+          onChange={(e) => onChange({ symbolSize: parseInt(e.target.value, 10) })}
+        />
+      </Field>
+      {canDelete && (
+        <button className="danger" onClick={onDelete}>
+          Șterge nivelul
+        </button>
+      )}
+    </div>
+  )
+}
+
+export function ProjectPanel({ project, onChange }: { project: Project; onChange: (patch: Partial<Project>) => void }) {
   return (
     <div className="props">
       <h4>Date proiect (cartuș)</h4>
@@ -547,24 +608,7 @@ export function ProjectPanel({
         </Field>
       ))}
 
-      <h4>Plan</h4>
-      <Field label={`Mărime simboluri (${project.symbolSize})`}>
-        <input
-          type="range"
-          min={8}
-          max={Math.max(120, project.symbolSize)}
-          value={project.symbolSize}
-          onChange={(e) => onChange({ symbolSize: parseInt(e.target.value, 10) })}
-        />
-      </Field>
-      <Field label="Scară plan">
-        <div className="inline">
-          <span className={project.pxPerMeter ? 'ok' : 'warn'}>
-            {project.pxPerMeter ? `${project.pxPerMeter.toFixed(2)} px/m` : 'necalibrată'}
-          </span>
-          <button onClick={onCalibrate}>Calibrează</button>
-        </div>
-      </Field>
+      <h4>Numerotare și cabluri</h4>
       <label className="check">
         <input type="checkbox" checked={project.numberPad} onChange={(e) => onChange({ numberPad: e.target.checked })} />
         Numerotare cu două cifre (PIR01 în loc de PIR1)
