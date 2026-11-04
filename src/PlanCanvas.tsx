@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Circle, Group, Image as KImage, Layer, Line, Stage, Text, Wedge } from 'react-konva'
+import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Project, Selection, Sheet, Tool } from './types'
 import { symbolByType, symbolImage, systemById } from './symbols'
@@ -25,6 +25,8 @@ interface Props {
 }
 
 type Pt = { x: number; y: number }
+
+const fmtNum = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',')
 
 /** Culoare cu transparență (fără `opacity` pe formă, care la export taie conurile mari) */
 const rgba = (hex: string, a: number) => {
@@ -226,6 +228,79 @@ export default function PlanCanvas(props: Props) {
   const selCable = selection?.kind === 'cable' ? project.cables.find((c) => c.id === selection.id) : undefined
   const k = 1 / view.scale // pentru elemente cu dimensiune constantă pe ecran
 
+  /** Mânere pe conul camerei selectate: vârful = distanța, marginile = unghiul */
+  const coneHandles = (d: Device) => {
+    const def = symbolByType(d.type)
+    if (!def?.camera) return null
+    const color = systemById(def.system).color
+    const fov = d.fov ?? def.camera.fov
+    const range = d.range ?? def.camera.range
+    const R = range * ppm
+    const rad = (deg: number) => (deg * Math.PI) / 180
+    const at = (deg: number, r: number) => ({ x: d.x + Math.cos(rad(deg)) * r, y: d.y + Math.sin(rad(deg)) * r })
+    const setCam = (patch: Partial<Device>) => update((p) => ({ ...p, devices: p.devices.map((x) => (x.id === d.id ? { ...x, ...patch } : x)) }))
+    const tip = at(d.rotation, R)
+    const handleProps = {
+      radius: 6 * k,
+      fill: '#fff',
+      stroke: color,
+      strokeWidth: 2.5 * k,
+      draggable: true,
+      onMouseEnter: (e: KonvaEventObject<MouseEvent>) => (e.target.getStage()!.container().style.cursor = 'grab'),
+      onMouseLeave: (e: KonvaEventObject<MouseEvent>) => (e.target.getStage()!.container().style.cursor = ''),
+      onDragStart: (e: KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true
+        checkpoint()
+      },
+      onDragEnd: (e: KonvaEventObject<DragEvent>) => {
+        e.cancelBubble = true
+      },
+    }
+    const onFovDrag = (e: KonvaEventObject<DragEvent>) => {
+      e.cancelBubble = true
+      const ang = (Math.atan2(e.target.y() - d.y, e.target.x() - d.x) * 180) / Math.PI
+      let delta = (((ang - d.rotation) % 360) + 540) % 360 - 180
+      delta = Math.abs(delta)
+      const v = Math.min(359, Math.max(5, Math.round(delta * 2)))
+      setCam({ fov: e.evt.shiftKey ? v : Math.round(v / 5) * 5 || 5 })
+    }
+    return (
+      <>
+        {/* distanța: vârful conului */}
+        <Rect
+          {...handleProps}
+          x={tip.x}
+          y={tip.y}
+          width={11 * k}
+          height={11 * k}
+          offsetX={5.5 * k}
+          offsetY={5.5 * k}
+          onDragMove={(e) => {
+            e.cancelBubble = true
+            const m = Math.hypot(e.target.x() - d.x, e.target.y() - d.y) / ppm
+            setCam({ range: Math.max(1, e.evt.shiftKey ? Math.round(m * 10) / 10 : Math.round(m * 2) / 2) })
+          }}
+        />
+        {/* unghiul: marginile conului */}
+        {fov < 360 && (
+          <>
+            <Circle {...handleProps} {...at(d.rotation - fov / 2, R * 0.85)} onDragMove={onFovDrag} />
+            <Circle {...handleProps} {...at(d.rotation + fov / 2, R * 0.85)} onDragMove={onFovDrag} />
+          </>
+        )}
+        <Text
+          x={tip.x + 10 * k}
+          y={tip.y - 20 * k}
+          text={`${fmtNum(range)} m${fov < 360 ? ` · ${fmtNum(fov)}°` : ''}`}
+          fontSize={13 * k}
+          fontStyle="bold"
+          fill={color}
+          listening={false}
+        />
+      </>
+    )
+  }
+
   const cursorStyle =
     tool.kind === 'place' || tool.kind === 'scale' || tool.kind === 'cable' ? 'crosshair' : 'default'
 
@@ -417,6 +492,7 @@ export default function PlanCanvas(props: Props) {
                   />
                 </>
               )}
+              {isSelect && sheet.showCones && coneHandles(selDevice)}
             </>
           )}
 

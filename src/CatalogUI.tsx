@@ -215,7 +215,11 @@ export function CatalogDialog({
                   <NumField label="Consum PoE" unit="W" value={sel.poeW} onChange={(v) => patch({ poeW: v })} />
                   <NumField label="Buget PoE (switch)" unit="W" value={sel.poeBugetW} onChange={(v) => patch({ poeBugetW: v })} />
                   {(symbolByType(sel.type)?.camera || sel.bitrateKbps != null) && (
-                    <NumField label="Bitrate" unit="kbps" value={sel.bitrateKbps} onChange={(v) => patch({ bitrateKbps: v })} />
+                    <>
+                      <NumField label="Bitrate" unit="kbps" value={sel.bitrateKbps} onChange={(v) => patch({ bitrateKbps: v })} />
+                      <NumField label="Unghi vizualizare (orizontal)" unit="°" value={sel.fovDeg} onChange={(v) => patch({ fovDeg: v })} />
+                      <NumField label="Distanță utilă (con)" unit="m" value={sel.rangeM} onChange={(v) => patch({ rangeM: v })} />
+                    </>
                   )}
                   {(sel.type === 'acc_acumulator' || sel.capacitateAh != null) && (
                     <NumField label="Capacitate" unit="Ah" value={sel.capacitateAh} onChange={(v) => patch({ capacitateAh: v })} />

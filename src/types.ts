@@ -67,6 +67,10 @@ export interface CatalogItem {
   poeBugetW?: number
   /** Bitrate (kbps) — camere */
   bitrateKbps?: number
+  /** Unghi de vizualizare orizontal (°) — camere; folosit pentru con */
+  fovDeg?: number
+  /** Distanța utilă de vizualizare (m) — camere; folosită pentru con */
+  rangeM?: number
   /** Capacitate acumulator (Ah) */
   capacitateAh?: number
   /** Capacitate HDD (TB) */
