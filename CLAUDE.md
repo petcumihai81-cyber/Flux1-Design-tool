@@ -33,7 +33,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `calc.ts` | Calculele: acumulatori, stocare video, bilanț TVCI / UPS, buget PoE — funcții pure, fără UI |
 | `history.ts` | Undo / redo (`commit` = cu istoric, `update` = fără, `checkpoint` la început de tragere) |
 | `PlanCanvas.tsx` | Desenul planului (Konva): fundal, simboluri, conuri camere, cabluri, scară |
-| `BlockCanvas.tsx` + `blockLayout.ts` + `diagram.ts` | Schema bloc: generată automat (arbore pornind de la centrală) sau editată manual (`Sheet.diagram`: blocuri legate de echipamente, texte, chenare, legături cu traseu ortogonal calculat) |
+| `BlockCanvas.tsx` + `blockLayout.ts` + `diagram.ts` | Schema bloc: generată automat (arbore pornind de la centrală) sau editată manual (`Sheet.diagram`: blocuri legate de echipamente, texte, chenare, legături cu traseu ortogonal calculat sau manual — `DiagramEdge.points` = colțurile, capetele alunecă pe laturile blocurilor; `edgePath`, `moveSegment`, `alignNodes`, `distributeNodes`) |
 | `Panels.tsx` | Paleta, proprietăți echipament / cablu, panourile Proiect / Planșă / Liste |
 | `CatalogUI.tsx` | Dialogul de catalog și tab-ul Calcule |
 | `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
@@ -106,4 +106,4 @@ Principii:
 
 ## Direcții următoare (discutate cu utilizatorul)
 
-- Editor de schemă: puncte de traseu manuale pe legături, selecție multiplă, aliniere/distribuire.
+- Capturi noi în ghid pentru funcțiile recente (DXF, zona planșei, fundal, pagini PDF, verificare, editor de schemă).
