@@ -314,7 +314,10 @@ export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; 
               <button onClick={() => onChange({ flipX: !a.flipX })}>Schimbă balamaua</button>
             </div>
           )}
-          <p className="hint">Trage {a.kind === 'door' ? 'ușa' : 'fereastra'} pe alt perete: se aliniază singură.</p>
+          <p className="hint">
+            Pe plan, pătratele albastre de la capete schimbă lățimea pe direcția peretelui. Trage {a.kind === 'door' ? 'ușa' : 'fereastra'} pe alt
+            perete: se aliniază singură.
+          </p>
         </>
       )}
       {a.kind === 'label' && (
