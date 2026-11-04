@@ -247,7 +247,7 @@ export default function App() {
   )
 
   const addCable = useCallback(
-    (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => {
+    (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }, riser?: string) => {
       const id = uid()
       h.commit((p) => {
         const a = p.devices.find((d) => d.id === from)
@@ -262,6 +262,7 @@ export default function App() {
           from,
           to,
           ...(via ? { via } : {}),
+          ...(riser ? { riser } : {}),
           cableType: defaultCableType(a?.type, b?.type),
           lengthOverride: null,
           notes: '',

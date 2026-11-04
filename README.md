@@ -15,6 +15,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Camere video** cu con de vizualizare la scară reală: se reglează direct pe plan (vârful conului = distanța, marginile = unghiul, mânerul albastru = rotirea; `Shift` = fără pas) sau din panoul de proprietăți. Unghiul și distanța pot fi trecute în catalog pe fiecare model de cameră.
 - **Trasee de cablu** între echipamente, cu lungime calculată din scară, rezervă configurabilă și tip de cablu propus automat după echipament.
 - **Proprietăți per echipament**: cod, model, zonă protejată, partiție sau buclă, observații.
+- **Cabluri între etaje prin ghene** („Trecere între niveluri”, același nume pe fiecare nivel): cablul de la etaj continuă pe traseul comun de la ghenă până la switch / NVR / centrală, cu înălțimea nivelului adăugată la lungime; schema bloc și jurnalul de cablu le leagă automat.
 - **Niveluri (Parter, Etaj 1, Etaj 2…)**: fiecare nivel are planul lui (PDF, imagine sau pagină albă pentru schiță), scara și echipamentele lui; listele, calculele, memoriul și schemele bloc cuprind toate nivelurile.
 - **Mai multe planșe în același proiect** (bara de jos): o planșă cu toate sistemele sau, automat, câte o planșă pentru fiecare sistem.
   Fiecare planșă are titlul, numărul, scara, formatul (A0–A4 sau dimensiune personalizată în mm), orientarea (peisaj sau portret) și sistemele afișate proprii.

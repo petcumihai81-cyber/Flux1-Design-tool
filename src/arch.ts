@@ -12,10 +12,14 @@ export const ARCH_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
   { tool: 'window', name: 'Fereastră', hint: '120 cm' },
   { tool: 'label', name: 'Text încăpere', hint: 'nume' },
   { tool: 'dim', name: 'Cotă', hint: 'lungime' },
+  { tool: 'riser', name: 'Trecere între niveluri', hint: 'ghenă' },
 ]
 
 /** Pictogramele uneltelor de arhitectură (SVG 40×40) */
 export const ARCH_ICONS: Record<ArchTool, string> = {
+  riser:
+    '<circle cx="20" cy="20" r="16" fill="#fff" stroke="#455a64" stroke-width="2.4"/>' +
+    '<path d="M14 17 L20 9 L26 17 M14 23 L20 31 L26 23" fill="none" stroke="#455a64" stroke-width="2.4" stroke-linejoin="round"/>',
   'wall-ext': '<rect x="3" y="15" width="34" height="10" fill="#222"/>',
   'wall-int': '<rect x="3" y="17.5" width="34" height="5" fill="#222"/>',
   door:
@@ -39,6 +43,7 @@ export const ARCH_NAMES: Record<ArchElement['kind'], string> = {
   window: 'Fereastră',
   label: 'Text încăpere',
   dim: 'Cotă',
+  riser: 'Trecere între niveluri (ghenă)',
 }
 
 export const newWall = (points: number[], thickness: number): NewArch => ({ kind: 'wall', points, thickness })
