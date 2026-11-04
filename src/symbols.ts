@@ -191,21 +191,27 @@ function shapeSvg(shape: Shape): string {
   }
 }
 
-export function symbolSvg(def: SymbolDef, color?: string): string {
+/** Mărimea și poziția textului din simbol (în unitățile casetei 40×40) */
+export function glyphLayout(def: SymbolDef) {
+  const len = [...(def.glyph ?? '')].length
+  const size = len >= 3 ? 10.5 : len === 2 ? 13 : 17
+  const y = def.shape === 'triangle' ? 30 : 20 + size * 0.36
+  return { size, y }
+}
+
+export function symbolSvg(def: SymbolDef, color?: string, noGlyph = false): string {
   const c = color ?? systemById(def.system).color
   let body = def.shape === 'custom' ? def.custom ?? '' : shapeSvg(def.shape)
-  if (def.glyph) {
-    const len = [...def.glyph].length
-    const size = len >= 3 ? 10.5 : len === 2 ? 13 : 17
-    const y = def.shape === 'triangle' ? 30 : 20 + size * 0.36
+  if (def.glyph && !noGlyph) {
+    const { size, y } = glyphLayout(def)
     body += `<text x="20" y="${y}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="${size}" fill="{c}">${def.glyph}</text>`
   }
   body = body.split('{c}').join(c)
   return `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 40 40">${body}</svg>`
 }
 
-export const symbolDataUrl = (def: SymbolDef): string =>
-  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(symbolSvg(def))
+export const symbolDataUrl = (def: SymbolDef, noGlyph = false): string =>
+  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(symbolSvg(def, undefined, noGlyph))
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>()
 const loadedImages = new Map<string, HTMLImageElement>()
@@ -213,24 +219,34 @@ const loadedImages = new Map<string, HTMLImageElement>()
 /** Imaginea simbolului, dacă e deja încărcată (vezi preloadSymbols) */
 export const symbolImage = (type: string) => loadedImages.get(type)
 
-export const preloadSymbols = () => Promise.all(SYMBOLS.map((s) => loadSymbolImage(s.type).catch(() => null)))
+/** Doar conturul simbolului, fără text (pentru rotire cu textul păstrat drept) */
+export const symbolShapeImage = (type: string) => loadedImages.get(type + '|contur')
+
+export const preloadSymbols = () =>
+  Promise.all(
+    SYMBOLS.flatMap((s) => [
+      loadSymbolImage(s.type).catch(() => null),
+      ...(s.glyph ? [loadSymbolImage(s.type, true).catch(() => null)] : []),
+    ]),
+  )
 
 /** Încarcă (cu cache) imaginea unui simbol, pentru Konva și pentru export */
-export function loadSymbolImage(type: string): Promise<HTMLImageElement> {
-  let p = imageCache.get(type)
+export function loadSymbolImage(type: string, shapeOnly = false): Promise<HTMLImageElement> {
+  const key = shapeOnly ? type + '|contur' : type
+  let p = imageCache.get(key)
   if (!p) {
     const def = symbolByType(type)
     if (!def) return Promise.reject(new Error('Simbol necunoscut: ' + type))
     p = new Promise((resolve, reject) => {
       const img = new Image()
       img.onload = () => {
-        loadedImages.set(type, img)
+        loadedImages.set(key, img)
         resolve(img)
       }
       img.onerror = reject
-      img.src = symbolDataUrl(def)
+      img.src = symbolDataUrl(def, shapeOnly)
     })
-    imageCache.set(type, p)
+    imageCache.set(key, p)
   }
   return p
 }

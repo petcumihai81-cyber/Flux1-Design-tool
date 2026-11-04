@@ -3,7 +3,7 @@ import type Konva from 'konva'
 import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Project, Selection, Sheet, Tool } from './types'
-import { symbolByType, symbolImage, systemById } from './symbols'
+import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
@@ -411,8 +411,18 @@ export default function PlanCanvas(props: Props) {
           {visibleDevices.map((d) => {
             const def = symbolByType(d.type)!
             const color = systemById(def.system).color
-            const img = symbolImage(d.type)
-            const rotateSymbol = !!def.camera || def.shape === 'custom'
+            // simbolurile cu text se rotesc doar ca contur; textul rămâne drept
+            const glyph = def.glyph ? glyphLayout(def) : null
+            const img = glyph ? symbolShapeImage(d.type) : symbolImage(d.type)
+            const rad = (d.rotation * Math.PI) / 180
+            const gdy = glyph ? ((glyph.y - glyph.size * 0.36 - 20) / 40) * S : 0
+            // dreptunghiul rotit se îngustează pe orizontală: micșorăm textul ca să încapă
+            let gScale = 1
+            if (glyph && def.shape === 'rect') {
+              const avail = 37 * Math.abs(Math.cos(rad)) + 22 * Math.abs(Math.sin(rad)) - 7
+              const textW = [...(def.glyph ?? '')].length * glyph.size * 0.62
+              gScale = Math.min(1, avail / textW)
+            }
             return (
               <Group
                 key={d.id}
@@ -446,7 +456,25 @@ export default function PlanCanvas(props: Props) {
                     height={S}
                     offsetX={S / 2}
                     offsetY={S / 2}
-                    rotation={rotateSymbol ? d.rotation : 0}
+                    rotation={d.rotation}
+                  />
+                )}
+                {glyph && (
+                  <Text
+                    text={def.glyph}
+                    x={-Math.sin(rad) * gdy}
+                    y={Math.cos(rad) * gdy}
+                    width={S}
+                    height={S}
+                    offsetX={S / 2}
+                    offsetY={S / 2}
+                    align="center"
+                    verticalAlign="middle"
+                    fontSize={(glyph.size / 40) * S * gScale}
+                    fontStyle="bold"
+                    fontFamily="Arial"
+                    fill={color}
+                    listening={false}
                   />
                 )}
                 <Text
