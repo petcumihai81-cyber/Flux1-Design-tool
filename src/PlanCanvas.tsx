@@ -2,21 +2,22 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Circle, Group, Image as KImage, Layer, Line, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { Device, Project, Selection, Tool } from './types'
-import { SYMBOLS, loadSymbolImage, symbolByType, systemById } from './symbols'
-import { cableMeters, contentBounds, deviceSystem } from './project'
+import type { Device, Project, Selection, Sheet, Tool } from './types'
+import { symbolByType, symbolImage, systemById } from './symbols'
+import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = 20
 
 interface Props {
   project: Project
+  sheet: Sheet
   tool: Tool
   selection: Selection
   stageRef: React.RefObject<Konva.Stage | null>
   fitSignal: number
   onSelect: (s: Selection) => void
-  onAddDevice: (type: string, x: number, y: number) => void
+  onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string) => void
   onScaleMeasured: (pixels: number) => void
   checkpoint: () => void
@@ -29,20 +30,6 @@ type Pt = { x: number; y: number }
 const rgba = (hex: string, a: number) => {
   const n = parseInt(hex.slice(1), 16)
   return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
-}
-
-function useSymbolImages() {
-  const [imgs, setImgs] = useState<Record<string, HTMLImageElement>>({})
-  useEffect(() => {
-    let alive = true
-    Promise.all(SYMBOLS.map((s) => loadSymbolImage(s.type).then((img) => [s.type, img] as const))).then((pairs) => {
-      if (alive) setImgs(Object.fromEntries(pairs))
-    })
-    return () => {
-      alive = false
-    }
-  }, [])
-  return imgs
 }
 
 function useImage(src: string | undefined) {
@@ -81,19 +68,18 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { project, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, checkpoint, update } = props
+  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
   const [cursor, setCursor] = useState<Pt | null>(null)
   const [draft, setDraft] = useState<{ points: number[]; from?: string }>({ points: [] })
   const [scalePts, setScalePts] = useState<Pt[]>([])
-  const images = useSymbolImages()
   const bgImage = useImage(project.background?.src)
 
   const S = project.symbolSize
   const ppm = project.pxPerMeter ?? FALLBACK_PX_PER_M
-  const hidden = useMemo(() => new Set(project.hidden), [project.hidden])
+  const hidden = useMemo(() => new Set(ALL_SYSTEMS.filter((s) => !sheet.systems.includes(s))), [sheet.systems])
   const visibleDevices = project.devices.filter((d) => {
     const sys = deviceSystem(d)
     return sys && !hidden.has(sys)
@@ -112,7 +98,7 @@ export default function PlanCanvas(props: Props) {
 
   // Încadrare în ecran
   useEffect(() => {
-    const b = contentBounds(project, false)
+    const b = contentBounds(project)
     if (!b) {
       setView({ x: size.width / 2, y: size.height / 2, scale: 1 })
       return
@@ -186,7 +172,7 @@ export default function PlanCanvas(props: Props) {
         if (onEmpty) onSelect(null)
         break
       case 'place':
-        onAddDevice(tool.type, pt.x, pt.y)
+        onAddDevice(tool.type, pt.x, pt.y, tool.catalogId)
         break
       case 'scale':
         if (scalePts.length === 0) setScalePts([pt])
@@ -227,11 +213,12 @@ export default function PlanCanvas(props: Props) {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const type = e.dataTransfer.getData('text/symbol-type')
+    const catalogId = e.dataTransfer.getData('text/catalog-id') || undefined
     const stage = stageRef.current
     if (!type || !stage) return
     stage.setPointersPositions(e.nativeEvent)
     const pt = stage.getRelativePointerPosition()
-    if (pt) onAddDevice(type, pt.x, pt.y)
+    if (pt) onAddDevice(type, pt.x, pt.y, catalogId)
   }
 
   const isSelect = tool.kind === 'select'
@@ -280,7 +267,7 @@ export default function PlanCanvas(props: Props) {
 
         {/* Conuri camere + cabluri */}
         <Layer>
-          {project.showCones && visibleDevices.map((d) => {
+          {sheet.showCones && visibleDevices.map((d) => {
             const def = symbolByType(d.type)
             if (!def?.camera) return null
             const color = systemById(def.system).color
@@ -331,7 +318,7 @@ export default function PlanCanvas(props: Props) {
           {visibleDevices.map((d) => {
             const def = symbolByType(d.type)!
             const color = systemById(def.system).color
-            const img = images[d.type]
+            const img = symbolImage(d.type)
             const rotateSymbol = !!def.camera || def.shape === 'custom'
             return (
               <Group
@@ -537,7 +524,7 @@ export default function PlanCanvas(props: Props) {
 
       {tool.kind !== 'select' && (
         <div className="canvas-hint">
-          {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
+          {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
           {tool.kind === 'cable' && (
             <>
