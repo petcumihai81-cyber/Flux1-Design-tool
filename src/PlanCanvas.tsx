@@ -8,6 +8,7 @@ import { groupBounds, itemsInRect, sameItem, snapshot, toggleItem, translateGrou
 import type { Item, Snapshot } from './group'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, onSymbolImage, symbolByType, systemById } from './symbols'
+import { archLayer, layerLocked, layerVisible } from './layers'
 import { deviceColor, deviceImage } from './symbolLibrary'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, UNCALIBRATED_PX_PER_M } from './project'
 
@@ -110,14 +111,23 @@ export default function PlanCanvas(props: Props) {
   /** Planul de fundal se poate trage cu mouse-ul (deblocat din panoul Nivel) */
   const bgUnlocked = level.bgLocked === false && tool.kind === 'select'
   const frameOut = frame ? outsideFrame(project, sheet) : false
-  const levelArch = useMemo(() => project.arch.filter((a) => a.levelId === level.id), [project.arch, level.id])
+  // straturi: vizibile / blocate pe planșa curentă (layers.ts)
+  const levelArch = useMemo(
+    () => project.arch.filter((a) => a.levelId === level.id && layerVisible(sheet, archLayer(a))),
+    [project.arch, level.id, sheet],
+  )
+  const archLocked = useMemo(() => levelArch.filter((a) => layerLocked(sheet, archLayer(a))), [levelArch, sheet])
+  const archFree = useMemo(() => levelArch.filter((a) => !layerLocked(sheet, archLayer(a))), [levelArch, sheet])
   const hidden = useMemo(() => new Set(ALL_SYSTEMS.filter((s) => !sheet.systems.includes(s))), [sheet.systems])
   const visibleDevices = project.devices.filter((d) => {
     if (d.levelId !== level.id) return false
     const sys = deviceSystem(d)
-    return sys && !hidden.has(sys)
+    return sys && !hidden.has(sys) && layerVisible(sheet, `${sys}:echipamente`)
   })
-  const visibleCables = project.cables.filter((c) => c.levelId === level.id && !hidden.has(c.system))
+  const visibleCables = project.cables.filter((c) => c.levelId === level.id && !hidden.has(c.system) && layerVisible(sheet, `${c.system}:cabluri`))
+  const devLocked = (d: Device) => layerLocked(sheet, `${deviceSystem(d)}:echipamente`)
+  const cabLocked = (c: { system: string }) => layerLocked(sheet, `${c.system}:cabluri`)
+  const showLabels = (d: Device) => layerVisible(sheet, `${deviceSystem(d)}:etichete`)
 
   // Dimensiunea zonei de desen
   useEffect(() => {
@@ -559,7 +569,8 @@ export default function PlanCanvas(props: Props) {
           const r = { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }
           setMarquee(null)
           if (r.width < 3 && r.height < 3) return
-          const found = itemsInRect(r, { devices: visibleDevices, cables: visibleCables, arch: levelArch })
+          // straturile blocate nu intră în selecție
+          const found = itemsInRect(r, { devices: visibleDevices.filter((d) => !devLocked(d)), cables: visibleCables.filter((c) => !cabLocked(c)), arch: archFree })
           // dreptunghiul începe o selecție nouă; adaugă doar la o selecție multiplă existentă
           let next = multi
           for (const it of found) if (!next.some((x) => sameItem(x, it))) next = [...next, it]
@@ -569,7 +580,7 @@ export default function PlanCanvas(props: Props) {
       >
         {/* Fundal */}
         <Layer listening={!!bgImage}>
-          {bgImage && level.background && (
+          {bgImage && level.background && layerVisible(sheet, 'fundal') && (
             <Group
               x={(level.bgX ?? 0) + level.background.width / 2}
               y={(level.bgY ?? 0) + level.background.height / 2}
@@ -602,10 +613,25 @@ export default function PlanCanvas(props: Props) {
           )}
         </Layer>
 
-        {/* Schița de arhitectură */}
+        {/* Schița de arhitectură: straturile blocate se desenează fără interacțiune */}
+        {archLocked.length > 0 && (
+          <Layer listening={false}>
+            <ArchShapes
+              arch={archLocked}
+              ppm={ppm}
+              k={k}
+              symbolSize={S}
+              onEditText={() => {}}
+              interactive={false}
+              onSelect={() => {}}
+              checkpoint={checkpoint}
+              update={update}
+            />
+          </Layer>
+        )}
         <Layer listening={isSelect}>
           <ArchShapes
-            arch={levelArch}
+            arch={archFree}
             ppm={ppm}
             k={k}
             symbolSize={S}
@@ -621,7 +647,7 @@ export default function PlanCanvas(props: Props) {
 
         {/* Conuri camere + cabluri */}
         <Layer>
-          {sheet.showCones && visibleDevices.map((d) => {
+          {layerVisible(sheet, 'CCTV:conuri') && visibleDevices.map((d) => {
             const def = symbolByType(d.type)
             if (!def?.camera) return null
             const color = deviceColor(d)
@@ -658,7 +684,7 @@ export default function PlanCanvas(props: Props) {
                 lineJoin="round"
                 name={'cable:' + c.id}
                 hitStrokeWidth={Math.max(S * 0.4, 8 * k)}
-                listening={isSelect}
+                listening={isSelect && !cabLocked(c)}
                 onClick={(e) => {
                   e.cancelBubble = true
                   if (e.evt.shiftKey) toggle({ kind: 'cable', id: c.id })
@@ -713,8 +739,8 @@ export default function PlanCanvas(props: Props) {
                 key={d.id}
                 x={d.x}
                 y={d.y}
-                draggable={isSelect && !multi.length}
-                listening={isSelect || tool.kind === 'cable'}
+                draggable={isSelect && !multi.length && !devLocked(d)}
+                listening={(isSelect && !devLocked(d)) || tool.kind === 'cable'}
                 onClick={(e) => {
                   if (!isSelect) return
                   e.cancelBubble = true
@@ -765,7 +791,7 @@ export default function PlanCanvas(props: Props) {
                     listening={false}
                   />
                 )}
-                <Text
+                {showLabels(d) && <Text
                   text={d.label}
                   fontSize={S * 0.38}
                   fontStyle="bold"
@@ -775,7 +801,7 @@ export default function PlanCanvas(props: Props) {
                   offsetX={S * 2}
                   y={S * 0.55}
                   align="center"
-                />
+                />}
               </Group>
             )
           })}

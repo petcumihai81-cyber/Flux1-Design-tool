@@ -328,3 +328,19 @@ button.unsaved { border-color: #f9a825; }
 .ctx-label { font-size: 11.5px; color: #777; padding: 4px 12px 2px; }
 .ctx-colors { padding: 4px 10px 6px; }
 .ctx-colors .color-row { max-width: 210px; }
+
+/* Straturi */
+.layers-panel .layer-group { border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; overflow: hidden; }
+.layer-row { display: flex; align-items: center; gap: 4px; padding: 3px 6px; font-size: 13px; min-height: 28px; }
+.layer-row.group { background: #f5f7fa; font-weight: 600; }
+.layer-row.off .ly-name, .layer-row.off .ly-group-name { color: #9aa3ad; }
+.layer-children .layer-row { padding-left: 14px; border-top: 1px solid #f0f2f5; }
+.ly-eye, .ly-lock { border: none; background: none; padding: 2px 3px; color: #455a64; cursor: pointer; display: grid; place-items: center; border-radius: 4px; }
+.ly-eye:hover, .ly-lock:hover { background: #e8edf3; }
+.ly-lock { color: #b0bac4; }
+.ly-lock.on { color: #c77700; }
+.ly-lock-space { width: 21px; }
+.layer-row .dot { width: 9px; height: 9px; border-radius: 50%; margin: 0 3px; flex-shrink: 0; }
+.ly-name { flex: 1; }
+.ly-group-name { flex: 1; border: none; background: none; text-align: left; font-weight: 600; padding: 0; display: flex; justify-content: space-between; cursor: pointer; font-size: 13px; }
+.ly-count { color: #8a96a3; font-size: 12px; min-width: 18px; text-align: right; }

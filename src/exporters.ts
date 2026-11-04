@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx'
 import type { Project, Sheet, SystemId } from './types'
 import { SYSTEMS, symbolByType, systemById } from './symbols'
 import { deviceSymbol, loadLookImage } from './symbolLibrary'
+import { layerVisible } from './layers'
 import { cableMeters, catalogItem, contentBounds, sheetDrawBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel, cableEnds, isRiserRoute, levelOf, riserHost } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
@@ -63,7 +64,7 @@ interface LegendRow {
 }
 
 /** Legenda planșei: pe planșele de plan contează doar echipamentele nivelului afișat */
-function legendRows(p: Project, systems: SystemId[], withCables: boolean, levelId?: string): LegendRow[] {
+function legendRows(p: Project, systems: SystemId[], withCables: boolean, levelId?: string, sheet?: Sheet): LegendRow[] {
   const rows: LegendRow[] = []
   for (const sys of SYSTEMS) {
     if (!systems.includes(sys.id)) continue
@@ -71,11 +72,12 @@ function legendRows(p: Project, systems: SystemId[], withCables: boolean, levelI
     const counts = new Map<string, number>()
     for (const d of p.devices) {
       if (deviceSystem(d) !== sys.id || (levelId && d.levelId !== levelId)) continue
+      if (sheet && !layerVisible(sheet, `${sys.id}:echipamente`)) continue
       const sym = deviceSymbol(p, d)
       const key = [d.type, devicePrefix(d.type, catalogItem(p, d.catalogId), sym), sym?.id ?? '', d.color ?? ''].join('|')
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
-    const hasCables = withCables && p.cables.some((c) => c.system === sys.id && (!levelId || c.levelId === levelId))
+    const hasCables = withCables && (!sheet || layerVisible(sheet, `${sys.id}:cabluri`)) && p.cables.some((c) => c.system === sys.id && (!levelId || c.levelId === levelId))
     if (!counts.size && !hasCables) continue
     rows.push({ kind: 'header', text: sys.name.toUpperCase(), system: sys.id })
     for (const [key, n] of counts) {
@@ -261,7 +263,7 @@ export async function renderSheetPage(stage: Konva.Stage, p: Project, sh: Sheet)
   })
 
   // ---- Legendă (pe una sau mai multe coloane) ----
-  const rows = legendRows(p, sh.systems, sh.kind === 'plan', sh.kind === 'plan' ? sheetLevel(p, sh).id : undefined)
+  const rows = legendRows(p, sh.systems, sh.kind === 'plan', sh.kind === 'plan' ? sheetLevel(p, sh).id : undefined, sh.kind === 'plan' ? sh : undefined)
   const lp = 4 * k
   const headH = 8 * k
   ctx.fillStyle = '#000'

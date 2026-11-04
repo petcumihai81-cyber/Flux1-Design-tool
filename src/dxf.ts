@@ -1,4 +1,5 @@
 import type { ArchElement, Project, Sheet, SystemId } from './types'
+import { archLayer, layerVisible } from './layers'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
 import { deviceSystem, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
@@ -325,9 +326,10 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   const Y = (py: number) => -py / ppm
   const m = (px: number) => px / ppm
   const visible = new Set(sheet.systems)
-  const devices = p.devices.filter((d) => d.levelId === level.id && visible.has(deviceSystem(d) as SystemId))
-  const cables = p.cables.filter((c) => c.levelId === level.id && visible.has(c.system))
-  const arch = p.arch.filter((a) => a.levelId === level.id)
+  // doar straturile vizibile pe planșă (panoul Straturi)
+  const devices = p.devices.filter((d) => d.levelId === level.id && visible.has(deviceSystem(d) as SystemId) && layerVisible(sheet, `${deviceSystem(d)}:echipamente`))
+  const cables = p.cables.filter((c) => c.levelId === level.id && visible.has(c.system) && layerVisible(sheet, `${c.system}:cabluri`))
+  const arch = p.arch.filter((a) => a.levelId === level.id && layerVisible(sheet, archLayer(a)))
 
   // straturi
   const layers: { name: string; color: number; ltype?: string }[] = [
@@ -341,7 +343,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   for (const s of SYSTEMS) {
     if (!visible.has(s.id)) continue
     layers.push({ name: `${s.id}_ECHIPAMENTE`, color: ACI[s.id] }, { name: `${s.id}_CABLURI`, color: ACI[s.id], ltype: s.id === 'INC' ? 'DASHED' : undefined }, { name: `${s.id}_ETICHETE`, color: ACI[s.id] })
-    if (s.id === 'CCTV' && sheet.showCones) layers.push({ name: 'CCTV_CONURI', color: 3 })
+    if (s.id === 'CCTV' && layerVisible(sheet, 'CCTV:conuri')) layers.push({ name: 'CCTV_CONURI', color: 3 })
   }
 
   // blocurile simbolurilor folosite
@@ -475,7 +477,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings)
 
   // conuri camere
-  if (sheet.showCones && visible.has('CCTV')) {
+  if (layerVisible(sheet, 'CCTV:conuri') && visible.has('CCTV')) {
     for (const dv of devices) {
       const def = symbolByType(dv.type)!
       if (!def.camera) continue
@@ -528,7 +530,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
       const g = glyphLayout(def)
       text(d, `${sys}_ECHIPAMENTE`, X(dv.x), Y(dv.y), (g.size / 40) * sM * 0.75, def.glyph, { h: 1, v: 2, color: own })
     }
-    text(d, `${sys}_ETICHETE`, X(dv.x), Y(dv.y) - sM * 0.58, sM * 0.38, dv.label, { h: 1, v: 3, color: own })
+    if (layerVisible(sheet, `${sys}:etichete`)) text(d, `${sys}_ETICHETE`, X(dv.x), Y(dv.y) - sM * 0.58, sM * 0.38, dv.label, { h: 1, v: 3, color: own })
   }
 
   d.pair(0, 'ENDSEC')
