@@ -17,7 +17,7 @@ interface Props {
   stageRef: React.RefObject<Konva.Stage | null>
   fitSignal: number
   onSelect: (s: Selection) => void
-  onAddDevice: (type: string, x: number, y: number) => void
+  onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string) => void
   onScaleMeasured: (pixels: number) => void
   checkpoint: () => void
@@ -172,7 +172,7 @@ export default function PlanCanvas(props: Props) {
         if (onEmpty) onSelect(null)
         break
       case 'place':
-        onAddDevice(tool.type, pt.x, pt.y)
+        onAddDevice(tool.type, pt.x, pt.y, tool.catalogId)
         break
       case 'scale':
         if (scalePts.length === 0) setScalePts([pt])
@@ -213,11 +213,12 @@ export default function PlanCanvas(props: Props) {
   const onDrop = (e: React.DragEvent) => {
     e.preventDefault()
     const type = e.dataTransfer.getData('text/symbol-type')
+    const catalogId = e.dataTransfer.getData('text/catalog-id') || undefined
     const stage = stageRef.current
     if (!type || !stage) return
     stage.setPointersPositions(e.nativeEvent)
     const pt = stage.getRelativePointerPosition()
-    if (pt) onAddDevice(type, pt.x, pt.y)
+    if (pt) onAddDevice(type, pt.x, pt.y, catalogId)
   }
 
   const isSelect = tool.kind === 'select'
@@ -523,7 +524,7 @@ export default function PlanCanvas(props: Props) {
 
       {tool.kind !== 'select' && (
         <div className="canvas-hint">
-          {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
+          {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
           {tool.kind === 'cable' && (
             <>

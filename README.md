@@ -20,10 +20,20 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Echipamentele fără cablu desenat apar legate punctat de centrală.
 - **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.
 - **Export PDF** pentru planșa curentă sau pentru toate planșele într-un singur PDF (formate diferite pe pagini diferite), cu chenar, legendă automată (simboluri folosite + cantități) și cartuș.
-- **Export Excel** cu trei foi:
-  - *Echipamente*: listă de cantități pe tip și model
-  - *Zone protejate*: simbol, denumire, zonă, partiție, tip detecție
+- **Export Excel** cu patru foi:
+  - *Echipamente*: structura fiecărui sistem (denumire, model, cantitate, producător)
+  - *Zone protejate*: modul, zona modulului, partiție, zona protejată, simbol, tip detecție; plus camerele grupate pe zone
   - *Jurnal cablu*: cod, de la, la, tip cablu, lungime, traseu, plus totaluri pe tip de cablu
+  - *Breviar calcul*: acumulatori, stocare video, bilanț TVCI / UPS, buget PoE
+- **Catalog de echipamente**: model, producător, prefix de simbol (ex. PIRW, CMW, CVIE), tensiune, consum în veghe și în alarmă, putere, PoE, bitrate,
+  capacitate acumulator, HDD sau UPS. Pornește cu echipamentele unui proiect de referință (Ajax + Hikvision), se poate importa sau exporta
+  și salva ca implicit pentru proiectele noi. Echipamentele din catalog apar în paletă, gata de plasat.
+- **Calcule automate** (tab-ul *Calcule*) și **breviar de calcul** în Excel:
+  - acumulatori pentru efracție și incendiu: n = (Iv·tv + Ia·ta) / (0.86·C); echipamentele wireless cu baterie proprie sunt excluse
+  - stocare video: C = BR·3600·24·Z·Ncam / (8·1024²), pentru înregistrare continuă și la detecție, cu verificare față de HDD-urile alese
+  - bilanț energetic TVCI și UPS (PA = P / cosφ, autonomie estimată); camerele PoE sunt incluse în consumul switch-ului
+  - buget PoE față de switch-uri, cu 20% rezervă
+- **Accesorii fără simbol pe plan** (HDD, acumulatori, UPS, surse), incluse în liste și în calcule.
 - **Salvare / deschidere proiect** ca fișier `.plansa.json`, plus salvare automată în browser.
 - Undo / redo, duplicare și scurtături de tastatură.
 
@@ -52,6 +62,26 @@ npm run build    # build de producție în dist/
 ```
 
 Tehnologii: React + TypeScript + Vite, Konva (desen), pdf.js (planuri PDF), jsPDF (export), SheetJS (Excel).
+
+## Rulare pentru test
+
+**Local, cu Node.js 20 sau mai nou** (Windows, WSL, Linux, macOS):
+
+```bash
+npm install
+npm run dev
+```
+
+Se deschide la http://localhost:5173.
+
+**Cu Docker** (WSL, sau pe un server de test):
+
+```bash
+docker build -t flux1-design-tool .
+docker run -d -p 8080:80 --name flux1 flux1-design-tool
+```
+
+Se deschide la http://localhost:8080 (sau http://IP-server:8080).
 
 ## Publicare
 

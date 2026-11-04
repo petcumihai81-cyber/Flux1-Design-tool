@@ -1,18 +1,60 @@
 import { useMemo, useState } from 'react'
-import type { Cable, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
-import { cableMeters, deviceSystem, polylineLength } from './project'
+import { cableMeters, catalogItem, deviceSystem, polylineLength } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
-export function Palette({ tool, onPick }: { tool: Tool; onPick: (type: string) => void }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ EFR: true, CA: true, CCTV: true, INC: true })
+export function Palette({ tool, catalog, onPick }: { tool: Tool; catalog: CatalogItem[]; onPick: (type: string, catalogId?: string) => void }) {
+  const [open, setOpen] = useState<Record<string, boolean>>({ CAT: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
   const [q, setQ] = useState('')
   const query = q.trim().toLowerCase()
   return (
     <aside className="palette">
-      <input className="search" placeholder="Caută simbol…" value={q} onChange={(e) => setQ(e.target.value)} />
+      <input className="search" placeholder="Caută simbol sau model…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {(() => {
+        const items = catalog.filter(
+          (c) => symbolByType(c.type) && (!query || `${c.model} ${c.denumire} ${c.producator} ${c.prefix}`.toLowerCase().includes(query)),
+        )
+        if (!items.length) return null
+        const isOpen = open.CAT || !!query
+        return (
+          <section>
+            <button className="pal-head" style={{ borderColor: '#455a64' }} onClick={() => setOpen((o) => ({ ...o, CAT: !o.CAT }))}>
+              <span className="dot" style={{ background: '#455a64' }} />
+              Din catalog ({items.length})
+              <span className="chev">{isOpen ? '▾' : '▸'}</span>
+            </button>
+            {isOpen && (
+              <div className="pal-grid">
+                {items.map((c) => {
+                  const def = symbolByType(c.type)!
+                  return (
+                    <button
+                      key={c.id}
+                      className={'pal-item' + (tool.kind === 'place' && tool.catalogId === c.id ? ' active' : '')}
+                      title={`${c.denumire}\n${c.producator} ${c.model}`}
+                      draggable
+                      onDragStart={(e) => {
+                        e.dataTransfer.setData('text/symbol-type', c.type)
+                        e.dataTransfer.setData('text/catalog-id', c.id)
+                      }}
+                      onClick={() => onPick(c.type, c.id)}
+                    >
+                      <img src={symbolDataUrl(def)} alt="" />
+                      <span className="pal-prefix" style={{ color: systemById(def.system).color }}>
+                        {c.prefix || def.prefix}
+                      </span>
+                      <span className="pal-name">{c.model || c.denumire}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        )
+      })()}
       {SYSTEMS.map((sys) => {
         const items = SYMBOLS.filter(
           (s) => s.system === sys.id && (!query || s.name.toLowerCase().includes(query) || s.prefix.toLowerCase().includes(query)),
@@ -31,7 +73,7 @@ export function Palette({ tool, onPick }: { tool: Tool; onPick: (type: string) =
                 {items.map((s) => (
                   <button
                     key={s.type}
-                    className={'pal-item' + (tool.kind === 'place' && tool.type === s.type ? ' active' : '')}
+                    className={'pal-item' + (tool.kind === 'place' && tool.type === s.type && !tool.catalogId ? ' active' : '')}
                     title={`${s.name} (${s.prefix})\nClick pentru plasare sau trage pe plan`}
                     draggable
                     onDragStart={(e) => {
@@ -100,16 +142,59 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
       <Field label="Simbol / cod">
         <input value={d.label} onChange={(e) => onChange({ label: e.target.value })} />
       </Field>
-      <Field label="Model echipament">
-        <input value={d.model} placeholder="ex. DS-2CD2143G2-I" onChange={(e) => onChange({ model: e.target.value })} />
+      <Field label="Echipament din catalog">
+        <select value={d.catalogId ?? ''} onChange={(e) => onChange({ catalogId: e.target.value || undefined })}>
+          <option value="">— fără model din catalog —</option>
+          {project.catalog
+            .filter((c) => c.type === d.type)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.producator} {c.model}
+              </option>
+            ))}
+        </select>
       </Field>
+      {catalogItem(project, d.catalogId) ? (
+        <p className="hint">{catalogItem(project, d.catalogId)!.denumire}</p>
+      ) : (
+        <Field label="Model (text liber)">
+          <input value={d.model} placeholder="sau alege din catalog" onChange={(e) => onChange({ model: e.target.value })} />
+        </Field>
+      )}
       <Field label="Zona protejată / încăpere">
         <input value={d.zone} placeholder="ex. Hol acces" onChange={(e) => onChange({ zone: e.target.value })} />
       </Field>
       {(def.system === 'EFR' || def.system === 'INC') && (
-        <Field label={def.system === 'INC' ? 'Buclă / zonă' : 'Partiție'}>
-          <input value={d.partition} onChange={(e) => onChange({ partition: e.target.value })} />
-        </Field>
+        <>
+          <div className="row2">
+            <Field label="Modul">
+              <input value={d.module ?? ''} placeholder={def.system === 'INC' ? 'CDI' : 'CAE'} onChange={(e) => onChange({ module: e.target.value })} />
+            </Field>
+            <Field label={def.system === 'INC' ? 'Buclă' : 'Zona modul'}>
+              <input value={d.zoneNr ?? ''} onChange={(e) => onChange({ zoneNr: e.target.value })} />
+            </Field>
+          </div>
+          <div className="row2">
+            <Field label={def.system === 'INC' ? 'Zonă' : 'Partiție'}>
+              <input value={d.partition} onChange={(e) => onChange({ partition: e.target.value })} />
+            </Field>
+            <Field label="Tip detecție / zonă">
+              <input
+                list="zone-types"
+                value={d.zoneType ?? ''}
+                placeholder={def.detection ?? ''}
+                onChange={(e) => onChange({ zoneType: e.target.value })}
+              />
+              <datalist id="zone-types">
+                <option value="întârziere" />
+                <option value="instantanee" />
+                <option value="24h" />
+                <option value="urmărire" />
+                <option value="foc" />
+              </datalist>
+            </Field>
+          </div>
+        </>
       )}
       <Field label="Rotire (°)">
         <Num value={d.rotation} min={0} max={359} step={5} onChange={(v) => onChange({ rotation: ((v % 360) + 360) % 360 })} />
@@ -333,6 +418,10 @@ export function ProjectPanel({
           <button onClick={onCalibrate}>Calibrează</button>
         </div>
       </Field>
+      <label className="check">
+        <input type="checkbox" checked={project.numberPad} onChange={(e) => onChange({ numberPad: e.target.checked })} />
+        Numerotare cu două cifre (PIR01 în loc de PIR1)
+      </label>
       <Field label="Rezervă cablu (%)">
         <Num value={project.cableReservePct} min={0} max={100} onChange={(v) => onChange({ cableReservePct: Math.max(0, v) })} />
       </Field>

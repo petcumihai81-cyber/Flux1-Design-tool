@@ -3,7 +3,8 @@ import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import type { Project, Sheet, SystemId } from './types'
 import { SYSTEMS, loadSymbolImage, symbolByType, systemById } from './symbols'
-import { cableMeters, contentBounds, deviceSystem, pageSizeMm } from './project'
+import { cableMeters, catalogItem, contentBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm } from './project'
+import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
 
 function safeName(s: string) {
@@ -46,6 +47,7 @@ interface LegendRow {
   kind: 'header' | 'symbol' | 'cable'
   text: string
   type?: string
+  prefix?: string
   system?: SystemId
 }
 
@@ -53,16 +55,20 @@ function legendRows(p: Project, systems: SystemId[], withCables: boolean): Legen
   const rows: LegendRow[] = []
   for (const sys of SYSTEMS) {
     if (!systems.includes(sys.id)) continue
+    // grupat pe tip + prefix (ex. CM și CMW apar separat)
     const counts = new Map<string, number>()
     for (const d of p.devices) {
-      if (deviceSystem(d) === sys.id) counts.set(d.type, (counts.get(d.type) ?? 0) + 1)
+      if (deviceSystem(d) !== sys.id) continue
+      const key = d.type + '|' + devicePrefix(d.type, catalogItem(p, d.catalogId))
+      counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     const hasCables = withCables && p.cables.some((c) => c.system === sys.id)
     if (!counts.size && !hasCables) continue
     rows.push({ kind: 'header', text: sys.name.toUpperCase(), system: sys.id })
-    for (const [type, n] of counts) {
+    for (const [key, n] of counts) {
+      const [type, prefix] = key.split('|')
       const def = symbolByType(type)!
-      rows.push({ kind: 'symbol', type, text: `${def.name} (${n} buc.)`, system: sys.id })
+      rows.push({ kind: 'symbol', type, prefix, text: `${def.name} (${n} buc.)`, system: sys.id })
     }
     if (hasCables) rows.push({ kind: 'cable', text: `Traseu cablu ${sys.short.toLowerCase()}`, system: sys.id })
   }
@@ -275,7 +281,7 @@ export async function renderSheetPage(stage: Konva.Stage, p: Project, sh: Sheet)
       ctx.drawImage(img, lx, ly + (lh - iconS) / 2, iconS, iconS)
       const def = symbolByType(row.type)!
       ctx.fillStyle = color
-      fitText(ctx, def.prefix, lx + iconS + 1.5 * k, ly + lh * 0.68, 11 * k, fs, true)
+      fitText(ctx, row.prefix || def.prefix, lx + iconS + 1.5 * k, ly + lh * 0.68, 11 * k, fs, true)
       ctx.fillStyle = '#000'
       fitText(ctx, row.text, textX, ly + lh * 0.68, textW, fs)
     } else if (row.kind === 'cable') {
@@ -309,64 +315,83 @@ export function savePdf(pages: RenderedPage[], fileName: string) {
   pdf.save(`${safeName(fileName)}.pdf`)
 }
 
+type Row = (string | number)[]
+
+function sheetOf(rows: Row[], widths: number[]) {
+  const ws = XLSX.utils.aoa_to_sheet(rows)
+  ws['!cols'] = widths.map((wch) => ({ wch }))
+  return ws
+}
+
 export function exportExcel(p: Project) {
   const wb = XLSX.utils.book_new()
-  const visible = p.devices
 
-  // 1. Lista de echipamente (grupată pe tip + model)
-  const eq: (string | number)[][] = [['Nr. crt.', 'Subsistem', 'Denumire echipament', 'Simbol', 'Model', 'Cantitate', 'Producător']]
-  let n = 1
+  // 1. Liste de echipamente pe sisteme (echipamente de pe plan + accesorii)
+  const eq: Row[] = []
   for (const sys of SYSTEMS) {
-    const groups = new Map<string, { type: string; model: string; count: number }>()
-    for (const d of visible) {
-      if (deviceSystem(d) !== sys.id) continue
-      const key = d.type + '|' + d.model.trim()
-      const g = groups.get(key) ?? { type: d.type, model: d.model.trim(), count: 0 }
-      g.count++
+    const groups = new Map<string, { denumire: string; model: string; producator: string; qty: number }>()
+    const add = (key: string, denumire: string, model: string, producator: string, qty: number) => {
+      const g = groups.get(key) ?? { denumire, model, producator, qty: 0 }
+      g.qty += qty
       groups.set(key, g)
     }
-    for (const g of groups.values()) {
-      const def = symbolByType(g.type)!
-      eq.push([n++, sys.short, def.name, def.prefix, g.model, g.count, ''])
+    for (const d of p.devices) {
+      if (deviceSystem(d) !== sys.id) continue
+      const info = deviceInfo(p, d)
+      add(d.catalogId ?? d.type + '|' + d.model.trim(), info.denumire, info.model, info.producator, 1)
     }
+    for (const a of p.accessories) {
+      const it = catalogItem(p, a.catalogId)
+      if (it && it.system === sys.id) add(it.id, it.denumire || it.model, it.model, it.producator, a.qty)
+    }
+    if (!groups.size) continue
+    if (eq.length) eq.push([])
+    eq.push([`Structura sistem: ${sys.name}`])
+    eq.push(['Nr. crt.', 'Denumire echipament', 'Model', 'Cantitate', 'Producător'])
+    let n = 1
+    for (const g of groups.values()) eq.push([`${n++}.`, g.denumire, g.model, g.qty, g.producator])
   }
-  const ws1 = XLSX.utils.aoa_to_sheet(eq)
-  ws1['!cols'] = [{ wch: 8 }, { wch: 14 }, { wch: 40 }, { wch: 9 }, { wch: 24 }, { wch: 10 }, { wch: 20 }]
-  XLSX.utils.book_append_sheet(wb, ws1, 'Echipamente')
+  XLSX.utils.book_append_sheet(wb, sheetOf(eq, [8, 60, 28, 10, 18]), 'Echipamente')
 
-  // 2. Zone protejate
-  const zones: (string | number)[][] = [['Nr. crt.', 'Subsistem', 'Simbol', 'Denumire echipament', 'Model', 'Zona protejată', 'Partiție', 'Tip detecție', 'Observații']]
-  n = 1
-  for (const sys of SYSTEMS) {
-    const list = visible
-      .filter((d) => deviceSystem(d) === sys.id)
-      .sort((a, b) => a.label.localeCompare(b.label, 'ro', { numeric: true }))
+  // 2. Zone protejate — efracție și incendiu (tabelul din memoriu)
+  const zones: Row[] = []
+  for (const sysId of ['EFR', 'INC'] as SystemId[]) {
+    const list = p.devices
+      .filter((d) => deviceSystem(d) === sysId)
+      .sort((a, b) => (a.zoneNr ?? '').localeCompare(b.zoneNr ?? '', 'ro', { numeric: true }) || a.label.localeCompare(b.label, 'ro', { numeric: true }))
+    if (!list.length) continue
+    if (zones.length) zones.push([])
+    zones.push([`Zone protejate: ${systemById(sysId).name}`])
+    zones.push(['Nr. crt.', 'Modul', sysId === 'INC' ? 'Buclă' : 'Zona modul', sysId === 'INC' ? 'Zonă' : 'Partiție', 'Zona protejată', 'Denumire echipament', 'Simbol echipament', 'Tip detecție'])
+    let n = 1
     for (const d of list) {
       const def = symbolByType(d.type)!
-      zones.push([n++, sys.short, d.label, def.name, d.model, d.zone, d.partition, def.detection ?? '', d.notes])
+      zones.push([`${n++}.`, d.module ?? '', d.zoneNr ?? '', d.partition, d.zone, deviceInfo(p, d).denumire, d.label, d.zoneType || def.detection || ''])
     }
   }
-  const ws2 = XLSX.utils.aoa_to_sheet(zones)
-  ws2['!cols'] = [{ wch: 8 }, { wch: 14 }, { wch: 9 }, { wch: 36 }, { wch: 20 }, { wch: 26 }, { wch: 10 }, { wch: 26 }, { wch: 30 }]
-  XLSX.utils.book_append_sheet(wb, ws2, 'Zone protejate')
+  // camere pe zone
+  const cams = p.devices.filter((d) => symbolByType(d.type)?.camera)
+  if (cams.length) {
+    const byZone = new Map<string, string[]>()
+    for (const d of cams.sort((a, b) => a.label.localeCompare(b.label, 'ro', { numeric: true }))) {
+      const z = d.zone || '(nespecificată)'
+      byZone.set(z, [...(byZone.get(z) ?? []), d.label])
+    }
+    if (zones.length) zones.push([])
+    zones.push(['Zone supravegheate video'])
+    zones.push(['Nr. crt.', 'Zona supravegheată', 'Camere alocate'])
+    let n = 1
+    for (const [z, labels] of byZone) zones.push([`${n++}.`, z, labels.join(', ')])
+  }
+  XLSX.utils.book_append_sheet(wb, sheetOf(zones, [8, 30, 12, 10, 26, 40, 14, 16]), 'Zone protejate')
 
   // 3. Jurnal de cablu
   const byId = new Map(p.devices.map((d) => [d.id, d]))
-  const cab: (string | number)[][] = [['Nr. crt.', 'Cod cablu', 'Subsistem', 'De la', 'La', 'Tip cablu', 'Lungime [m]', 'Traseu / Observații']]
-  n = 1
+  const cab: Row[] = [['Nr. crt.', 'Cod cablu', 'Subsistem', 'De la', 'La', 'Tip cablu', 'Lungime [m]', 'Traseu / Observații']]
+  let n = 1
   const cables = [...p.cables].sort((a, b) => a.code.localeCompare(b.code, 'ro', { numeric: true }))
   for (const c of cables) {
-    const m = cableMeters(c, p)
-    cab.push([
-      n++,
-      c.code,
-      systemById(c.system).short,
-      (c.from && byId.get(c.from)?.label) || '—',
-      (c.to && byId.get(c.to)?.label) || '—',
-      c.cableType,
-      m ?? '',
-      c.notes,
-    ])
+    cab.push([n++, c.code, systemById(c.system).short, (c.from && byId.get(c.from)?.label) || '—', (c.to && byId.get(c.to)?.label) || '—', c.cableType, cableMeters(c, p) ?? '', c.notes])
   }
   if (cables.length) {
     const totals = new Map<string, number>()
@@ -374,13 +399,57 @@ export function exportExcel(p: Project) {
       const m = cableMeters(c, p)
       if (m != null) totals.set(c.cableType, (totals.get(c.cableType) ?? 0) + m)
     }
-    cab.push([])
-    cab.push(['', 'TOTAL pe tip de cablu'])
+    cab.push([], ['', 'TOTAL pe tip de cablu'])
     for (const [type, m] of totals) cab.push(['', '', '', '', '', type, m, ''])
   }
-  const ws3 = XLSX.utils.aoa_to_sheet(cab)
-  ws3['!cols'] = [{ wch: 8 }, { wch: 11 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 28 }, { wch: 12 }, { wch: 34 }]
-  XLSX.utils.book_append_sheet(wb, ws3, 'Jurnal cablu')
+  XLSX.utils.book_append_sheet(wb, sheetOf(cab, [8, 11, 14, 10, 10, 28, 12, 34]), 'Jurnal cablu')
+
+  // 4. Breviar de calcul
+  const c = p.calc
+  const br: Row[] = []
+  const r2 = (x: number, d = 2) => Math.round(x * 10 ** d) / 10 ** d
+  for (const sysId of ['EFR', 'INC'] as SystemId[]) {
+    const b = batteryCalc(p, sysId)
+    if (!b.rows.length) continue
+    br.push([`Calculul energetic — ${systemById(sysId).name}`])
+    br.push(['COMPONENTA', 'Ualim [V]', 'IVeghe [mA]', 'Ialarma [mA]', 'buc', 'ITveghe [mA]', 'ITalarma [mA]'])
+    for (const r of b.rows) br.push([r.denumire, r.u ?? '', r.iv, r.ia, r.qty, r.iv * r.qty, r.ia * r.qty])
+    br.push(['TOTAL', '', '', '', '', b.totalIv, b.totalIa])
+    br.push([`tveghe = ${c.tVegheH} h; talarma = ${c.tAlarmaH} h; Cac = ${b.capacitateMah} mAh`])
+    br.push([`n = (Iveghe·tveghe + Ialarma·talarma) / (${c.factorAcumulator}·Cac) = ${r2(b.n, 4)}`])
+    br.push([`N = [n] + 1 = ${b.N}${b.acumulator ? ` acumulator(i) ${b.acumulator.denumire}` : ''}`])
+    if (b.wireless) br.push([`${b.wireless} echipamente cu baterie proprie nu intră în calcul.`])
+    if (b.missing.length) br.push([`DE COMPLETAT — fără date de consum: ${b.missing.join(', ')}`])
+    br.push([])
+  }
+  const st = storageCalc(p)
+  if (st.cameras) {
+    br.push(['Calculul capacității de stocare a înregistrărilor video'])
+    br.push(['Camere', 'buc', 'Bitrate [kbps]'])
+    for (const r of st.rows) br.push([r.denumire, r.qty, r.bitrate])
+    br.push([`CHDD = BR·3600·24·ZS·Ncam / (8·1024²); ZS = ${c.zileStocare} zile`])
+    br.push([`Înregistrare continuă: ${r2(st.gbContinuu, 0)} GB (≈ ${r2(st.tbContinuu, 1)} TB)`])
+    br.push([`Înregistrare la detecție (${c.factorActivitate * 100}% activitate): ${r2(st.gbDetectie, 0)} GB (≈ ${r2(st.tbDetectie, 1)} TB)`])
+    if (st.hdds.length) br.push([`Instalat: ${st.hdds.map((h) => `${h.qty}× ${h.denumire}`).join(' + ')} = ${st.tbInstalat} TB`])
+    br.push([])
+  }
+  const pw = powerCalc(p, 'CCTV')
+  if (pw.rows.length) {
+    br.push(['Calculul energetic TVCI'])
+    br.push(['COMPONENTA', 'BUC.', 'CONSUM [W]', 'TOTAL [W]'])
+    for (const r of pw.rows) br.push([r.denumire, r.qty, r.w, r2(r.w * r.qty)])
+    br.push(['TOTAL', '', '', r2(pw.totalW)])
+    br.push([`PA = P / cosφ = ${r2(pw.totalW)} / ${c.cosPhi} = ${r2(pw.vaNecesar, 0)} VA`])
+    if (pw.ups) br.push([`UPS ales: ${pw.ups.denumire} (${pw.ups.upsVA ?? '?'} VA); autonomie estimată: ${pw.autonomieMin != null ? r2(pw.autonomieMin, 0) + ' min' : 'de completat'}`])
+    if (pw.poeExcluded) br.push([`${pw.poeExcluded} camere alimentate PoE prin switch (incluse în consumul switch-ului).`])
+    br.push([])
+  }
+  const poe = poeCalc(p)
+  if (poe.consumatori) {
+    br.push(['Buget PoE'])
+    br.push([`Consum PoE: ${poe.consumatori} echipamente = ${r2(poe.consumW)} W (cu 20% rezervă: ${r2(poe.consumW * 1.2)} W); buget switch: ${r2(poe.bugetW)} W`])
+  }
+  XLSX.utils.book_append_sheet(wb, sheetOf(br.length ? br : [['Nu există date pentru calcule.']], [60, 10, 12, 12, 8, 14, 14]), 'Breviar calcul')
 
   XLSX.writeFile(wb, `${safeName((p.title.nrProiect || 'proiect') + ' liste')}.xlsx`)
 }

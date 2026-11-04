@@ -8,8 +8,16 @@ export interface Device {
   rotation: number
   label: string
   model: string
+  /** Echipamentul din catalog (model, producător, consumuri) */
+  catalogId?: string
   zone: string
   partition: string
+  /** Modulul la care e conectat (ex. CAE, MOD1) — tabel zone efracție */
+  module?: string
+  /** Numărul zonei pe modul */
+  zoneNr?: string
+  /** Tip zonă: întârziere / instantanee / 24h... */
+  zoneType?: string
   notes: string
   /** Doar camere: unghi de vizualizare (grade) */
   fov?: number
@@ -29,6 +37,66 @@ export interface Cable {
   /** Lungime introdusă manual (m); dacă lipsește, se calculează din scară */
   lengthOverride?: number | null
   notes: string
+}
+
+/** Categorii de accesorii fără simbol pe plan */
+export type AccessoryKind = 'acc_hdd' | 'acc_acumulator' | 'acc_ups' | 'acc_sursa' | 'acc_altele'
+
+export interface CatalogItem {
+  id: string
+  /** Tipul de simbol (efr_pir, cctv_nvr...) sau categoria de accesoriu (acc_hdd...) */
+  type: string
+  /** Sistemul (pentru accesorii; la simboluri rezultă din simbol) */
+  system: SystemId
+  /** Prefix propriu pentru numerotare (ex. PIRW, CMW, CVIE); gol = prefixul simbolului */
+  prefix: string
+  denumire: string
+  model: string
+  producator: string
+  /** Alimentat din baterie proprie (wireless) — nu intră în calculul acumulatorilor */
+  baterie: boolean
+  /** Alimentat prin PoE — nu intră în bilanțul de putere separat dacă există switch PoE */
+  poe: boolean
+  tensiuneV?: number
+  iVegheMa?: number
+  iAlarmaMa?: number
+  putereW?: number
+  /** Consum PoE (W) */
+  poeW?: number
+  /** Buget PoE (W) — switch */
+  poeBugetW?: number
+  /** Bitrate (kbps) — camere */
+  bitrateKbps?: number
+  /** Capacitate acumulator (Ah) */
+  capacitateAh?: number
+  /** Capacitate HDD (TB) */
+  capacitateTB?: number
+  /** UPS: putere aparentă (VA) și energie baterii (Wh) */
+  upsVA?: number
+  upsW?: number
+  upsWh?: number
+  note: string
+}
+
+export interface Accessory {
+  id: string
+  catalogId: string
+  qty: number
+}
+
+export interface CalcParams {
+  tVegheH: number
+  tAlarmaH: number
+  /** Factor de descărcare acumulator (0.86) */
+  factorAcumulator: number
+  zileStocare: number
+  bitrateImplicitKbps: number
+  /** Procent activitate pentru înregistrare la detecție de mișcare */
+  factorActivitate: number
+  cosPhi: number
+  /** Randament UPS pentru estimarea autonomiei */
+  randamentUps: number
+  autonomieMinimaMin: number
 }
 
 /** Date comune tuturor planșelor (cartuș) */
@@ -80,6 +148,11 @@ export interface Project {
   cableReservePct: number
   sheets: Sheet[]
   activeSheetId: string
+  /** Numerotare cu două cifre (PIR01) sau fără (PIR1) */
+  numberPad: boolean
+  catalog: CatalogItem[]
+  accessories: Accessory[]
+  calc: CalcParams
   devices: Device[]
   cables: Cable[]
 }
@@ -88,6 +161,6 @@ export type Selection = { kind: 'device' | 'cable'; id: string } | null
 
 export type Tool =
   | { kind: 'select' }
-  | { kind: 'place'; type: string }
+  | { kind: 'place'; type: string; catalogId?: string }
   | { kind: 'scale' }
   | { kind: 'cable' }

@@ -1,4 +1,5 @@
-import type { Cable, Device, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
+import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
+import { DEFAULT_CALC, defaultCatalog } from './catalog'
 import { SYSTEMS, symbolByType } from './symbols'
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -41,6 +42,10 @@ export function emptyProject(): Project {
     cableReservePct: 10,
     sheets: [sheet],
     activeSheetId: sheet.id,
+    numberPad: false,
+    catalog: defaultCatalog(),
+    accessories: [],
+    calc: { ...DEFAULT_CALC },
     devices: [],
     cables: [],
   }
@@ -73,15 +78,33 @@ export function formatLabel(sh: Sheet): string {
 export const nextSheetNr = (p: Project) => nextLabel('P', p.sheets.map((s) => s.nr))
 
 /** Următorul cod liber pentru un prefix: PIR01, PIR02... */
-export function nextLabel(prefix: string, labels: string[]): string {
+export function nextLabel(prefix: string, labels: string[], pad = true): string {
   let max = 0
   const re = new RegExp('^' + prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(\\d+)$')
   for (const l of labels) {
     const m = l.match(re)
     if (m) max = Math.max(max, parseInt(m[1], 10))
   }
-  return prefix + String(max + 1).padStart(2, '0')
+  return prefix + (pad ? String(max + 1).padStart(2, '0') : String(max + 1))
 }
+
+export const catalogItem = (p: Project, id?: string): CatalogItem | undefined =>
+  id ? p.catalog.find((c) => c.id === id) : undefined
+
+/** Datele de listă ale unui echipament: din catalog dacă e legat, altfel din simbol */
+export function deviceInfo(p: Project, d: Device) {
+  const it = catalogItem(p, d.catalogId)
+  const def = symbolByType(d.type)
+  return {
+    item: it,
+    denumire: it?.denumire || def?.name || d.type,
+    model: it?.model || d.model,
+    producator: it?.producator ?? '',
+  }
+}
+
+/** Prefixul de numerotare pentru un echipament nou */
+export const devicePrefix = (type: string, it?: CatalogItem) => it?.prefix || symbolByType(type)?.prefix || 'X'
 
 export function deviceSystem(d: Device): SystemId | undefined {
   return symbolByType(d.type)?.system
@@ -166,6 +189,10 @@ export function normalizeProject(v: Project): Project {
     cableReservePct: v.cableReservePct ?? base.cableReservePct,
     title: { ...base.title, ...v.title },
     devices: v.devices,
+    numberPad: v.numberPad ?? (v.version as number) === 1,
+    catalog: Array.isArray(v.catalog) ? v.catalog : base.catalog,
+    accessories: Array.isArray(v.accessories) ? v.accessories : [],
+    calc: { ...DEFAULT_CALC, ...v.calc },
     cables: v.cables ?? [],
     sheets,
     activeSheetId,

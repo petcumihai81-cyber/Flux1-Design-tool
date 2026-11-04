@@ -4,7 +4,7 @@ import type Konva from 'konva'
 import './App.css'
 import type { Cable, Device, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { useHistory } from './history'
-import { activeSheet, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { activeSheet, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
 import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
@@ -13,6 +13,7 @@ import { loadBackground } from './background'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import type { RenderedPage } from './exporters'
 import { exportDrawio } from './drawio'
+import { CalcPanel, CatalogDialog } from './CatalogUI'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
 
@@ -29,12 +30,13 @@ function loadStored(): Project {
   return emptyProject()
 }
 
-type Tab = 'element' | 'proiect' | 'liste'
+type Tab = 'element' | 'proiect' | 'calcule' | 'liste'
 
 export default function App() {
   const h = useHistory<Project>(loadStored)
   const project = h.value
   const sheet = activeSheet(project)
+  const [catalogOpen, setCatalogOpen] = useState(false)
   const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
@@ -84,19 +86,21 @@ export default function App() {
   // ---------------------------------------------------------------- acțiuni
 
   const addDevice = useCallback(
-    (type: string, x: number, y: number) => {
+    (type: string, x: number, y: number, catalogId?: string) => {
       const def = symbolByType(type)
       if (!def) return
       const id = uid()
       h.commit((p) => {
+        const it = catalogItem(p, catalogId)
         const d: Device = {
           id,
           type,
           x,
           y,
           rotation: 0,
-          label: nextLabel(def.prefix, p.devices.map((d) => d.label)),
+          label: nextLabel(devicePrefix(type, it), p.devices.map((d) => d.label), p.numberPad),
           model: '',
+          ...(it ? { catalogId: it.id } : {}),
           zone: '',
           partition: '',
           notes: '',
@@ -140,7 +144,22 @@ export default function App() {
   )
 
   const patchDevice = (id: string, patch: Partial<Device>) =>
-    h.commit((p) => ({ ...p, devices: p.devices.map((d) => (d.id === id ? { ...d, ...patch } : d)) }))
+    h.commit((p) => ({
+      ...p,
+      devices: p.devices.map((d) => {
+        if (d.id !== id) return d
+        const next = { ...d, ...patch }
+        // la schimbarea modelului din catalog, renumerotează dacă prefixul diferă (ex. PIR1 → PIRW1)
+        if ('catalogId' in patch && patch.catalogId !== d.catalogId) {
+          const oldP = devicePrefix(d.type, catalogItem(p, d.catalogId))
+          const newP = devicePrefix(d.type, catalogItem(p, patch.catalogId))
+          if (oldP !== newP && new RegExp('^' + oldP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\d+$').test(d.label)) {
+            next.label = nextLabel(newP, p.devices.filter((x) => x.id !== id).map((x) => x.label), p.numberPad)
+          }
+        }
+        return next
+      }),
+    }))
 
   const patchCable = (id: string, patch: Partial<Cable>) =>
     h.commit((p) => ({ ...p, cables: p.cables.map((c) => (c.id === id ? { ...c, ...patch } : c)) }))
@@ -184,7 +203,7 @@ export default function App() {
       ...p,
       devices: [
         ...p.devices,
-        { ...src, id, x: src.x + p.symbolSize * 1.5, y: src.y, label: nextLabel(def.prefix, p.devices.map((d) => d.label)) },
+        { ...src, id, x: src.x + p.symbolSize * 1.5, y: src.y, label: nextLabel(devicePrefix(src.type, catalogItem(p, src.catalogId)), p.devices.map((d) => d.label), p.numberPad) },
       ],
     }))
     setSelection({ kind: 'device', id })
@@ -373,6 +392,10 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      if (catalogOpen) {
+        if (e.key === 'Escape') setCatalogOpen(false)
+        return
+      }
       if ((e.target as HTMLElement)?.closest('input, textarea, select')) return
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z') {
@@ -423,6 +446,7 @@ export default function App() {
           <button onClick={() => openInput.current?.click()} title="Deschide proiect (.json)">Deschide</button>
           <button onClick={saveJson} title="Salvează proiect (Ctrl+S)">Salvează</button>
           <button onClick={() => bgInput.current?.click()} title="Încarcă planul clădirii (PDF sau imagine)">Încarcă plan</button>
+          <button onClick={() => setCatalogOpen(true)} title="Catalog echipamente (modele, consumuri)">Catalog</button>
         </div>
         <div className="group">
           <button className={tool.kind === 'select' ? 'on' : ''} onClick={() => setTool({ kind: 'select' })} title="Selectare / mutare (V)">
@@ -480,7 +504,8 @@ export default function App() {
       <main className="workspace">
         <Palette
           tool={tool}
-          onPick={(type) => {
+          catalog={project.catalog}
+          onPick={(type, catalogId) => {
             if (sheet.kind === 'bloc') {
               const sys = symbolByType(type)?.system
               const target =
@@ -488,10 +513,10 @@ export default function App() {
                 project.sheets.find((sh) => sh.kind === 'plan')
               if (!target) return notify('Adaugă întâi o planșă de tip plan.')
               setActiveSheet(target.id)
-              setTool({ kind: 'place', type })
+              setTool({ kind: 'place', type, catalogId })
               return
             }
-            setTool(tool.kind === 'place' && tool.type === type ? { kind: 'select' } : { kind: 'place', type })
+            setTool(tool.kind === 'place' && tool.type === type && tool.catalogId === catalogId ? { kind: 'select' } : { kind: 'place', type, catalogId })
           }}
         />
 
@@ -569,6 +594,7 @@ export default function App() {
           <nav className="tabs">
             <button className={tab === 'element' ? 'on' : ''} onClick={() => setTab('element')}>Element</button>
             <button className={tab === 'proiect' ? 'on' : ''} onClick={() => setTab('proiect')}>Proiect</button>
+            <button className={tab === 'calcule' ? 'on' : ''} onClick={() => setTab('calcule')}>Calcule</button>
             <button className={tab === 'liste' ? 'on' : ''} onClick={() => setTab('liste')}>Liste</button>
           </nav>
           <div className="side-body">
@@ -601,11 +627,22 @@ export default function App() {
                 }}
               />
             )}
+            {tab === 'calcule' && (
+              <CalcPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onOpenCatalog={() => setCatalogOpen(true)} />
+            )}
             {tab === 'liste' && <ListsPanel project={project} onSelectDevice={(id) => select({ kind: 'device', id })} />}
           </div>
         </aside>
       </main>
 
+      {catalogOpen && (
+        <CatalogDialog
+          project={project}
+          onChange={(catalog) => h.commit((p) => ({ ...p, catalog }))}
+          onClose={() => setCatalogOpen(false)}
+          notify={notify}
+        />
+      )}
       {busy && <div className="overlay">{busy}</div>}
       {toast && <div className="toast">{toast}</div>}
     </div>
