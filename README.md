@@ -24,6 +24,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Editor de schemă** în stilul draw.io: „Editează schema” transformă schema generată într-una editabilă. Blocurile se mută liber (cu aliniere pe grilă),
   legăturile le urmăresc, se pot trage legături noi (eticheta se completează din cablul de pe plan), se adaugă texte și chenare de grupare,
   cu culori și linii punctate. Echipamentele rămân legate de plan; cele adăugate ulterior apar ca „neplasate”. „Regenerează” refă schema automat.
+- **Import DXF** ca plan de fundal: alegi straturile și unitatea (mm / cm / m, ghicită dacă lipsește din fișier), iar planul vine deja calibrat la scara reală. DWG-ul se salvează întâi ca DXF.
 - **Export DXF** (AutoCAD, format R12): planșa de plan curentă în metri, cu straturi pe arhitectură și pe fiecare sistem (echipamente, cabluri, etichete, conuri camere), simbolurile ca blocuri; pereții se întrerup la uși și ferestre.
 - **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.
 - **Previzualizare PDF** înainte de descărcare: paginile exact cum vor ieși, cu miniaturi la mai multe planșe.

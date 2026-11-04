@@ -25,7 +25,8 @@ const SECTIONS: Section[] = [
     img: 'help/01-scara.webp',
     steps: [
       <>
-        Apasă <B>Încarcă plan</B> și alege planul clădirii (PDF sau imagine). La un PDF cu mai multe pagini, alegi pagina.
+        Apasă <B>Încarcă plan</B> și alege planul clădirii (PDF, imagine sau DXF). La un PDF cu mai multe pagini, alegi pagina. Un plan DXF
+        vine deja calibrat — sari peste pasul următor.
       </>,
       <>
         Apasă <B>Scară</B>, dă click pe cele două capete ale unei cote cunoscute (ex. o cotă de 10 m) și scrie lungimea reală în metri. Din acest
@@ -210,6 +211,29 @@ const SECTIONS: Section[] = [
       <>La mai multe planșe, miniaturile din stânga (sau săgețile ← →) trec de la o pagină la alta. Click pe pagină = mărire 100%.</>,
       <>
         Dacă totul e în regulă, apeși <B>Descarcă PDF</B>; altfel <B>Închide</B>, corectezi și generezi din nou.
+      </>,
+    ],
+  },
+  {
+    id: 'import-dxf',
+    title: 'Plan DXF de la arhitect',
+    intro: 'Planul primit în format CAD se încarcă direct, la scara reală.',
+    steps: [
+      <>
+        <B>Încarcă plan</B> → alege fișierul <B>.dxf</B>. Un <B>.dwg</B> nu se poate citi în browser: în AutoCAD (sau alt program CAD) folosește{' '}
+        <B>Save As → DXF</B>, orice versiune.
+      </>,
+      <>
+        În fereastra de import verifică <B>unitatea desenului</B> (milimetri, centimetri, metri). Dacă fișierul nu o spune, o ghicesc după
+        mărime; dimensiunea afișată (ex. „24,0 × 14,0 m”) trebuie să fie cea reală a clădirii.
+      </>,
+      <>
+        <B>Debifează straturile</B> de care nu ai nevoie (mobilier, cote, cartușul arhitectului, axe); previzualizarea se actualizează imediat.
+        Planul se desenează gri, ca simbolurile de securitate să iasă în evidență; bifează <B>Culorile din DXF</B> dacă vrei culorile originale.
+      </>,
+      <>
+        <B>Încarcă planul</B>: nivelul primește planul și scara calibrată automat (fără unealta <B>Scară</B>), iar simbolurile se potrivesc la
+        ~6 mm pe planșă.
       </>,
     ],
   },

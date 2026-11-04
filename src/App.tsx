@@ -14,6 +14,9 @@ import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
 import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
+import { readDxf } from './dxfImport'
+import type { DxfDrawing } from './dxfImport'
+import { DxfImportDialog } from './DxfImportDialog'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import { PdfPreview } from './PdfPreview'
 import { exportDxf } from './dxf'
@@ -548,9 +551,32 @@ export default function App() {
   /** Nivelul pe care se încarcă următorul plan de fundal (implicit: nivelul planșei curente) */
   const bgTarget = useRef<string | null>(null)
 
+  /** Planul DXF citit, în așteptarea alegerii straturilor și a unității */
+  const [dxfImport, setDxfImport] = useState<{ drawing: DxfDrawing; fileName: string; targetId: string } | null>(null)
+
   const onBackgroundFile = async (file: File) => {
     const targetId = bgTarget.current ?? level.id
     bgTarget.current = null
+    const lower = file.name.toLowerCase()
+    if (lower.endsWith('.dwg')) {
+      notify('Fișierele DWG nu se pot citi în browser. În AutoCAD: Save As → DXF (orice versiune), apoi încarcă fișierul DXF.')
+      return
+    }
+    if (lower.endsWith('.dxf')) {
+      setBusy('Se citește planul DXF…')
+      try {
+        await new Promise((r) => setTimeout(r, 30))
+        const drawing = readDxf(await file.arrayBuffer())
+        if (!drawing.prims.length) throw new Error('fișierul nu conține desen în spațiul model.')
+        setDxfImport({ drawing, fileName: file.name, targetId })
+      } catch (err) {
+        console.error(err)
+        notify('Nu am putut citi DXF-ul: ' + (err as Error).message)
+      } finally {
+        setBusy(null)
+      }
+      return
+    }
     setBusy('Se încarcă planul…')
     try {
       const bg = await loadBackground(file, (count) => {
@@ -906,7 +932,7 @@ export default function App() {
           <button onClick={saveJson} className={dirty ? 'unsaved' : ''} title={dirty ? 'Ai modificări nesalvate în fișier — Salvează (Ctrl+S)' : 'Salvează proiect (Ctrl+S)'}>
             Salvează{dirty && <span className="dirty-dot" />}
           </button>
-          <button onClick={() => bgInput.current?.click()} title="Încarcă planul clădirii (PDF sau imagine)">Încarcă plan</button>
+          <button onClick={() => bgInput.current?.click()} title="Încarcă planul clădirii (PDF, imagine sau DXF)">Încarcă plan</button>
           <button onClick={() => setCatalogOpen(true)} title="Catalog echipamente (modele, consumuri)">Catalog</button>
         </div>
         <div className="group">
@@ -951,7 +977,7 @@ export default function App() {
         <input
           ref={bgInput}
           type="file"
-          accept="application/pdf,image/*"
+          accept="application/pdf,image/*,.dxf,.dwg"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -1216,6 +1242,33 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {helpOpen && <HelpDialog onClose={closeHelp} />}
+      {dxfImport && (
+        <DxfImportDialog
+          drawing={dxfImport.drawing}
+          fileName={dxfImport.fileName}
+          onCancel={() => setDxfImport(null)}
+          onImport={(bg, ppm) => {
+            const { targetId } = dxfImport
+            setDxfImport(null)
+            h.commit((p) => {
+              const next = {
+                ...p,
+                levels: p.levels.map((l) => (l.id === targetId ? { ...l, background: bg, pxPerMeter: ppm } : l)),
+              }
+              // simbolurile ~6 mm pe planșa curentă (dacă arată nivelul), altfel ~0,5 m
+              const sh = activeSheet(next)
+              const fit = sh.kind === 'plan' && sheetLevel(next, sh).id === targetId ? symbolForPaper(next, sh) : null
+              const hasDevices = p.devices.some((d) => d.levelId === targetId)
+              return {
+                ...next,
+                levels: next.levels.map((l) => (l.id === targetId && !hasDevices ? { ...l, symbolSize: fit ?? Math.round(ppm * 0.5) } : l)),
+              }
+            })
+            setFitSignal((n) => n + 1)
+            notify(`Plan DXF încărcat, scara calibrată automat (${ppm.toFixed(1)} px/m).`)
+          }}
+        />
+      )}
       {preview && (
         <PdfPreview
           pages={preview.pages}
