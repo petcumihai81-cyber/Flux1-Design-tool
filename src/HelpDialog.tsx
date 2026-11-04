@@ -270,8 +270,9 @@ const SECTIONS: Section[] = [
         <K>Ctrl+C</K> / <K>Ctrl+X</K> / <K>Ctrl+V</K> copiere / tăiere / lipire · <K>Ctrl+D</K> duplicare · click dreapta = meniu
       </>,
       <>
-        Proiectul curent se păstrează automat în browser, dar doar pe acest calculator. Pentru siguranță și arhivă, salvează fișierul{' '}
-        <code>.plansa.json</code>.
+        Proiectul curent se păstrează automat în browser (inclusiv planurile de fundal mari), dar doar pe acest calculator. Punctul galben de pe{' '}
+        <B>Salvează</B> arată că ai modificări care nu sunt încă în fișierul <code>.plansa.json</code> — pentru siguranță și arhivă, salvează cu{' '}
+        <K>Ctrl+S</K>.
       </>,
     ],
   },

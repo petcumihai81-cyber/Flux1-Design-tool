@@ -47,7 +47,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 
 Principii:
 - **Un singur proiect, mai multe niveluri și planșe.** Fiecare `Level` (Parter, Etaj 1…) are fundalul, scara (`pxPerMeter`) și mărimea simbolurilor proprii. Echipamentele, cablurile și schița stau în listele comune ale proiectului, fiecare cu `levelId`; o planșă de plan afișează un nivel (`Sheet.levelId`) și alege sistemele (`systems`) și formatul paginii. Listele, calculele, memoriul și schemele bloc cuprind toate nivelurile. Ce depinde de scară se ia din nivelul elementului (`levelOf(p, x.levelId)`).
-- **Toată starea e în `Project`** (salvat ca `.plansa.json` și automat în `localStorage`). Orice câmp nou trebuie adăugat și în `emptyProject()` și în `normalizeProject()`, ca fișierele vechi să se deschidă în continuare.
+- **Toată starea e în `Project`** (salvat ca `.plansa.json` și automat în browser: proiectul fără planurile de fundal în `localStorage`, planurile de fundal în IndexedDB, pe id-ul nivelului — `storage.ts`). Orice câmp nou trebuie adăugat și în `emptyProject()` și în `normalizeProject()`, ca fișierele vechi să se deschidă în continuare.
 - **Modificările trec prin istoric**: `h.commit(p => ...)`, nu se modifică starea direct.
 - **Textul din PDF se desenează pe canvas** (nu cu fonturile jsPDF), ca diacriticele să apară corect.
 - **Ramificații de cablu** (`Cable.via`): un cablu terminat pe alt cablu merge pe traseul acestuia până la capătul cu echipament central; `to` = acel echipament, iar lungimea (`cablePixels`) include porțiunea comună.
