@@ -266,3 +266,11 @@ button.unsaved { border-color: #f9a825; }
 .dxf-layers .check small { color: #888; }
 .dxf-preview { flex: 1; min-width: 0; display: grid; place-items: center; padding: 12px; background: #eef1f5; overflow: hidden; }
 .dxf-preview canvas { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+
+/* Alegerea paginii din PDF */
+.pdf-pages { flex-wrap: wrap; align-content: flex-start; gap: 14px; padding: 16px; overflow: auto; background: #eef1f5; }
+.pdf-page { width: 236px; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; background: #fff; border: 2px solid transparent; border-radius: 8px; cursor: pointer; }
+.pdf-page:hover { border-color: #1e88e5; }
+.pdf-thumb { width: 220px; height: 220px; display: grid; place-items: center; }
+.pdf-thumb img { max-width: 100%; max-height: 100%; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.pdf-page small { color: #777; }

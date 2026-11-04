@@ -40,7 +40,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
 | `dxf.ts` | Export DXF R12 (ANSI_1250) al planșei de plan: metri (y în sus), straturi `ARH_*`, `GHENE`, `<SISTEM>_ECHIPAMENTE/_CABLURI/_ETICHETE`, `CCTV_CONURI`; simbolurile SVG convertite în blocuri; pereții întrerupți la goluri. Verificare: `ezdxf` (recover + randare PNG) |
-| `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
+| `background.ts` + `PdfPagePicker.tsx` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine); la PDF cu mai multe pagini, alegerea paginii din miniaturi |
 | `dxfImport.ts` + `DxfImportDialog.tsx` | Import DXF ca fundal: cititor propriu (ASCII R12…2018, UTF-8 sau Windows-1250), blocuri explodate (INSERT, DIMENSION), linii / polilinii cu bulge, arce, elipse, spline, hașuri, texte; dialog cu straturi, unitate (`$INSUNITS` sau ghicită) și previzualizare; randat în PNG la ≤ 100 px/m (max. ~6000 px), cu `pxPerMeter` setat direct |
 | `arch.ts` + `ArchShapes.tsx` | Schița de arhitectură (`Project.arch`): pereți cu grosime reală, uși, ferestre, texte, cote; lipire de vârfuri și aliniere ortogonală; schiță fără plan = 50 px/m |
 | `PdfPreview.tsx` | Previzualizarea paginilor înainte de descărcarea PDF |
