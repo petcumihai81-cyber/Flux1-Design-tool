@@ -102,6 +102,31 @@ const SECTIONS: Section[] = [
     tips: [<>În timpul desenării: <K>Backspace</K> șterge ultimul punct, <K>Enter</K> sau dublu-click termină cablul liber, <K>Esc</K> anulează.</>],
   },
   {
+    id: 'arhitectura',
+    title: 'Schiță de arhitectură',
+    intro: 'Pentru obiective fără plan sau pentru completarea unui plan existent.',
+    img: 'help/11-arhitectura.webp',
+    steps: [
+      <>
+        Deschide secțiunea <B>Arhitectură (schiță)</B> din paletă. Fără plan încărcat, schița pornește la scară (1 m = 50 px), deci conurile și
+        cablurile sunt reale din prima.
+      </>,
+      <>
+        <B>Perete exterior / interior</B>: click din punct în punct. Peretele se aliniază singur pe orizontală / verticală și se lipește de pereții
+        existenți (<K>Shift</K> = liber). Click pe primul punct închide conturul; dublu-click sau <K>Enter</K> termină.
+      </>,
+      <>
+        <B>Ușă</B> și <B>Fereastră</B>: click pe un perete — se așază pe el, aliniate. Din panoul din dreapta: lățimea golului, „Întoarce sensul”,
+        „Schimbă balamaua”.
+      </>,
+      <>
+        <B>Text încăpere</B> pentru numele spațiilor și <B>Cotă</B> (două click-uri; lungimea se calculează singură).
+      </>,
+      <>Elementele se selectează, se mută, se duplică și se șterg ca echipamentele (inclusiv din click dreapta). Vârfurile pereților se trag cu mânerele albastre.</>,
+    ],
+    tips: [<>Schița apare pe toate planșele de tip plan și în PDF, sub echipamente și cabluri.</>],
+  },
+  {
     id: 'meniu',
     title: 'Click dreapta: copiere, duplicare, ștergere',
     img: 'help/05-meniu.webp',
@@ -134,6 +159,20 @@ const SECTIONS: Section[] = [
       </>,
       <>
         <B>PDF planșă</B> exportă planșa curentă; <B>PDF toate</B> pune toate planșele într-un singur PDF, cu legendă și cartuș pe fiecare pagină.
+      </>,
+    ],
+  },
+  {
+    id: 'previzualizare',
+    title: 'Previzualizare și export PDF',
+    img: 'help/12-previzualizare.webp',
+    steps: [
+      <>
+        <B>PDF planșă</B> sau <B>PDF toate</B> deschid întâi previzualizarea: paginile exact cum vor ieși, cu chenar, legendă și cartuș.
+      </>,
+      <>La mai multe planșe, miniaturile din stânga (sau săgețile ← →) trec de la o pagină la alta. Click pe pagină = mărire 100%.</>,
+      <>
+        Dacă totul e în regulă, apeși <B>Descarcă PDF</B>; altfel <B>Închide</B>, corectezi și generezi din nou.
       </>,
     ],
   },

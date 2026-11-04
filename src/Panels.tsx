@@ -1,18 +1,61 @@
 import { useMemo, useState } from 'react'
-import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableMeters, cablePixels, catalogItem, deviceSystem } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
-export function Palette({ tool, catalog, onPick }: { tool: Tool; catalog: CatalogItem[]; onPick: (type: string, catalogId?: string) => void }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ CAT: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
+export function Palette({
+  tool,
+  catalog,
+  onPick,
+  onPickArch,
+}: {
+  tool: Tool
+  catalog: CatalogItem[]
+  onPick: (type: string, catalogId?: string) => void
+  onPickArch: (t: ArchTool) => void
+}) {
+  const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, CAT: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
   const [q, setQ] = useState('')
   const query = q.trim().toLowerCase()
   return (
     <aside className="palette">
       <input className="search" placeholder="Caută simbol sau model…" value={q} onChange={(e) => setQ(e.target.value)} />
+      {(() => {
+        const items = ARCH_TOOLS.filter((t) => !query || t.name.toLowerCase().includes(query))
+        if (!items.length) return null
+        const isOpen = open.ARH || !!query || tool.kind === 'arch'
+        return (
+          <section>
+            <button className="pal-head" style={{ borderColor: '#222' }} onClick={() => setOpen((o) => ({ ...o, ARH: !o.ARH }))}>
+              <span className="dot" style={{ background: '#222' }} />
+              Arhitectură (schiță)
+              <span className="chev">{isOpen ? '▾' : '▸'}</span>
+            </button>
+            {isOpen && (
+              <div className="pal-grid">
+                {items.map((t) => (
+                  <button
+                    key={t.tool}
+                    className={'pal-item' + (tool.kind === 'arch' && tool.arch === t.tool ? ' active' : '')}
+                    title={t.name}
+                    onClick={() => onPickArch(t.tool)}
+                  >
+                    <img src={archIconUrl(t.tool)} alt="" />
+                    <span className="pal-prefix" style={{ color: '#222' }}>
+                      {t.name}
+                    </span>
+                    <span className="pal-name">{t.hint}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        )
+      })()}
       {(() => {
         const items = catalog.filter(
           (c) => symbolByType(c.type) && (!query || `${c.model} ${c.denumire} ${c.producator} ${c.prefix}`.toLowerCase().includes(query)),
@@ -220,6 +263,75 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
       </button>
     </div>
   )
+}
+
+// ------------------------------------------------------------------ Proprietăți element de arhitectură
+
+export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; project: Project; onChange: (patch: Partial<ArchElement>) => void; onDelete: () => void }) {
+  const ppm = project.pxPerMeter ?? 50
+  const len = a.points ? polyLen(a.points) / ppm : 0
+  return (
+    <div className="props">
+      <div className="props-title">
+        <div>
+          <b>{ARCH_NAMES[a.kind]}</b>
+          <small style={{ color: 'var(--muted)' }}>Arhitectură (schiță)</small>
+        </div>
+      </div>
+      {a.kind === 'wall' && (
+        <>
+          <Field label="Grosime perete (m)">
+            <div className="inline">
+              <Num value={a.thickness ?? 0.25} min={0.05} max={1} step={0.01} onChange={(v) => onChange({ thickness: Math.max(0.03, v) })} />
+              <button onClick={() => onChange({ thickness: 0.25 })}>25 cm</button>
+              <button onClick={() => onChange({ thickness: 0.12 })}>12 cm</button>
+            </div>
+          </Field>
+          <p className="hint">Lungime: {fmtM(len)}. Trage de vârfuri pentru a modifica peretele (Shift = fără aliniere).</p>
+        </>
+      )}
+      {(a.kind === 'door' || a.kind === 'window') && (
+        <>
+          <Field label="Lățime gol (m)">
+            <Num value={a.width ?? (a.kind === 'door' ? 0.9 : 1.2)} min={0.3} max={6} step={0.05} onChange={(v) => onChange({ width: Math.max(0.2, v) })} />
+          </Field>
+          <Field label="Rotire (°)">
+            <Num value={Math.round(a.rotation ?? 0)} min={0} max={359} step={5} onChange={(v) => onChange({ rotation: ((v % 360) + 360) % 360 })} />
+          </Field>
+          {a.kind === 'door' && (
+            <div className="inline">
+              <button onClick={() => onChange({ flipY: !a.flipY })}>Întoarce sensul</button>
+              <button onClick={() => onChange({ flipX: !a.flipX })}>Schimbă balamaua</button>
+            </div>
+          )}
+          <p className="hint">Trage {a.kind === 'door' ? 'ușa' : 'fereastra'} pe alt perete: se aliniază singură.</p>
+        </>
+      )}
+      {a.kind === 'label' && (
+        <>
+          <Field label="Text">
+            <input value={a.text ?? ''} onChange={(e) => onChange({ text: e.target.value })} />
+          </Field>
+          <Field label="Înălțime litere (m)">
+            <Num value={a.size ?? 0.45} min={0.1} max={3} step={0.05} onChange={(v) => onChange({ size: Math.max(0.1, v) })} />
+          </Field>
+          <Field label="Rotire (°)">
+            <Num value={Math.round(a.rotation ?? 0)} min={0} max={359} step={5} onChange={(v) => onChange({ rotation: ((v % 360) + 360) % 360 })} />
+          </Field>
+        </>
+      )}
+      {a.kind === 'dim' && <p className="hint">Lungime: {fmtM(len)}. Trage de capete pentru a o modifica.</p>}
+      <button className="danger" onClick={onDelete}>
+        Șterge (Del)
+      </button>
+    </div>
+  )
+}
+
+const polyLen = (pts: number[]) => {
+  let l = 0
+  for (let i = 2; i < pts.length; i += 2) l += Math.hypot(pts[i] - pts[i - 2], pts[i + 1] - pts[i - 1])
+  return l
 }
 
 /** Leagă un capăt de cablu de alt echipament (mută și punctul de capăt pe echipament) */

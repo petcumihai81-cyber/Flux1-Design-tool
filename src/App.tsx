@@ -2,16 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
-import type { Cable, Device, Project, Selection, Sheet, SystemId, Tool } from './types'
+import type { ArchElement, Cable, Device, Project, Selection, Sheet, SystemId, Tool } from './types'
+import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
 import { activeSheet, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
 import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
-import { CableProps, DeviceProps, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
+import { ArchProps, CableProps, DeviceProps, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
-import type { RenderedPage } from './exporters'
+import { PdfPreview } from './PdfPreview'
+import type { PreviewPage } from './PdfPreview'
 import { exportDrawio } from './drawio'
 import { CalcPanel, CatalogDialog } from './CatalogUI'
 import { MemoriuDialog } from './MemoriuDialog'
@@ -39,6 +41,7 @@ export default function App() {
   const project = h.value
   const sheet = activeSheet(project)
   const [catalogOpen, setCatalogOpen] = useState(false)
+  const [preview, setPreview] = useState<{ pages: PreviewPage[]; name: string; title: string } | null>(null)
   const [memoOpen, setMemoOpen] = useState(false)
   // ghidul se deschide singur la prima vizită
   const [helpOpen, setHelpOpen] = useState(() => {
@@ -93,7 +96,11 @@ export default function App() {
   useEffect(() => {
     if (!selection) return
     const exists =
-      selection.kind === 'device' ? project.devices.some((d) => d.id === selection.id) : project.cables.some((c) => c.id === selection.id)
+      selection.kind === 'device'
+        ? project.devices.some((d) => d.id === selection.id)
+        : selection.kind === 'arch'
+          ? project.arch.some((a) => a.id === selection.id)
+          : project.cables.some((c) => c.id === selection.id)
     if (!exists) setSelection(null)
   }, [project, selection])
 
@@ -202,14 +209,40 @@ export default function App() {
           to: c.to === selection.id ? undefined : c.to,
         })),
       }))
+    } else if (selection.kind === 'arch') {
+      h.commit((p) => ({ ...p, arch: p.arch.filter((a) => a.id !== selection.id) }))
     } else {
       h.commit((p) => ({ ...p, cables: p.cables.filter((c) => c.id !== selection.id) }))
     }
     setSelection(null)
   }, [selection, h])
 
+  /** Adaugă un element de arhitectură; o schiță fără plan de fundal pornește la scara 1 m = 50 px */
+  const addArch = useCallback(
+    (el: ArchElement) => {
+      const id = uid()
+      h.commit((p) => ({
+        ...p,
+        pxPerMeter: p.pxPerMeter ?? (p.background ? p.pxPerMeter : SKETCH_PX_PER_M),
+        arch: [...p.arch, { ...el, id }],
+      }))
+      if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
+    },
+    [h],
+  )
+
+  const patchArch = (id: string, patch: Partial<ArchElement>) =>
+    h.commit((p) => ({ ...p, arch: p.arch.map((a) => (a.id === id ? { ...a, ...patch } : a)) }))
+
   const rotateSelection = useCallback(
     (delta: number) => {
+      if (selection?.kind === 'arch') {
+        h.commit((p) => ({
+          ...p,
+          arch: p.arch.map((a) => (a.id === selection.id && a.x != null ? { ...a, rotation: ((((a.rotation ?? 0) + delta) % 360) + 360) % 360 } : a)),
+        }))
+        return
+      }
       if (selection?.kind !== 'device') return
       h.commit((p) => ({
         ...p,
@@ -220,6 +253,21 @@ export default function App() {
   )
 
   const duplicateSelection = useCallback(() => {
+    if (selection?.kind === 'arch') {
+      const src = project.arch.find((a) => a.id === selection.id)
+      if (!src) return
+      const id = uid()
+      const off = 0.5 * (project.pxPerMeter ?? SKETCH_PX_PER_M)
+      h.commit((p) => ({
+        ...p,
+        arch: [
+          ...p.arch,
+          { ...src, id, points: src.points?.map((v) => v + off), x: src.x != null ? src.x + off : undefined, y: src.y != null ? src.y + off : undefined },
+        ],
+      }))
+      setSelection({ kind: 'arch', id })
+      return
+    }
     if (selection?.kind !== 'device') return
     const src = project.devices.find((d) => d.id === selection.id)
     const def = src && symbolByType(src.type)
@@ -233,7 +281,7 @@ export default function App() {
       ],
     }))
     setSelection({ kind: 'device', id })
-  }, [selection, project.devices, h])
+  }, [selection, project.devices, project.arch, project.pxPerMeter, h])
 
   // ---------------------------------------------------------------- copiere / lipire
 
@@ -408,7 +456,7 @@ export default function App() {
     try {
       await new Promise((r) => setTimeout(r, 50))
       const page = await renderSheetPage(stage, project, sheet)
-      savePdf([page], `${fileBase()} - ${sheet.nr} ${sheet.titlu}`)
+      setPreview({ pages: [{ ...page, label: `${sheet.nr} ${sheet.titlu}` }], name: `${fileBase()} - ${sheet.nr} ${sheet.titlu}`, title: `Planșa ${sheet.nr}` })
     } catch (err) {
       notify((err as Error).message)
     } finally {
@@ -419,7 +467,7 @@ export default function App() {
   const doExportAllPdf = async () => {
     const original = project.activeSheetId
     setBusy('Se generează toate planșele…')
-    const pages: RenderedPage[] = []
+    const pages: PreviewPage[] = []
     const skipped: string[] = []
     try {
       for (const sh of project.sheets) {
@@ -432,13 +480,13 @@ export default function App() {
         const stage = stageRef.current
         if (!stage) continue
         try {
-          pages.push(await renderSheetPage(stage, project, sh))
+          pages.push({ ...(await renderSheetPage(stage, project, sh)), label: `${sh.nr} ${sh.titlu}` })
         } catch {
           skipped.push(sh.nr)
         }
       }
-      if (pages.length) savePdf(pages, `${fileBase()} - planse`)
-      notify(`${pages.length} planșe exportate${skipped.length ? `; goale, sărite: ${skipped.join(', ')}` : ''}.`)
+      if (pages.length) setPreview({ pages, name: `${fileBase()} - planse`, title: 'Toate planșele' })
+      if (skipped.length) notify(`Planșe goale, sărite: ${skipped.join(', ')}.`)
     } finally {
       h.update((p) => ({ ...p, activeSheetId: original }))
       setFitSignal((n) => n + 1)
@@ -460,8 +508,9 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (catalogOpen || memoOpen || helpOpen) {
+      if (catalogOpen || memoOpen || helpOpen || preview) {
         if (e.key === 'Escape') {
+          setPreview(null)
           setCatalogOpen(false)
           setMemoOpen(false)
           if (helpOpen) closeHelp()
@@ -516,6 +565,7 @@ export default function App() {
 
   const selDevice = selection?.kind === 'device' ? project.devices.find((d) => d.id === selection.id) : undefined
   const selCable = selection?.kind === 'cable' ? project.cables.find((c) => c.id === selection.id) : undefined
+  const selArch = selection?.kind === 'arch' ? project.arch.find((a) => a.id === selection.id) : undefined
 
   return (
     <div className="app">
@@ -587,6 +637,15 @@ export default function App() {
         <Palette
           tool={tool}
           catalog={project.catalog}
+          onPickArch={(arch) => {
+            if (sheet.kind === 'bloc') {
+              const target = project.sheets.find((sh) => sh.kind === 'plan')
+              if (!target) return
+              setActiveSheet(target.id)
+            }
+            setSelection(null)
+            setTool(tool.kind === 'arch' && tool.arch === arch ? { kind: 'select' } : { kind: 'arch', arch })
+          }}
           onPick={(type, catalogId) => {
             if (sheet.kind === 'bloc') {
               const sys = symbolByType(type)?.system
@@ -615,6 +674,7 @@ export default function App() {
               onAddDevice={addDevice}
               onAddCable={addCable}
               onScaleMeasured={onScaleMeasured}
+              onAddArch={addArch}
               onContext={(info) => {
                 setTool({ kind: 'select' })
                 if (info.target) select(info.target)
@@ -693,6 +753,8 @@ export default function App() {
                 <DeviceProps d={selDevice} project={project} onChange={(patch) => patchDevice(selDevice.id, patch)} onDelete={deleteSelection} />
               ) : selCable ? (
                 <CableProps c={selCable} project={project} onChange={(patch) => patchCable(selCable.id, patch)} onDelete={deleteSelection} />
+              ) : selArch ? (
+                <ArchProps a={selArch} project={project} onChange={(patch) => patchArch(selArch.id, patch)} onDelete={deleteSelection} />
               ) : (
                 <div className="props">
                   <p className="hint">Selectează un echipament sau un cablu de pe plan.</p>
@@ -737,6 +799,18 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {helpOpen && <HelpDialog onClose={closeHelp} />}
+      {preview && (
+        <PdfPreview
+          pages={preview.pages}
+          title={preview.title}
+          onClose={() => setPreview(null)}
+          onDownload={() => {
+            savePdf(preview.pages, preview.name)
+            notify(`PDF descărcat (${preview.pages.length} ${preview.pages.length === 1 ? 'pagină' : 'pagini'}).`)
+            setPreview(null)
+          }}
+        />
+      )}
       {busy && <div className="overlay">{busy}</div>}
       {ctxMenu && (
         <div className="ctx-back" onMouseDown={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
@@ -781,6 +855,29 @@ export default function App() {
                     </button>
                   </>
                 )
+              if (t?.kind === 'arch') {
+                const el = project.arch.find((a) => a.id === t.id)
+                return (
+                  <>
+                    <div className="ctx-title">{el ? ARCH_NAMES[el.kind] : 'Element'}</div>
+                    <button onClick={close(duplicateSelection)}>
+                      Duplică<kbd>Ctrl+D</kbd>
+                    </button>
+                    {el?.x != null && (
+                      <button onClick={close(() => rotateSelection(90))}>
+                        Rotește 90°<kbd>R</kbd>
+                      </button>
+                    )}
+                    {el?.kind === 'door' && (
+                      <button onClick={close(() => patchArch(el.id, { flipY: !el.flipY }))}>Întoarce sensul de deschidere</button>
+                    )}
+                    <div className="ctx-sep" />
+                    <button className="danger-item" onClick={close(deleteSelection)}>
+                      Șterge<kbd>Del</kbd>
+                    </button>
+                  </>
+                )
+              }
               if (t?.kind === 'cable')
                 return (
                   <>

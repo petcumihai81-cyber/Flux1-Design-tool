@@ -50,6 +50,7 @@ export function emptyProject(): Project {
     memoriu: defaultMemoriu(),
     devices: [],
     cables: [],
+    arch: [],
   }
 }
 
@@ -177,6 +178,13 @@ export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS) {
     xs.push(d.x)
     ys.push(d.y)
   }
+  for (const a of p.arch ?? []) {
+    const pts = a.points ?? (a.x != null && a.y != null ? [a.x, a.y] : [])
+    for (let i = 0; i < pts.length; i += 2) {
+      xs.push(pts[i])
+      ys.push(pts[i + 1])
+    }
+  }
   for (const c of p.cables) {
     if (hidden.has(c.system)) continue
     for (let i = 0; i < c.points.length; i += 2) {
@@ -230,6 +238,7 @@ export function normalizeProject(v: Project): Project {
     calc: { ...DEFAULT_CALC, ...v.calc },
     memoriu: { ...defaultMemoriu(), ...v.memoriu },
     cables: v.cables ?? [],
+    arch: Array.isArray(v.arch) ? v.arch : [],
     sheets,
     activeSheetId,
     version: 2,

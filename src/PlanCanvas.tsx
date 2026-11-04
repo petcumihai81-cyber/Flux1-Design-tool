@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { Device, Project, Selection, Sheet, Tool } from './types'
+import type { ArchElement, Device, Project, Selection, Sheet, Tool } from './types'
+import ArchShapes from './ArchShapes'
+import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, nearestOnPolyline } from './project'
 
@@ -20,6 +22,7 @@ interface Props {
   onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
   onScaleMeasured: (pixels: number) => void
+  onAddArch: (el: ArchElement) => void
   /** Click dreapta: poziția pe ecran, pe plan și elementul de sub cursor */
   onContext: (info: { clientX: number; clientY: number; x: number; y: number; target: Selection }) => void
   checkpoint: () => void
@@ -72,13 +75,15 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onContext, checkpoint, update } = props
+  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
   const [cursor, setCursor] = useState<Pt | null>(null)
   const [draft, setDraft] = useState<{ points: number[]; from?: string }>({ points: [] })
   const [scalePts, setScalePts] = useState<Pt[]>([])
+  /** Peretele sau cota în curs de desenare */
+  const [archDraft, setArchDraft] = useState<number[]>([])
   const bgImage = useImage(project.background?.src)
 
   const S = project.symbolSize
@@ -120,13 +125,22 @@ export default function PlanCanvas(props: Props) {
   useEffect(() => {
     setDraft({ points: [] })
     setScalePts([])
+    setArchDraft([])
   }, [tool])
 
   // Taste pentru cablu: Enter = finalizare, Backspace = șterge ultimul punct, Esc gestionat în App
   useEffect(() => {
-    if (tool.kind !== 'cable') return
+    if (tool.kind !== 'cable' && !isWallTool) return
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea, select')) return
+      if (isWallTool) {
+        if (e.key === 'Enter') finishWall()
+        if (e.key === 'Backspace' && archDraft.length) {
+          e.preventDefault()
+          setArchDraft((d) => d.slice(0, -2))
+        }
+        return
+      }
       if (e.key === 'Enter') finishDraft()
       if (e.key === 'Backspace' && draft.points.length) {
         e.preventDefault()
@@ -138,6 +152,29 @@ export default function PlanCanvas(props: Props) {
   })
 
   const pointer = (): Pt | null => stageRef.current?.getRelativePointerPosition() ?? null
+
+  const isWallTool = tool.kind === 'arch' && (tool.arch === 'wall-ext' || tool.arch === 'wall-int')
+  const wallThickness = tool.kind === 'arch' && tool.arch === 'wall-int' ? 0.12 : 0.25
+
+  /** Punctul de desen pentru pereți / cote, cu lipire de vârfuri și aliniere ortogonală (Shift = liber) */
+  const archSnap = (pt: Pt, free: boolean) => {
+    const n = archDraft.length
+    const prev = n ? { x: archDraft[n - 2], y: archDraft[n - 1] } : undefined
+    const own = n >= 4 ? [{ x: archDraft[0], y: archDraft[1] }] : []
+    return snapPoint(pt, prev, [...wallVertices(project.arch), ...own], 10 * k, free)
+  }
+
+  function finishWall(extra?: Pt) {
+    const pts = extra ? [...archDraft, extra.x, extra.y] : archDraft
+    const clean: number[] = []
+    for (let i = 0; i < pts.length; i += 2) {
+      const n = clean.length
+      if (n && Math.hypot(clean[n - 2] - pts[i], clean[n - 1] - pts[i + 1]) < 0.5) continue
+      clean.push(pts[i], pts[i + 1])
+    }
+    if (clean.length >= 4) onAddArch(newWall(clean, wallThickness))
+    setArchDraft([])
+  }
 
   const deviceAt = (pt: Pt): Device | undefined => {
     let best: Device | undefined
@@ -209,6 +246,36 @@ export default function PlanCanvas(props: Props) {
           onScaleMeasured(Math.hypot(pt.x - a.x, pt.y - a.y))
         }
         break
+      case 'arch': {
+        const free = e.evt.shiftKey
+        if (tool.arch === 'wall-ext' || tool.arch === 'wall-int') {
+          const p = archSnap(pt, free)
+          // click pe primul punct = închide conturul
+          if (archDraft.length >= 4 && Math.hypot(p.x - archDraft[0], p.y - archDraft[1]) < 0.5) finishWall(p)
+          else setArchDraft((d) => [...d, p.x, p.y])
+        } else if (tool.arch === 'dim') {
+          const p = archSnap(pt, free)
+          if (!archDraft.length) setArchDraft([p.x, p.y])
+          else {
+            onAddArch({ id: '', kind: 'dim', points: [archDraft[0], archDraft[1], p.x, p.y] })
+            setArchDraft([])
+          }
+        } else if (tool.arch === 'door' || tool.arch === 'window') {
+          const w = wallAt(project.arch, pt.x, pt.y, 0.5 * ppm)
+          onAddArch({
+            id: '',
+            kind: tool.arch,
+            x: w?.x ?? pt.x,
+            y: w?.y ?? pt.y,
+            rotation: w?.angle ?? 0,
+            width: tool.arch === 'door' ? 0.9 : 1.2,
+          })
+        } else if (tool.arch === 'label') {
+          const text = window.prompt('Numele încăperii:', 'Birou')
+          if (text) onAddArch({ id: '', kind: 'label', x: pt.x, y: pt.y, text, size: 0.45, rotation: 0 })
+        }
+        break
+      }
       case 'cable': {
         const dev = deviceAt(pt)
         if (!draft.points.length) {
@@ -332,7 +399,7 @@ export default function PlanCanvas(props: Props) {
   }
 
   const cursorStyle =
-    tool.kind === 'place' || tool.kind === 'scale' || tool.kind === 'cable' ? 'crosshair' : 'default'
+    tool.kind === 'place' || tool.kind === 'scale' || tool.kind === 'cable' || tool.kind === 'arch' ? 'crosshair' : 'default'
 
   return (
     <div
@@ -367,13 +434,22 @@ export default function PlanCanvas(props: Props) {
             ? { kind: 'device', id: dev.id }
             : name.startsWith('cable:')
               ? { kind: 'cable', id: name.slice(6) }
-              : null
+              : name.startsWith('arch:')
+                ? { kind: 'arch', id: name.slice(5) }
+                : null
           setDraft({ points: [] })
+          setArchDraft([])
           setScalePts([])
           onContext({ clientX: e.evt.clientX, clientY: e.evt.clientY, x: pt.x, y: pt.y, target })
         }}
         onClick={onStageClick}
         onDblClick={() => {
+          if (isWallTool && archDraft.length >= 4) {
+            const pt = pointer()
+            const n = archDraft.length
+            if (pt && Math.hypot(pt.x - archDraft[n - 2], pt.y - archDraft[n - 1]) < 10 * k) finishWall()
+            return
+          }
           if (tool.kind !== 'cable' || draft.points.length < 2) return
           // dublu-click real = al doilea click în același loc; click-urile rapide în locuri diferite nu termină cablul
           const pt = pointer()
@@ -381,7 +457,7 @@ export default function PlanCanvas(props: Props) {
           if (pt && Math.hypot(pt.x - draft.points[n - 2], pt.y - draft.points[n - 1]) < 8 * k) finishDraft()
         }}
         onMouseMove={() => {
-          if (tool.kind === 'cable' || tool.kind === 'scale') setCursor(pointer())
+          if (tool.kind === 'cable' || tool.kind === 'scale' || tool.kind === 'arch') setCursor(pointer())
         }}
       >
         {/* Fundal */}
@@ -389,6 +465,20 @@ export default function PlanCanvas(props: Props) {
           {bgImage && project.background && (
             <KImage name="background" image={bgImage} width={project.background.width} height={project.background.height} />
           )}
+        </Layer>
+
+        {/* Schița de arhitectură */}
+        <Layer listening={isSelect}>
+          <ArchShapes
+            arch={project.arch}
+            ppm={ppm}
+            k={k}
+            selectedId={selection?.kind === 'arch' ? selection.id : undefined}
+            interactive={isSelect}
+            onSelect={(id) => onSelect({ kind: 'arch', id })}
+            checkpoint={checkpoint}
+            update={update}
+          />
         </Layer>
 
         {/* Conuri camere + cabluri */}
@@ -710,6 +800,26 @@ export default function PlanCanvas(props: Props) {
             />
           )}
 
+          {tool.kind === 'arch' && archDraft.length > 0 && cursor && (() => {
+            const c = archSnap(cursor, false)
+            const n = archDraft.length
+            const pts = [...archDraft, c.x, c.y]
+            const seg = Math.hypot(c.x - archDraft[n - 2], c.y - archDraft[n - 1]) / ppm
+            return (
+              <>
+                <Line
+                  points={pts}
+                  stroke={isWallTool ? 'rgba(21,101,192,0.55)' : '#1565c0'}
+                  strokeWidth={isWallTool ? wallThickness * ppm : 1.5 * k}
+                  lineCap="square"
+                  lineJoin="miter"
+                  listening={false}
+                />
+                <Text x={c.x + 10 * k} y={c.y + 10 * k} text={fmtM(seg)} fontSize={13 * k} fontStyle="bold" fill="#1565c0" listening={false} />
+              </>
+            )
+          })()}
+
           {tool.kind === 'scale' && scalePts.length === 1 && (
             <>
               <Circle x={scalePts[0].x} y={scalePts[0].y} radius={5 * k} fill="#d81b60" listening={false} />
@@ -731,6 +841,17 @@ export default function PlanCanvas(props: Props) {
         <div className="canvas-hint">
           {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
+          {isWallTool && (
+            <>
+              Click din punct în punct pentru perete ({wallThickness === 0.25 ? '25' : '12'} cm). Se aliniază automat orizontal / vertical și se lipește de
+              pereții existenți (Shift = liber). Click pe primul punct închide conturul; dublu-click / Enter = gata, Backspace = șterge ultimul punct.
+            </>
+          )}
+          {tool.kind === 'arch' && (tool.arch === 'door' || tool.arch === 'window') && (
+            <>Click pe un perete pentru a așeza {tool.arch === 'door' ? 'ușa' : 'fereastra'} (se aliniază singură). Esc = gata.</>
+          )}
+          {tool.kind === 'arch' && tool.arch === 'label' && <>Click pe plan pentru a adăuga numele unei încăperi. Esc = gata.</>}
+          {tool.kind === 'arch' && tool.arch === 'dim' && <>Click pe capetele cotei; lungimea se calculează singură. Esc = gata.</>}
           {tool.kind === 'cable' && (
             <>
               Click pe echipamentul de start, apoi puncte de traseu; click pe echipamentul final pentru a termina — sau pe alt cablu, pentru o

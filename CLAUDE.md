@@ -40,6 +40,8 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
 | `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
+| `arch.ts` + `ArchShapes.tsx` | Schița de arhitectură (`Project.arch`): pereți cu grosime reală, uși, ferestre, texte, cote; lipire de vârfuri și aliniere ortogonală; schiță fără plan = 50 px/m |
+| `PdfPreview.tsx` | Previzualizarea paginilor înainte de descărcarea PDF |
 | `HelpDialog.tsx` + `public/help/*.webp` | Ghidul din aplicație (butonul „?”), cu secțiuni „cum fac…” și capturi de ecran; se deschide singur la prima vizită |
 | `App.tsx` | Starea aplicației, bara de unelte, planșe, scurtături, export |
 

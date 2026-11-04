@@ -9,6 +9,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 ## Ce face
 
 - **Plan de fundal**: încarci planul clădirii ca PDF (orice pagină) sau imagine.
+- **Schiță de arhitectură** (fără plan sau peste plan): pereți exteriori / interiori cu grosime reală, uși cu sensul de deschidere, ferestre, texte de încăpere și cote; aliniere automată și lipire de pereții existenți.
 - **Calibrare scară**: unealta *Scară* → click pe capetele unei cote cunoscute → introduci lungimea în metri.
 - **Bibliotecă de simboluri** pe cele 4 subsisteme: plasare prin click sau drag & drop, cu numerotare automată (PIR01, CVe02, DF03…).
 - **Camere video** cu con de vizualizare la scară reală: se reglează direct pe plan (vârful conului = distanța, marginile = unghiul, mânerul albastru = rotirea; `Shift` = fără pas) sau din panoul de proprietăți. Unghiul și distanța pot fi trecute în catalog pe fiecare model de cameră.
@@ -22,6 +23,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   legăturile le urmăresc, se pot trage legături noi (eticheta se completează din cablul de pe plan), se adaugă texte și chenare de grupare,
   cu culori și linii punctate. Echipamentele rămân legate de plan; cele adăugate ulterior apar ca „neplasate”. „Regenerează” refă schema automat.
 - **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.
+- **Previzualizare PDF** înainte de descărcare: paginile exact cum vor ieși, cu miniaturi la mai multe planșe.
 - **Export PDF** pentru planșa curentă sau pentru toate planșele într-un singur PDF (formate diferite pe pagini diferite), cu chenar, legendă automată (simboluri folosite + cantități) și cartuș.
 - **Export Excel** cu patru foi:
   - *Echipamente*: structura fiecărui sistem (denumire, model, cantitate, producător)
