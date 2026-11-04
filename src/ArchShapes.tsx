@@ -1,8 +1,10 @@
-import { Circle, Group, Line, Rect, Text } from 'react-konva'
+import { Circle, Ellipse, Group, Image as KImage, Line, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArchElement, Project } from './types'
 import { fmtM, snapPoint, wallAt, wallVertices } from './arch'
 import { polylineLength } from './project'
+import { cachedImage } from './symbols'
+import { tableData, tableLayoutPx } from './sheetTables'
 
 /**
  * Desenul elementelor de arhitectură pe plan: pereți (grosime reală), uși (cu sensul de deschidere),
@@ -25,9 +27,18 @@ interface Props {
   onEditText: (id: string) => void
   checkpoint: () => void
   update: (fn: (p: Project) => Project) => void
+  /** Pentru tabelele de pe planșă: proiectul (datele) și px de plan pe mm de hârtie */
+  project?: Project
+  pxPerMm?: number
 }
 
 const INK = '#222'
+
+/** Culoare #rrggbb cu transparență */
+const hexA = (hex: string, a: number) => {
+  const n = parseInt(hex.replace('#', ''), 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
+}
 
 /** Puncte pe un arc (pentru deschiderea ușii) */
 function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n = 16) {
@@ -39,7 +50,7 @@ function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n 
   return pts
 }
 
-export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, groupIds, interactive, onSelect, onEditText, checkpoint, update }: Props) {
+export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, groupIds, interactive, onSelect, onEditText, checkpoint, update, project, pxPerMm = ppm / 10 }: Props) {
   const patch = (id: string, p: Partial<ArchElement>) =>
     update((pr) => ({ ...pr, arch: pr.arch.map((a) => (a.id === id ? { ...a, ...p } : a)) }))
 
@@ -90,8 +101,175 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
   const sel = (a: ArchElement) => a.id === selectedId || !!groupIds?.has(a.id)
   const locked = !!groupIds?.size
 
+  /** Zonă (dreptunghi / elipsă) sau imagine: grup centrat în (x, y), rotit */
+  const renderBox = (a: ArchElement) => {
+    if (a.x == null || a.y == null) return null
+    const w = (a.width ?? 4) * ppm
+    const h = (a.height ?? 3) * ppm
+    const selected = sel(a)
+    if (a.kind === 'image') {
+      const img = a.src ? cachedImage(`img:${a.id}:${a.src.length}`, () => a.src!) : undefined
+      return (
+        <Group key={a.id} {...common(a)} {...moveProps(a)} x={a.x} y={a.y} rotation={a.rotation ?? 0}>
+          {img ? (
+            <KImage name={'arch:' + a.id} image={img} x={-w / 2} y={-h / 2} width={w} height={h} />
+          ) : (
+            <Rect name={'arch:' + a.id} x={-w / 2} y={-h / 2} width={w} height={h} fill="#eceff1" stroke="#b0bec5" dash={[6 * k, 4 * k]} />
+          )}
+          {selected && <Rect x={-w / 2} y={-h / 2} width={w} height={h} stroke="#1e88e5" strokeWidth={2 * k} dash={[6 * k, 4 * k]} listening={false} />}
+        </Group>
+      )
+    }
+    const stroke = a.stroke ?? '#1565c0'
+    const fill = a.fill ?? stroke
+    const op = a.fillOpacity ?? 0.12
+    const area = a.kind === 'rect' ? (a.width ?? 4) * (a.height ?? 3) : Math.PI * ((a.width ?? 4) / 2) * ((a.height ?? 3) / 2)
+    const fs = Math.max(symbolSize * 0.42, 0.3 * ppm)
+    const lines = [a.text ?? '', a.showArea !== false ? `${area.toFixed(1).replace('.', ',')} m²` : ''].filter(Boolean).join('\n')
+    const shapeProps = {
+      name: 'arch:' + a.id,
+      fill: hexA(fill, op),
+      stroke: selected ? '#1e88e5' : stroke,
+      strokeWidth: Math.max(0.04 * ppm, 1.5 * k),
+      dash: a.dashed !== false ? [0.25 * ppm, 0.15 * ppm] : undefined,
+    }
+    return (
+      <Group key={a.id} {...common(a)} {...moveProps(a)} x={a.x} y={a.y} rotation={a.rotation ?? 0}>
+        {a.kind === 'rect' ? <Rect {...shapeProps} x={-w / 2} y={-h / 2} width={w} height={h} /> : <Ellipse {...shapeProps} radiusX={w / 2} radiusY={h / 2} />}
+        {lines && (
+          <Text
+            text={lines}
+            x={-w / 2}
+            y={-h / 2}
+            width={w}
+            height={h}
+            align="center"
+            verticalAlign="middle"
+            fontSize={fs}
+            fontStyle="bold"
+            fontFamily="Arial"
+            fill={stroke}
+            lineHeight={1.25}
+            listening={false}
+          />
+        )}
+      </Group>
+    )
+  }
+
+  /** Dimensiunile tabelului (px plan) din date și mărimea textului pe hârtie */
+  const tableLayout = (a: ArchElement) => {
+    if (!project || !a.table) return null
+    const data = tableData(project, a.table, a.levelId)
+    return { data, ...tableLayoutPx(data, a.table.fontMm ?? 2.5, pxPerMm) }
+  }
+
+  /** Tabel pe planșă: (x, y) = colțul din stânga-sus */
+  const renderTable = (a: ArchElement) => {
+    const L = tableLayout(a)
+    if (!L || a.x == null || a.y == null) return null
+    const { data, fpx, rowH, colW, width, height, titleH } = L
+    const xs = colW.reduce<number[]>((acc, w) => [...acc, acc[acc.length - 1] + w], [0])
+    const pad = fpx * 0.35
+    const rows = data.rows.length ? data.rows : [['', '(fără date)']]
+    return (
+      <Group key={a.id} {...common(a)} {...moveProps(a)} x={a.x} y={a.y} rotation={a.rotation ?? 0}>
+        <Rect name={'arch:' + a.id} y={titleH} width={width} height={height - titleH} fill="#fff" stroke={sel(a) ? '#1e88e5' : '#222'} strokeWidth={fpx * 0.12} />
+        <Text text={data.title.toUpperCase()} width={width} height={titleH} verticalAlign="middle" fontSize={fpx * 1.05} fontStyle="bold" fontFamily="Arial" fill="#222" listening={false} />
+        <Rect y={titleH} width={width} height={rowH} fill="#eceff1" listening={false} />
+        {data.header.map((hd, i) => (
+          <Text key={'h' + i} text={hd} x={xs[i] + pad} y={titleH} width={colW[i] - 2 * pad} height={rowH} verticalAlign="middle" fontSize={fpx} fontStyle="bold" fontFamily="Arial" fill="#222" ellipsis wrap="none" listening={false} />
+        ))}
+        {rows.map((r, ri) => {
+          const y = titleH + rowH * (ri + 1)
+          const section = r.length === 1 && r[0].startsWith('§')
+          return (
+            <Group key={'r' + ri} listening={false}>
+              <Line points={[0, y, width, y]} stroke="#90a4ae" strokeWidth={fpx * 0.06} />
+              {section ? (
+                <Text text={r[0].slice(1)} x={pad} y={y} width={width - 2 * pad} height={rowH} verticalAlign="middle" fontSize={fpx} fontStyle="bold" fontFamily="Arial" fill="#37474f" />
+              ) : (
+                r.map((c, ci) => (
+                  <Text key={ci} text={c} x={xs[ci] + pad} y={y} width={colW[ci] - 2 * pad} height={rowH} verticalAlign="middle" fontSize={fpx} fontFamily="Arial" fill="#222" ellipsis wrap="none" />
+                ))
+              )}
+            </Group>
+          )
+        })}
+        {xs.slice(1, -1).map((x, i) => (
+          <Line key={'v' + i} points={[x, titleH, x, height]} stroke="#90a4ae" strokeWidth={fpx * 0.06} listening={false} />
+        ))}
+      </Group>
+    )
+  }
+
+  /** Mânerul din colțul dreapta-jos: zonele se redimensionează liber, imaginile proporțional, tabelele schimbă mărimea textului */
+  const resizeHandle = (a: ArchElement) => {
+    if (a.x == null || a.y == null) return null
+    const r = ((a.rotation ?? 0) * Math.PI) / 180
+    const cs = Math.cos(r)
+    const sn = Math.sin(r)
+    const isTable = a.kind === 'table'
+    const L = isTable ? tableLayout(a) : null
+    if (isTable && !L) return null
+    const w = isTable ? L!.width : (a.width ?? 4) * ppm
+    const h = isTable ? L!.height : (a.height ?? 3) * ppm
+    // colțul fix (stânga-sus) și colțul tras (dreapta-jos), în coordonate plan
+    const tl = isTable ? { x: a.x, y: a.y } : { x: a.x - (cs * w) / 2 + (sn * h) / 2, y: a.y - (sn * w) / 2 - (cs * h) / 2 }
+    const br = { x: tl.x + cs * w - sn * h, y: tl.y + sn * w + cs * h }
+    return (
+      <Rect
+        key={'rs' + a.id}
+        x={br.x}
+        y={br.y}
+        width={12 * k}
+        height={12 * k}
+        offsetX={6 * k}
+        offsetY={6 * k}
+        rotation={a.rotation ?? 0}
+        fill="#1e88e5"
+        stroke="#fff"
+        strokeWidth={1.5 * k}
+        draggable
+        onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = 'nwse-resize')}
+        onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+        onDragStart={(e) => {
+          e.cancelBubble = true
+          checkpoint()
+        }}
+        onDragMove={(e) => {
+          e.cancelBubble = true
+          const dx = e.target.x() - tl.x
+          const dy = e.target.y() - tl.y
+          // proiecția pe axele elementului rotit
+          let nw = Math.max(0.2 * ppm, dx * cs + dy * sn)
+          let nh = Math.max(0.2 * ppm, -dx * sn + dy * cs)
+          if (isTable) {
+            const f = Math.max(0.6, Math.min(12, ((a.table?.fontMm ?? 2.5) * nw) / w))
+            patch(a.id, { table: { ...a.table!, fontMm: Math.round(f * 10) / 10 } })
+            return
+          }
+          if (a.kind === 'image') nh = nw * (h / w)
+          else nw = Math.round((nw / ppm) * 20) / 20 * ppm
+          if (a.kind !== 'image') nh = Math.round((nh / ppm) * 20) / 20 * ppm
+          patch(a.id, {
+            width: nw / ppm,
+            height: nh / ppm,
+            x: tl.x + (cs * nw - sn * nh) / 2,
+            y: tl.y + (sn * nw + cs * nh) / 2,
+          })
+        }}
+        onDragEnd={(e) => {
+          e.cancelBubble = true
+        }}
+      />
+    )
+  }
+
   return (
     <>
+      {/* zonele și imaginile, sub pereți */}
+      {arch.filter((a) => a.kind === 'rect' || a.kind === 'ellipse' || a.kind === 'image').map((a) => renderBox(a))}
       {/* pereții primii, ca ușile și ferestrele să-i „taie” */}
       {arch
         .filter((a) => a.kind === 'wall' && a.points)
@@ -374,6 +552,12 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
               />
             )
           })}
+      {arch.filter((a) => a.kind === 'table').map((a) => renderTable(a))}
+      {/* zonă / imagine / tabel selectat: mâner de redimensionare în colțul din dreapta-jos */}
+      {interactive &&
+        arch
+          .filter((a) => a.id === selectedId && (a.kind === 'rect' || a.kind === 'ellipse' || a.kind === 'image' || a.kind === 'table'))
+          .map((a) => resizeHandle(a))}
       {/* lungimea peretelui selectat */}
       {arch
         .filter((a) => a.id === selectedId && a.kind === 'wall' && a.points && a.points.length >= 4)

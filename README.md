@@ -27,6 +27,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Traseele legăturilor se ajustează manual (segmente trase cu mouse-ul, capete care alunecă pe laturile blocurilor); selecție multiplă
   (Shift+click / Shift+dreptunghi), mutare în grup, aliniere și distribuire.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
+- **Zone, imagini și tabele pe planșă**: zone dreptunghi / elipsă cu nume și arie (m²) care pot atribui zona echipamentelor din interior; imagini (logo, fotografii); tabele generate din proiect (echipamente, zone, CCTV, jurnal cablu) care se actualizează singure.
 - **Zoom** ca în draw.io: bară cu − / procent / +, presetări, procent scris, încadrare și mărire pe selecție; 100% = mărimea reală a planșei tipărite; Ctrl + / Ctrl − / Ctrl 0 / Ctrl 1.
 - **File de planșe ca în Excel**: click dreapta (deschide, redenumește, duplică, mută, renumerotează, șterge), dublu-click pentru redenumire, reordonare prin tragere.
 - **Straturi** (ca în AutoCAD / Photoshop), pe fiecare planșă: fundal, arhitectură (pereți, goluri, texte, cote, ghene) și, pe fiecare sistem, echipamente, etichete, trasee, conuri — cu arată / ascunde (inclusiv în PDF, DXF și legendă) și blocare la selecție.

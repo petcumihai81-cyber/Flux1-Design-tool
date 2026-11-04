@@ -28,6 +28,13 @@ export const ARCH_LAYERS: LayerDef[] = [
   { key: 'arh:ghene', name: 'Ghene / treceri' },
 ]
 
+/** Adnotările planșei: zone desenate, imagini, tabele */
+export const ANNOT_LAYERS: LayerDef[] = [
+  { key: 'adn:zone', name: 'Zone (dreptunghi / elipsă)' },
+  { key: 'adn:imagini', name: 'Imagini' },
+  { key: 'adn:tabele', name: 'Tabele' },
+]
+
 export const systemLayers = (sys: SystemId): LayerDef[] => [
   { key: `${sys}:echipamente`, name: 'Echipamente (simboluri)' },
   { key: `${sys}:etichete`, name: 'Etichete (coduri)' },
@@ -47,6 +54,13 @@ export function archLayer(a: Pick<ArchElement, 'kind'>): LayerKey {
       return 'arh:text'
     case 'dim':
       return 'arh:cote'
+    case 'rect':
+    case 'ellipse':
+      return 'adn:zone'
+    case 'image':
+      return 'adn:imagini'
+    case 'table':
+      return 'adn:tabele'
     default:
       return 'arh:ghene'
   }
@@ -56,7 +70,7 @@ export function archLayer(a: Pick<ArchElement, 'kind'>): LayerKey {
 export function layerVisible(sh: Sheet, key: LayerKey): boolean {
   if (key === 'CCTV:conuri' && !sh.showCones) return false
   const sys = key.split(':')[0]
-  if (sys !== 'arh' && sys !== 'fundal' && !sh.systems.includes(sys as SystemId)) return false
+  if (sys !== 'arh' && sys !== 'adn' && sys !== 'fundal' && !sh.systems.includes(sys as SystemId)) return false
   return !(sh.hiddenLayers ?? []).includes(key)
 }
 

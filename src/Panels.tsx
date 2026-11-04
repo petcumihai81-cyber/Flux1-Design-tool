@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react'
-import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
-import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
+import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, SheetTable, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import { ANNOT_TOOLS, ARCH_NAMES, ARCH_TOOLS, archIconUrl, devicesInZone, fmtM } from './arch'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableEnds, cableMeters, cablePixels, catalogItem, deviceSystem, isRiserRoute, levelOf, riserHost, verticalMeters } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
+import { prepareImage } from './images'
+import { TABLE_KINDS } from './sheetTables'
 import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
-import { ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
+import { ANNOT_LAYERS, ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
@@ -28,21 +30,26 @@ export function Palette({
   onUploadSymbol: () => void
   onEditSymbol: (id: string) => void
 }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, CAT: true, CUSTOM: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
+  const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, ADN: false, CAT: true, CUSTOM: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
   const [q, setQ] = useState('')
   const query = q.trim().toLowerCase()
   return (
     <aside className="palette">
       <input className="search" placeholder="Caută simbol sau model…" value={q} onChange={(e) => setQ(e.target.value)} />
-      {(() => {
-        const items = ARCH_TOOLS.filter((t) => !query || t.name.toLowerCase().includes(query))
+      {(
+        [
+          { id: 'ARH', title: 'Arhitectură (schiță)', color: '#222', tools: ARCH_TOOLS },
+          { id: 'ADN', title: 'Zone, imagini, tabele', color: '#8d6e63', tools: ANNOT_TOOLS },
+        ] as const
+      ).map((grp) => {
+        const items = grp.tools.filter((t) => !query || t.name.toLowerCase().includes(query))
         if (!items.length) return null
-        const isOpen = open.ARH || !!query || tool.kind === 'arch'
+        const isOpen = open[grp.id] || !!query || (tool.kind === 'arch' && grp.tools.some((t) => t.tool === tool.arch))
         return (
-          <section>
-            <button className="pal-head" style={{ borderColor: '#222' }} onClick={() => setOpen((o) => ({ ...o, ARH: !o.ARH }))}>
-              <span className="dot" style={{ background: '#222' }} />
-              Arhitectură (schiță)
+          <section key={grp.id}>
+            <button className="pal-head" style={{ borderColor: grp.color }} onClick={() => setOpen((o) => ({ ...o, [grp.id]: !o[grp.id] }))}>
+              <span className="dot" style={{ background: grp.color }} />
+              {grp.title}
               <span className="chev">{isOpen ? '▾' : '▸'}</span>
             </button>
             {isOpen && (
@@ -65,7 +72,7 @@ export function Palette({
             )}
           </section>
         )
-      })()}
+      })}
       {(() => {
         const items = catalog.filter(
           (c) => symbolByType(c.type) && (!query || `${c.model} ${c.denumire} ${c.producator} ${c.prefix}`.toLowerCase().includes(query)),
@@ -497,17 +504,158 @@ export function GroupPanel({
 
 // ------------------------------------------------------------------ Proprietăți element de arhitectură
 
-export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; project: Project; onChange: (patch: Partial<ArchElement>) => void; onDelete: () => void }) {
+const ZONE_COLORS = ['#1565c0', '#c62828', '#2e7d32', '#e65100', '#6a1b9a', '#00838f', '#ad1457', '#455a64', '#222222']
+
+export function ArchProps({
+  a,
+  project,
+  onChange,
+  onDelete,
+  onAssignZone,
+}: {
+  a: ArchElement
+  project: Project
+  onChange: (patch: Partial<ArchElement>) => void
+  onDelete: () => void
+  /** Zonă: completează „Zona protejată” la echipamentele din interior */
+  onAssignZone?: (deviceIds: string[], zone: string) => void
+}) {
   const ppm = levelOf(project, a.levelId).pxPerMeter ?? 50
   const len = a.points ? polyLen(a.points) / ppm : 0
+  const isZone = a.kind === 'rect' || a.kind === 'ellipse'
+  const inside = isZone ? devicesInZone(project, a) : []
+  const imgRef = { current: null as HTMLInputElement | null }
   return (
     <div className="props">
       <div className="props-title">
         <div>
           <b>{ARCH_NAMES[a.kind]}</b>
-          <small style={{ color: 'var(--muted)' }}>Arhitectură (schiță)</small>
+          <small style={{ color: 'var(--muted)' }}>{isZone || a.kind === 'image' || a.kind === 'table' ? 'Zone, imagini, tabele' : 'Arhitectură (schiță)'}</small>
         </div>
       </div>
+      {isZone && (
+        <>
+          <Field label="Numele zonei">
+            <input value={a.text ?? ''} placeholder="ex. Zona 1 – Recepție" onChange={(e) => onChange({ text: e.target.value })} />
+          </Field>
+          <div className="row2">
+            <Field label="Lățime (m)">
+              <Num value={a.width ?? 4} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ width: Math.max(0.1, v) })} />
+            </Field>
+            <Field label="Înălțime (m)">
+              <Num value={a.height ?? 3} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ height: Math.max(0.1, v) })} />
+            </Field>
+          </div>
+          <p className="hint">
+            Aria: <b>{((a.kind === 'rect' ? (a.width ?? 4) * (a.height ?? 3) : Math.PI * ((a.width ?? 4) / 2) * ((a.height ?? 3) / 2)) || 0).toFixed(2).replace('.', ',')} m²</b>
+            {' '}· trage pătratul din colț pentru redimensionare
+          </p>
+          <Field label="Rotire (°)">
+            <Num value={a.rotation ?? 0} min={-360} max={360} step={1} onChange={(v) => onChange({ rotation: v })} />
+          </Field>
+          <Field label="Culoare">
+            <div className="color-row">
+              {ZONE_COLORS.map((c) => (
+                <button key={c} className={'swatch' + ((a.stroke ?? '#1565c0') === c ? ' on' : '')} style={{ background: c }} onClick={() => onChange({ stroke: c, fill: undefined })} />
+              ))}
+              <input type="color" value={a.stroke ?? '#1565c0'} onChange={(e) => onChange({ stroke: e.target.value, fill: undefined })} />
+            </div>
+          </Field>
+          <Field label={`Umplere: ${Math.round((a.fillOpacity ?? 0.12) * 100)}%`}>
+            <input type="range" min={0} max={60} step={2} value={Math.round((a.fillOpacity ?? 0.12) * 100)} onChange={(e) => onChange({ fillOpacity: parseInt(e.target.value, 10) / 100 })} />
+          </Field>
+          <label className="check">
+            <input type="checkbox" checked={a.dashed !== false} onChange={(e) => onChange({ dashed: e.target.checked })} />
+            Contur punctat
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={a.showArea !== false} onChange={(e) => onChange({ showArea: e.target.checked })} />
+            Afișează aria (m²)
+          </label>
+          {onAssignZone && (
+            <button
+              disabled={!inside.length || !(a.text ?? '').trim()}
+              title={inside.length ? inside.map((d) => d.label).join(', ') : 'Nu sunt echipamente în zonă'}
+              onClick={() => onAssignZone(inside.map((d) => d.id), (a.text ?? '').trim())}
+            >
+              Atribuie zona celor {inside.length} echipamente din interior
+            </button>
+          )}
+          {!!inside.length && !(a.text ?? '').trim() && <p className="hint">Scrie numele zonei ca s-o poți atribui echipamentelor (tabelul de zone din memoriu).</p>}
+        </>
+      )}
+      {a.kind === 'image' && (
+        <>
+          <div className="row2">
+            <Field label="Lățime (m)">
+              <Num
+                value={a.width ?? 4}
+                min={0.05}
+                max={500}
+                step={0.05}
+                onChange={(v) => {
+                  const w = Math.max(0.05, v)
+                  onChange({ width: w, height: ((a.height ?? 3) * w) / (a.width ?? 4) })
+                }}
+              />
+            </Field>
+            <Field label="Rotire (°)">
+              <Num value={a.rotation ?? 0} min={-360} max={360} step={1} onChange={(v) => onChange({ rotation: v })} />
+            </Field>
+          </div>
+          <p className="hint">{a.text ? `Fișier: ${a.text}. ` : ''}Trage pătratul din colț pentru mărime (proporțiile se păstrează).</p>
+          <button onClick={() => imgRef.current?.click()}>Înlocuiește imaginea…</button>
+          <input
+            ref={(el) => {
+              imgRef.current = el
+            }}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+            hidden
+            onChange={async (e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (!f) return
+              const img = await prepareImage(f)
+              onChange({ src: img.src, text: f.name, height: ((a.width ?? 4) * img.h) / img.w })
+            }}
+          />
+        </>
+      )}
+      {a.kind === 'table' && a.table && (
+        <>
+          <Field label="Conținut">
+            <select value={a.table.kind} onChange={(e) => onChange({ table: { ...a.table!, kind: e.target.value as SheetTable['kind'] } })}>
+              {TABLE_KINDS.map((t) => (
+                <option key={t.kind} value={t.kind}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Sistem">
+            <select value={a.table.system ?? ''} onChange={(e) => onChange({ table: { ...a.table!, system: (e.target.value || undefined) as SystemId | undefined } })}>
+              <option value="">Toate sistemele</option>
+              {SYSTEMS.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <label className="check">
+            <input type="checkbox" checked={!!a.table.levelOnly} onChange={(e) => onChange({ table: { ...a.table!, levelOnly: e.target.checked } })} />
+            Doar elementele de pe nivelul „{levelOf(project, a.levelId).name}”
+          </label>
+          <Field label="Mărimea textului pe hârtie (mm)">
+            <Num value={a.table.fontMm ?? 2.5} min={0.6} max={12} step={0.1} onChange={(v) => onChange({ table: { ...a.table!, fontMm: Math.max(0.6, Math.min(12, v)) } })} />
+          </Field>
+          <Field label="Rotire (°)">
+            <Num value={a.rotation ?? 0} min={-360} max={360} step={90} onChange={(v) => onChange({ rotation: v })} />
+          </Field>
+          <p className="hint">Tabelul se actualizează singur din proiect. Trage pătratul din colț pentru mărimea textului.</p>
+        </>
+      )}
       {a.kind === 'wall' && (
         <>
           <Field label="Grosime perete (m)">
@@ -1187,6 +1335,7 @@ export function LayersPanel({
         </div>
       )}
       {group('arh', 'Arhitectură (schiță)', '#222', ARCH_LAYERS)}
+      {arch.some((a) => archLayer(a).startsWith('adn:')) && group('adn', 'Zone, imagini, tabele', '#8d6e63', ANNOT_LAYERS)}
       {usedSystems.map((s) => group(s.id, s.name, s.color, systemLayers(s.id), sheet.systems.includes(s.id), (on) => setSystem(s.id, on)))}
       {otherSystems.length > 0 && <p className="hint">Fără elemente pe acest nivel: {otherSystems.map((s) => s.short).join(', ')}.</p>}
       <div className="grid2">
