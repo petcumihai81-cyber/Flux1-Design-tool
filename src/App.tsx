@@ -3,6 +3,8 @@ import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
 import type { ArchElement, Background, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
+import { alignGroup, distributeGroup } from './group'
+import type { Item } from './group'
 import { backgroundKeys, deleteBackground, getBackground, putBackground } from './storage'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
@@ -10,7 +12,7 @@ import { activeSheet, levelOf, newLevel, paperMmPerPx, sheetLevel, symbolForPape
 import { SYSTEMS, canMirror, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
-import { ArchProps, CableProps, DeviceProps, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
+import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import { PdfPreview } from './PdfPreview'
@@ -67,6 +69,8 @@ export default function App() {
   const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
+  /** Selecția multiplă de pe plan (cu ≥ 2 elemente); când e activă, `selection` e gol */
+  const [multi, setMulti] = useState<Item[]>([])
   const [tab, setTab] = useState<Tab>('proiect')
   const [fitSignal, setFitSignal] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
@@ -177,6 +181,15 @@ export default function App() {
     return () => window.clearTimeout(t)
   }, [project])
 
+  // Selecția multiplă păstrează doar elementele care mai există (ex. după undo)
+  useEffect(() => {
+    if (!multi.length) return
+    const ok = multi.filter((m) =>
+      m.kind === 'device' ? project.devices.some((d) => d.id === m.id) : m.kind === 'arch' ? project.arch.some((a) => a.id === m.id) : project.cables.some((c) => c.id === m.id),
+    )
+    if (ok.length !== multi.length) setMulti(ok.length > 1 ? ok : [])
+  }, [project, multi])
+
   // Selecția devine invalidă dacă elementul dispare (ex. undo)
   useEffect(() => {
     if (!selection) return
@@ -191,7 +204,10 @@ export default function App() {
 
   const select = useCallback((s: Selection) => {
     setSelection(s)
-    if (s) setTab('element')
+    if (s) {
+      setMulti([])
+      setTab('element')
+    }
   }, [])
 
   // ---------------------------------------------------------------- acțiuni
@@ -376,44 +392,141 @@ export default function App() {
   // ---------------------------------------------------------------- copiere / lipire
 
   /** Echipamentul copiat (cu toate datele: model din catalog, zonă, con cameră...) */
-  const [clipboard, setClipboard] = useState<Device | null>(null)
+  /** Elementele copiate (echipamente și schiță), cu toate datele: model din catalog, zonă, con cameră... */
+  const [clipboard, setClipboard] = useState<{ devices: Device[]; arch: ArchElement[] } | null>(null)
   const pasteCount = useRef(0)
   const [ctxMenu, setCtxMenu] = useState<{ clientX: number; clientY: number; x: number; y: number; target: Selection } | null>(null)
 
   const selectedDevice = selection?.kind === 'device' ? project.devices.find((d) => d.id === selection.id) : undefined
+  /** Elementele asupra cărora acționează comenzile: grupul sau elementul selectat */
+  const targets = (): Item[] => (multi.length ? multi : selection ? [selection] : [])
+
+  const collect = (items: Item[]) => ({
+    devices: project.devices.filter((d) => items.some((i) => i.kind === 'device' && i.id === d.id)),
+    arch: project.arch.filter((a) => items.some((i) => i.kind === 'arch' && i.id === a.id)),
+  })
 
   const copySelection = (cut = false) => {
-    if (!selectedDevice) return
-    setClipboard({ ...selectedDevice })
+    const c = collect(targets())
+    const n = c.devices.length + c.arch.length
+    if (!n) return
+    setClipboard(c)
     pasteCount.current = 0
-    if (cut) deleteSelection()
-    notify(`${cut ? 'Tăiat' : 'Copiat'}: ${selectedDevice.label}`)
+    if (cut) deleteTargets()
+    notify(`${cut ? 'Tăiat' : 'Copiat'}: ${n === 1 ? (c.devices[0]?.label ?? ARCH_NAMES[c.arch[0].kind]) : `${n} elemente`}`)
   }
 
-  /** Lipește echipamentul copiat la poziția dată sau decalat față de original */
-  const paste = (at?: { x: number; y: number }) => {
-    if (!clipboard || sheet.kind !== 'plan') return
-    pasteCount.current++
-    const id = uid()
-    const sys = symbolByType(clipboard.type)?.system
+  /** Lipește elemente: la poziția dată (centrate pe ea) sau decalate față de original */
+  const pasteItems = (src: { devices: Device[]; arch: ArchElement[] }, at?: { x: number; y: number }, step = 1) => {
+    if (sheet.kind !== 'plan' || (!src.devices.length && !src.arch.length)) return
+    const xs: number[] = []
+    const ys: number[] = []
+    for (const d of src.devices) {
+      xs.push(d.x)
+      ys.push(d.y)
+    }
+    for (const a of src.arch) {
+      const pts = a.points ?? (a.x != null && a.y != null ? [a.x, a.y] : [])
+      for (let i = 0; i < pts.length; i += 2) {
+        xs.push(pts[i])
+        ys.push(pts[i + 1])
+      }
+    }
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2
+    const created: Item[] = []
     h.commit((p) => {
       const lvl = sheetLevel(p, activeSheet(p))
-      const off = lvl.symbolSize * 1.5 * pasteCount.current
-      const d: Device = {
-        ...clipboard,
-        id,
-        levelId: lvl.id,
-        x: at?.x ?? clipboard.x + off,
-        y: at?.y ?? clipboard.y + off,
-        label: nextLabel(devicePrefix(clipboard.type, catalogItem(p, clipboard.catalogId)), p.devices.map((x) => x.label), p.numberPad),
-      }
+      const off = lvl.symbolSize * 1.5 * step
+      const dx = at ? at.x - cx : off
+      const dy = at ? at.y - cy : off
+      const labels = p.devices.map((x) => x.label)
+      const systems = new Set<SystemId>()
+      const devices = src.devices.map((d) => {
+        const label = nextLabel(devicePrefix(d.type, catalogItem(p, d.catalogId)), labels, p.numberPad)
+        labels.push(label)
+        const sys = symbolByType(d.type)?.system
+        if (sys) systems.add(sys)
+        const id = uid()
+        created.push({ kind: 'device', id })
+        return { ...d, id, levelId: lvl.id, x: d.x + dx, y: d.y + dy, label }
+      })
+      const arch = src.arch.map((a) => {
+        const id = uid()
+        created.push({ kind: 'arch', id })
+        return {
+          ...a,
+          id,
+          levelId: lvl.id,
+          points: a.points?.map((v, i) => v + (i % 2 ? dy : dx)),
+          x: a.x != null ? a.x + dx : undefined,
+          y: a.y != null ? a.y + dy : undefined,
+        }
+      })
       const sheets = p.sheets.map((sh) =>
-        sh.id === p.activeSheetId && sys && !sh.systems.includes(sys) ? { ...sh, systems: SYSTEMS.map((x) => x.id).filter((x) => x === sys || sh.systems.includes(x)) } : sh,
+        sh.id === p.activeSheetId && [...systems].some((x) => !sh.systems.includes(x))
+          ? { ...sh, systems: SYSTEMS.map((x) => x.id).filter((x) => systems.has(x) || sh.systems.includes(x)) }
+          : sh,
       )
-      return { ...p, sheets, devices: [...p.devices, d] }
+      return { ...p, sheets, devices: [...p.devices, ...devices], arch: [...p.arch, ...arch] }
     })
-    setSelection({ kind: 'device', id })
+    // selecția trece pe elementele lipite
+    window.setTimeout(() => {
+      if (created.length === 1) {
+        setMulti([])
+        setSelection(created[0])
+      } else if (created.length > 1) {
+        setSelection(null)
+        setMulti(created)
+      }
+    }, 0)
   }
+
+  const paste = (at?: { x: number; y: number }) => {
+    if (!clipboard) return
+    pasteCount.current++
+    pasteItems(clipboard, at, pasteCount.current)
+  }
+
+  /** Șterge elementele țintă (grup sau element selectat) */
+  const deleteTargets = () => {
+    const items = targets()
+    if (!items.length) return
+    const ids = (k: Item['kind']) => new Set(items.filter((i) => i.kind === k).map((i) => i.id))
+    const dev = ids('device')
+    const arch = ids('arch')
+    const cab = ids('cable')
+    h.commit((p) => ({
+      ...p,
+      devices: p.devices.filter((d) => !dev.has(d.id)),
+      arch: p.arch.filter((a) => !arch.has(a.id)),
+      cables: p.cables
+        .filter((c) => !cab.has(c.id))
+        .map((c) => ({ ...c, from: c.from && dev.has(c.from) ? undefined : c.from, to: c.to && dev.has(c.to) ? undefined : c.to })),
+    }))
+    setSelection(null)
+    setMulti([])
+  }
+
+  /** Rotește fiecare element din grup în jurul propriului centru */
+  const rotateTargets = (delta: number) => {
+    if (!multi.length) return rotateSelection(delta)
+    const dev = new Set(multi.filter((i) => i.kind === 'device').map((i) => i.id))
+    const arch = new Set(multi.filter((i) => i.kind === 'arch').map((i) => i.id))
+    const rot = (r: number) => (((r + delta) % 360) + 360) % 360
+    h.commit((p) => ({
+      ...p,
+      devices: p.devices.map((d) => (dev.has(d.id) ? { ...d, rotation: rot(d.rotation) } : d)),
+      arch: p.arch.map((a) => (arch.has(a.id) && a.x != null ? { ...a, rotation: rot(a.rotation ?? 0) } : a)),
+    }))
+  }
+
+  const duplicateTargets = () => {
+    if (!multi.length) return duplicateSelection()
+    pasteItems(collect(multi), undefined, 1)
+  }
+
+  const applyToGroup = (fn: (p: Project, items: Item[]) => Project) => h.commit((p) => fn(p, multi))
 
   const onScaleMeasured = (pixels: number) => {
     setTool({ kind: 'select' })
@@ -727,8 +840,19 @@ export default function App() {
         h.redo()
       } else if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault()
-        duplicateSelection()
-      } else if (mod && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x') && sheet.kind === 'plan' && selectedDevice) {
+        duplicateTargets()
+      } else if (mod && e.key.toLowerCase() === 'a' && sheet.kind === 'plan') {
+        // Ctrl+A: tot ce se vede pe planșa curentă
+        e.preventDefault()
+        const all: Item[] = [
+          ...project.devices.filter((d) => d.levelId === level.id && sheet.systems.includes(symbolByType(d.type)?.system ?? 'EFR')).map((d) => ({ kind: 'device' as const, id: d.id })),
+          ...project.arch.filter((a) => a.levelId === level.id).map((a) => ({ kind: 'arch' as const, id: a.id })),
+          ...project.cables.filter((c) => c.levelId === level.id && sheet.systems.includes(c.system)).map((c) => ({ kind: 'cable' as const, id: c.id })),
+        ]
+        setSelection(null)
+        setMulti(all.length > 1 ? all : [])
+        if (all.length === 1) setSelection(all[0])
+      } else if (mod && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x') && sheet.kind === 'plan' && (multi.length || selectedDevice || selection?.kind === 'arch')) {
         e.preventDefault()
         copySelection(e.key.toLowerCase() === 'x')
       } else if (mod && e.key.toLowerCase() === 'v' && sheet.kind === 'plan' && clipboard) {
@@ -738,15 +862,19 @@ export default function App() {
         if (ctxMenu) setCtxMenu(null)
         else if (sheetMenu) setSheetMenu(null)
         else if (tool.kind !== 'select') setTool({ kind: 'select' })
-        else setSelection(null)
-      } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection && sheet.kind === 'plan') {
+        else {
+          setSelection(null)
+          setMulti([])
+        }
+      } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && (selection || multi.length) && sheet.kind === 'plan') {
         e.preventDefault()
-        deleteSelection()
+        if (multi.length) deleteTargets()
+        else deleteSelection()
       } else if (e.key === 'F2' && selection?.kind === 'arch' && project.arch.find((a) => a.id === selection.id)?.kind === 'label') {
         e.preventDefault()
         setEditTextId(selection.id)
       } else if (e.key.toLowerCase() === 'r' && !mod) {
-        rotateSelection(e.shiftKey ? -15 : 15)
+        rotateTargets(e.shiftKey ? -15 : 15)
       } else if (e.key.toLowerCase() === 'v' && !mod) {
         setTool({ kind: 'select' })
       } else if (e.key.toLowerCase() === 'c' && !mod) {
@@ -881,8 +1009,17 @@ export default function App() {
               onEditText={setEditTextId}
               onContext={(info) => {
                 setTool({ kind: 'select' })
-                if (info.target) select(info.target)
+                const inMulti = info.target && multi.some((m) => m.kind === info.target!.kind && m.id === info.target!.id)
+                if (info.target && !inMulti) select(info.target)
                 setCtxMenu(info)
+              }}
+              multi={multi}
+              onMulti={(items) => {
+                setMulti(items)
+                if (items.length) {
+                  setSelection(null)
+                  setTab('element')
+                }
               }}
               checkpoint={h.checkpoint}
               update={h.update}
@@ -972,7 +1109,17 @@ export default function App() {
           </nav>
           <div className="side-body">
             {tab === 'element' &&
-              (selDevice ? (
+              (multi.length ? (
+                <GroupPanel
+                  project={project}
+                  items={multi}
+                  onPatchDevices={(patch) =>
+                    h.commit((p) => ({ ...p, devices: p.devices.map((d) => (multi.some((m) => m.kind === 'device' && m.id === d.id) ? { ...d, ...patch } : d)) }))
+                  }
+                  onAlign={(fn) => applyToGroup(fn)}
+                  onDelete={deleteTargets}
+                />
+              ) : selDevice ? (
                 <DeviceProps d={selDevice} project={project} onChange={(patch) => patchDevice(selDevice.id, patch)} onDelete={deleteSelection} />
               ) : selCable ? (
                 <CableProps c={selCable} project={project} onChange={(patch) => patchCable(selCable.id, patch)} onDelete={deleteSelection} />
@@ -1077,10 +1224,58 @@ export default function App() {
                 setCtxMenu(null)
               }
               const t = ctxMenu.target
+              // meniul grupului: click dreapta pe un element din grup sau în chenarul grupului
+              if (multi.length && (!t || multi.some((m) => m.kind === t.kind && m.id === t.id))) {
+                const nDev = multi.filter((m) => m.kind === 'device').length
+                return (
+                  <>
+                    <div className="ctx-title">{multi.length} elemente selectate</div>
+                    <button onClick={close(() => copySelection())}>
+                      Copiază<kbd>Ctrl+C</kbd>
+                    </button>
+                    <button onClick={close(() => copySelection(true))}>
+                      Taie<kbd>Ctrl+X</kbd>
+                    </button>
+                    <button onClick={close(duplicateTargets)}>
+                      Duplică<kbd>Ctrl+D</kbd>
+                    </button>
+                    <button onClick={close(() => rotateTargets(90))}>
+                      Rotește fiecare 90°<kbd>R</kbd>
+                    </button>
+                    <div className="ctx-sep" />
+                    <button onClick={close(() => applyToGroup((p, it) => alignGroup(p, it, 'h')))}>Aliniază pe orizontală ⎯</button>
+                    <button onClick={close(() => applyToGroup((p, it) => alignGroup(p, it, 'v')))}>Aliniază pe verticală │</button>
+                    <button disabled={multi.length < 3} onClick={close(() => applyToGroup((p, it) => distributeGroup(p, it, 'h')))}>
+                      Distribuie uniform pe orizontală
+                    </button>
+                    <button disabled={multi.length < 3} onClick={close(() => applyToGroup((p, it) => distributeGroup(p, it, 'v')))}>
+                      Distribuie uniform pe verticală
+                    </button>
+                    {nDev > 0 && (
+                      <button
+                        onClick={close(() => {
+                          setTab('element')
+                        })}
+                      >
+                        Editează datele ({nDev} echipamente)
+                      </button>
+                    )}
+                    <div className="ctx-sep" />
+                    <button className="danger-item" onClick={close(deleteTargets)}>
+                      Șterge {multi.length} elemente<kbd>Del</kbd>
+                    </button>
+                  </>
+                )
+              }
               const dev = t?.kind === 'device' ? project.devices.find((d) => d.id === t.id) : undefined
               const pasteBtn = (
                 <button disabled={!clipboard} onClick={close(() => paste({ x: ctxMenu.x, y: ctxMenu.y }))}>
-                  Lipește aici{clipboard ? ` (${devicePrefix(clipboard.type, catalogItem(project, clipboard.catalogId))})` : ''}
+                  Lipește aici
+                  {clipboard
+                    ? clipboard.devices.length + clipboard.arch.length === 1 && clipboard.devices[0]
+                      ? ` (${devicePrefix(clipboard.devices[0].type, catalogItem(project, clipboard.devices[0].catalogId))})`
+                      : ` (${clipboard.devices.length + clipboard.arch.length} el.)`
+                    : ''}
                   <kbd>Ctrl+V</kbd>
                 </button>
               )

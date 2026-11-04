@@ -61,6 +61,8 @@ Butonul **?** din bara de sus deschide ghidul de utilizare, cu pași și capturi
 | `Ctrl+D` | duplicare echipament |
 | Click dreapta | meniu: copiază, taie, lipește aici, duplică, rotește 90°, oglindește, șterge; la texte: editare, A+ / A− |
 | `F2` / dublu-click pe text | editarea textului direct pe plan |
+| `Shift` + tragere / `Shift` + click | selecție multiplă (dreptunghi / adaugă-scoate element) |
+| `Ctrl+A` | selectează tot de pe planșa curentă |
 | `Del` | ștergere |
 | `Ctrl+Z` / `Ctrl+Y` | anulare / refacere |
 | `Ctrl+S` | salvare proiect |
