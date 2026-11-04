@@ -33,7 +33,7 @@ const SECTIONS: Section[] = [
       </>,
       <>Plasează echipamentele din paleta din stânga și trage cablurile (vezi secțiunile următoare).</>,
       <>
-        Exportă: <B>PDF planșă</B> / <B>PDF toate</B>, <B>Excel</B> (liste, zone, jurnal cablu, breviar), <B>Memoriu</B> (.docx).
+        Exportă: <B>PDF planșă</B> / <B>PDF toate</B>, <B>Excel</B> (liste, zone, jurnal cablu, breviar), <B>DXF</B> (AutoCAD), <B>Memoriu</B> (.docx).
       </>,
     ],
     tips: [
@@ -204,6 +204,29 @@ const SECTIONS: Section[] = [
       <>La mai multe planșe, miniaturile din stânga (sau săgețile ← →) trec de la o pagină la alta. Click pe pagină = mărire 100%.</>,
       <>
         Dacă totul e în regulă, apeși <B>Descarcă PDF</B>; altfel <B>Închide</B>, corectezi și generezi din nou.
+      </>,
+    ],
+  },
+  {
+    id: 'dxf',
+    title: 'Export DXF pentru AutoCAD',
+    steps: [
+      <>
+        Pe o planșă de plan apeși <B>DXF</B>: se descarcă desenul nivelului ca fișier <B>.dxf</B> (format R12), care se deschide în AutoCAD,
+        BricsCAD, DraftSight sau LibreCAD.
+      </>,
+      <>
+        Unitatea de desen este <B>metrul</B>, la scara calibrată a nivelului (1 unitate = 1 m). Fără calibrare, dimensiunile nu sunt reale —
+        calibrează scara înainte de export.
+      </>,
+      <>
+        Fiecare lucru stă pe stratul lui: <B>ARH_PERETI</B>, <B>ARH_USI</B>, <B>ARH_FERESTRE</B>, <B>ARH_TEXT</B>, <B>ARH_COTE</B>,{' '}
+        <B>GHENE</B>, iar pe fiecare sistem <B>EFR_ECHIPAMENTE</B> / <B>EFR_CABLURI</B> / <B>EFR_ETICHETE</B> (la fel CA, CCTV, INC, NET) și{' '}
+        <B>CCTV_CONURI</B>. Se exportă doar sistemele bifate pe planșă.
+      </>,
+      <>
+        Simbolurile sunt blocuri (un bloc pe tip de echipament), deci în CAD le poți număra sau înlocui ușor. Planul de fundal (poză / PDF) nu
+        intră în DXF: în CAD îl ai deja ca desen original.
       </>,
     ],
   },
