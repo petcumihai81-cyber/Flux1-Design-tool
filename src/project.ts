@@ -30,6 +30,7 @@ export const newLevel = (name: string, over: Partial<Level> = {}): Level => ({
   background: null,
   pxPerMeter: null,
   symbolSize: 32,
+  pageCenter: { x: 0, y: 0 },
   ...over,
 })
 
@@ -95,12 +96,10 @@ export function formatLabel(sh: Sheet): string {
 export const SYMBOL_PAPER_MM = 6
 
 /**
- * Câți mm pe hârtie are un pixel de plan, când nivelul e încadrat în zona de desen a planșei
- * (aceeași așezare ca la export: chenar, coloana / banda cu legendă și cartuș).
+ * Zona de desen a planșei (mm), după chenar, coloana / banda cu legendă și cartuș și 5 mm de margine —
+ * aceeași așezare ca la exportul PDF.
  */
-export function paperMmPerPx(p: Project, sh: Sheet): number | null {
-  const b = contentBounds(p, sh.systems, sheetLevel(p, sh).id)
-  if (!b || b.width <= 0 || b.height <= 0) return null
+export function drawAreaMm(sh: Sheet): [number, number] {
   const [W, H] = pageSizeMm(sh)
   const small = Math.min(W, H) <= 210
   const m = small ? 7 : 10
@@ -109,8 +108,67 @@ export function paperMmPerPx(p: Project, sh: Sheet): number | null {
   const landscape = W >= H
   const tbW = Math.min(small ? 95 : 130, fw * (landscape ? 0.4 : 0.6))
   const tbH = (small ? 7.5 : 9.5) * 9.2
-  const areaW = (landscape ? fw - tbW : fw) - 10
-  const areaH = (landscape ? fh : fh - tbH) - 10
+  return [(landscape ? fw - tbW : fw) - 10, (landscape ? fh : fh - tbH) - 10]
+}
+
+/** Numitorul scării din cartuș („1:100” → 100); null dacă nu se poate citi */
+export function parseScale(s: string): number | null {
+  const m = s.match(/1\s*[:/]\s*(\d+(?:[.,]\d+)?)/)
+  if (!m) return null
+  const n = parseFloat(m[1].replace(',', '.'))
+  return n > 0 ? n : null
+}
+
+/** Scara de plan folosită pe pagină albă când nivelul nu e calibrat (aceeași ca în desen) */
+export const UNCALIBRATED_PX_PER_M = 20
+
+/**
+ * Pagină albă (nivel fără plan de fundal): zona de desen a planșei la scara din cartuș, în coordonate plan.
+ * Exportul PDF folosește exact această zonă, ca scara din cartuș să fie reală.
+ */
+export function pageFrame(p: Project, sh: Sheet) {
+  if (sh.kind !== 'plan') return null
+  const level = sheetLevel(p, sh)
+  if (level.background) return null
+  const n = parseScale(sh.scara)
+  if (!n) return null
+  const ppm = level.pxPerMeter ?? UNCALIBRATED_PX_PER_M
+  const [aw, ah] = drawAreaMm(sh)
+  const width = ((aw * n) / 1000) * ppm
+  const height = ((ah * n) / 1000) * ppm
+  let c = level.pageCenter
+  if (!c) {
+    const b = contentBounds(p, ALL_SYSTEMS, level.id)
+    c = b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : { x: 0, y: 0 }
+  }
+  return { x: c.x - width / 2, y: c.y - height / 2, width, height, meters: [(aw * n) / 1000, (ah * n) / 1000] as [number, number] }
+}
+
+/** Desenul iese din zona planșei (pagină albă)? */
+export function outsideFrame(p: Project, sh: Sheet): boolean {
+  const f = pageFrame(p, sh)
+  const b = f && contentBounds(p, sh.systems, sheetLevel(p, sh).id)
+  if (!f || !b) return false
+  const e = 0.5
+  return b.x < f.x - e || b.y < f.y - e || b.x + b.width > f.x + f.width + e || b.y + b.height > f.y + f.height + e
+}
+
+/** Ce se încadrează în pagina planșei de plan: zona de desen (pagină albă) reunită cu desenul */
+export function sheetDrawBounds(p: Project, sh: Sheet) {
+  const b = contentBounds(p, sh.systems, sheetLevel(p, sh).id)
+  const f = pageFrame(p, sh)
+  if (!f) return b
+  if (!b) return { x: f.x, y: f.y, width: f.width, height: f.height }
+  const x = Math.min(b.x, f.x)
+  const y = Math.min(b.y, f.y)
+  return { x, y, width: Math.max(b.x + b.width, f.x + f.width) - x, height: Math.max(b.y + b.height, f.y + f.height) - y }
+}
+
+/** Câți mm pe hârtie are un pixel de plan, când nivelul e încadrat în zona de desen a planșei */
+export function paperMmPerPx(p: Project, sh: Sheet): number | null {
+  const b = sheetDrawBounds(p, sh)
+  if (!b || b.width <= 0 || b.height <= 0) return null
+  const [areaW, areaH] = drawAreaMm(sh)
   return Math.min(areaW / b.width, areaH / b.height)
 }
 
@@ -331,8 +389,8 @@ export function normalizeProject(v: Project): Project {
   // niveluri: proiectele vechi (un singur plan) devin nivelul „Plan 1”
   const levels: Level[] =
     Array.isArray(v.levels) && v.levels.length
-      ? v.levels.map((l) => ({ ...newLevel(l.name ?? 'Nivel'), ...l }))
-      : [newLevel('Plan 1', { background: old.background ?? null, pxPerMeter: old.pxPerMeter ?? null, symbolSize: old.symbolSize ?? 32 })]
+      ? v.levels.map((l) => ({ ...newLevel(l.name ?? 'Nivel'), pageCenter: undefined, ...l }))
+      : [newLevel('Plan 1', { background: old.background ?? null, pxPerMeter: old.pxPerMeter ?? null, symbolSize: old.symbolSize ?? 32, pageCenter: undefined })]
   const ids = new Set(levels.map((l) => l.id))
   const fix = <T extends { levelId?: string }>(x: T): T & { levelId: string } => ({ ...x, levelId: x.levelId && ids.has(x.levelId) ? x.levelId : levels[0].id })
   sheets = sheets.map((sh) => (sh.kind === 'plan' ? fix(sh) : sh))

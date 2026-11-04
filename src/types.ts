@@ -236,6 +236,11 @@ export interface Level {
   symbolSize: number
   /** Înălțimea nivelului (m), pentru lungimea cablurilor care trec prin ghene între niveluri */
   heightM?: number
+  /**
+   * Pagină albă: centrul zonei de desen a planșei (coordonate plan).
+   * Lipsește la fișierele vechi: zona se centrează pe desen.
+   */
+  pageCenter?: { x: number; y: number }
 }
 
 export interface Sheet {

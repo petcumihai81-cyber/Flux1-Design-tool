@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import type { Project, Sheet, SystemId } from './types'
 import { SYSTEMS, loadSymbolImage, symbolByType, systemById } from './symbols'
-import { cableMeters, catalogItem, contentBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel, cableEnds, isRiserRoute, levelOf, riserHost } from './project'
+import { cableMeters, catalogItem, contentBounds, sheetDrawBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel, cableEnds, isRiserRoute, levelOf, riserHost } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
 import { diagramBounds, pruneDiagram } from './diagram'
@@ -92,7 +92,8 @@ export function sheetBounds(p: Project, sh: Sheet): Bounds | null {
     const L = blockLayout(p, sh.systems[0])
     return L.nodes.length ? L.bounds : null
   }
-  return contentBounds(p, sh.systems, sheetLevel(p, sh).id)
+  // pagină albă: zona de desen la scara din cartuș (desenul nu se mai mărește cât pagina)
+  return contentBounds(p, sh.systems, sheetLevel(p, sh).id) ? sheetDrawBounds(p, sh) : null
 }
 
 /** Randează desenul (fără elementele de interfață) la rezoluția cerută */

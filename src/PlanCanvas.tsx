@@ -8,10 +8,10 @@ import { groupBounds, itemsInRect, sameItem, snapshot, toggleItem, translateGrou
 import type { Item, Snapshot } from './group'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
-import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, nearestOnPolyline } from './project'
+import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, UNCALIBRATED_PX_PER_M } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
-export const FALLBACK_PX_PER_M = 20
+export const FALLBACK_PX_PER_M = UNCALIBRATED_PX_PER_M
 
 interface Props {
   project: Project
@@ -102,6 +102,8 @@ export default function PlanCanvas(props: Props) {
 
   const S = level.symbolSize
   const ppm = level.pxPerMeter ?? FALLBACK_PX_PER_M
+  const frame = pageFrame(project, sheet)
+  const frameOut = frame ? outsideFrame(project, sheet) : false
   const levelArch = useMemo(() => project.arch.filter((a) => a.levelId === level.id), [project.arch, level.id])
   const hidden = useMemo(() => new Set(ALL_SYSTEMS.filter((s) => !sheet.systems.includes(s))), [sheet.systems])
   const visibleDevices = project.devices.filter((d) => {
@@ -123,7 +125,16 @@ export default function PlanCanvas(props: Props) {
 
   // Încadrare în ecran
   useEffect(() => {
-    const b = contentBounds(project, undefined, level.id)
+    const c = contentBounds(project, undefined, level.id)
+    const f = pageFrame(project, sheet)
+    const b =
+      c && f
+        ? (() => {
+            const x = Math.min(c.x, f.x)
+            const y = Math.min(c.y, f.y)
+            return { x, y, width: Math.max(c.x + c.width, f.x + f.width) - x, height: Math.max(c.y + c.height, f.y + f.height) - y }
+          })()
+        : (c ?? f)
     if (!b) {
       setView({ x: size.width / 2, y: size.height / 2, scale: 1 })
       return
@@ -736,6 +747,30 @@ export default function PlanCanvas(props: Props) {
 
         {/* Elemente de interfață (ascunse la export) */}
         <Layer name="ui">
+          {/* pagină albă: zona de desen a planșei, la scara din cartuș */}
+          {frame && (
+            <Group listening={false}>
+              <Rect
+                x={frame.x}
+                y={frame.y}
+                width={frame.width}
+                height={frame.height}
+                stroke={frameOut ? '#e65100' : '#1e88e5'}
+                strokeWidth={1.5 * k}
+                dash={[10 * k, 6 * k]}
+              />
+              <Text
+                x={frame.x}
+                y={frame.y - 18 * k}
+                width={frame.width}
+                text={`Zona planșei ${formatLabel(sheet)} · ${sheet.scara} · ${frame.meters[0].toFixed(1).replace('.', ',')} × ${frame.meters[1].toFixed(1).replace('.', ',')} m${frameOut ? ' — desenul iese din zonă' : ''}`}
+                fontSize={12 * k}
+                fill={frameOut ? '#e65100' : '#1e88e5'}
+                ellipsis
+                wrap="none"
+              />
+            </Group>
+          )}
           {/* selecția multiplă: fiecare echipament încercuit + chenarul grupului (se trage pentru mutare) */}
           {multi.length > 0 &&
             visibleDevices

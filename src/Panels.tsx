@@ -710,7 +710,12 @@ export function LevelPanel({
   onLoadPlan,
   onCalibrate,
   onDelete,
+  frame,
+  onCenterFrame,
 }: {
+  /** Pagină albă: zona de desen a planșei (m) și dacă desenul iese din ea */
+  frame: { meters: [number, number]; out: boolean; format: string; scara: string } | null
+  onCenterFrame: () => void
   level: Level
   /** mm pe hârtie per pixel de plan, pentru planșa curentă */
   paperMmPerPx: number | null
@@ -736,6 +741,25 @@ export function LevelPanel({
           <button onClick={onLoadPlan}>{level.background ? 'Înlocuiește' : 'Încarcă'}</button>
         </div>
       </Field>
+      {frame && (
+        <>
+          <p className="hint">
+            Chenarul albastru punctat de pe plan este zona de desen a planșei {frame.format} la {frame.scara}:{' '}
+            {frame.meters[0].toFixed(1).replace('.', ',')} × {frame.meters[1].toFixed(1).replace('.', ',')} m. Ce desenezi în chenar iese în PDF
+            exact la scara din cartuș.
+          </p>
+          {frame.out && (
+            <p className="warn">
+              Desenul iese din zona planșei, iar în PDF se micșorează și scara din cartuș nu mai e reală. Alege un format mai mare sau o scară
+              mai mică (ex. 1:200), ori centrează zona pe desen.
+            </p>
+          )}
+          <button onClick={onCenterFrame} title="Mută chenarul zonei de desen în centrul desenului de pe acest nivel">
+            Centrează zona planșei pe desen
+          </button>
+        </>
+      )}
+      {!frame && !level.background && <p className="hint">Scrie scara planșei (ex. 1:100) ca să vezi zona de desen pe pagina albă.</p>}
       {level.background && (
         <button onClick={() => window.confirm('Scoți planul de fundal? Echipamentele și schița rămân.') && onChange({ background: null })}>
           Scoate fundalul (pagină albă)

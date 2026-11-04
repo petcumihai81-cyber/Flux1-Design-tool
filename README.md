@@ -9,7 +9,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 ## Ce face
 
 - **Plan de fundal**: încarci planul clădirii ca PDF (orice pagină) sau imagine.
-- **Schiță de arhitectură** (fără plan sau peste plan): pereți exteriori / interiori cu grosime reală, uși cu sensul de deschidere, ferestre, texte de încăpere și cote; aliniere automată și lipire de pereții existenți.
+- **Schiță de arhitectură** (fără plan sau peste plan): pereți exteriori / interiori cu grosime reală, uși cu sensul de deschidere, ferestre, texte de încăpere și cote; aliniere automată și lipire de pereții existenți. Pe pagina albă se vede zona de desen a planșei (format, orientare, scara din cartuș), iar PDF-ul iese la scara reală.
 - **Calibrare scară**: unealta *Scară* → click pe capetele unei cote cunoscute → introduci lungimea în metri.
 - **Bibliotecă de simboluri** pe cele 4 subsisteme: plasare prin click sau drag & drop, cu numerotare automată (PIR01, CVe02, DF03…).
 - **Camere video** cu con de vizualizare la scară reală: se reglează direct pe plan (vârful conului = distanța, marginile = unghiul, mânerul albastru = rotirea; `Shift` = fără pas) sau din panoul de proprietăți. Unghiul și distanța pot fi trecute în catalog pe fiecare model de cameră.
