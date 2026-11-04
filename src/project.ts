@@ -1,5 +1,5 @@
 import type { Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
-import { DEFAULT_CALC, defaultCatalog } from './catalog'
+import { DEFAULT_CALC, defaultCatalog, withSeedSpecs } from './catalog'
 import { defaultMemoriu } from './memoriuDefaults'
 import { SYSTEMS, symbolByType } from './symbols'
 
@@ -401,7 +401,7 @@ export function normalizeProject(v: Project): Project {
     title: { ...base.title, ...v.title },
     devices: v.devices.map(fix),
     numberPad: v.numberPad ?? (v.version as number) === 1,
-    catalog: Array.isArray(v.catalog) ? v.catalog : base.catalog,
+    catalog: Array.isArray(v.catalog) ? withSeedSpecs(v.catalog) : base.catalog,
     accessories: Array.isArray(v.accessories) ? v.accessories : [],
     calc: { ...DEFAULT_CALC, ...v.calc },
     memoriu: { ...defaultMemoriu(), ...v.memoriu },

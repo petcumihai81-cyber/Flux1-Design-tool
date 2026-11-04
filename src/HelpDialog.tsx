@@ -33,7 +33,7 @@ const SECTIONS: Section[] = [
       </>,
       <>Plasează echipamentele din paleta din stânga și trage cablurile (vezi secțiunile următoare).</>,
       <>
-        Exportă: <B>PDF planșă</B> / <B>PDF toate</B>, <B>Excel</B> (liste, zone, jurnal cablu, breviar), <B>Memoriu</B> (.docx).
+        Exportă: <B>PDF planșă</B> / <B>PDF toate</B>, <B>Excel</B> (liste, zone, jurnal cablu, breviar), <B>DXF</B> (AutoCAD), <B>Memoriu</B> (.docx).
       </>,
     ],
     tips: [
@@ -214,6 +214,29 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'dxf',
+    title: 'Export DXF pentru AutoCAD',
+    steps: [
+      <>
+        Pe o planșă de plan apeși <B>DXF</B>: se descarcă desenul nivelului ca fișier <B>.dxf</B> (format R12), care se deschide în AutoCAD,
+        BricsCAD, DraftSight sau LibreCAD.
+      </>,
+      <>
+        Unitatea de desen este <B>metrul</B>, la scara calibrată a nivelului (1 unitate = 1 m). Fără calibrare, dimensiunile nu sunt reale —
+        calibrează scara înainte de export.
+      </>,
+      <>
+        Fiecare lucru stă pe stratul lui: <B>ARH_PERETI</B>, <B>ARH_USI</B>, <B>ARH_FERESTRE</B>, <B>ARH_TEXT</B>, <B>ARH_COTE</B>,{' '}
+        <B>GHENE</B>, iar pe fiecare sistem <B>EFR_ECHIPAMENTE</B> / <B>EFR_CABLURI</B> / <B>EFR_ETICHETE</B> (la fel CA, CCTV, INC, NET) și{' '}
+        <B>CCTV_CONURI</B>. Se exportă doar sistemele bifate pe planșă.
+      </>,
+      <>
+        Simbolurile sunt blocuri (un bloc pe tip de echipament), deci în CAD le poți număra sau înlocui ușor. Planul de fundal (poză / PDF) nu
+        intră în DXF: în CAD îl ai deja ca desen original.
+      </>,
+    ],
+  },
+  {
     id: 'schema',
     title: 'Schema bloc',
     img: 'help/07-schema.webp',
@@ -240,6 +263,11 @@ const SECTIONS: Section[] = [
         cameră, capacități (acumulator, HDD, UPS).
       </>,
       <>Bifează „Baterie proprie” la echipamentele wireless: nu intră în calculul acumulatorilor.</>,
+      <>
+        <B>Fișa tehnică</B> (jos în formular) apare în capitolul „Fișele tehnice ale echipamentelor” din memoriu, pe secțiuni. Cel mai repede:{' '}
+        <B>Lipește din fișa producătorului</B> — copiezi tabelul de pe site sau din PDF și îl lipești; rândurile „parametru – valoare” și titlurile
+        de secțiune se recunosc singure. Echipamentele din catalogul inițial au deja fișele completate.
+      </>,
       <>
         <B>Salvează ca implicit</B> = proiectele noi pornesc cu acest catalog. <B>Export</B> / <B>Import</B> = îl muți pe alt calculator.
       </>,

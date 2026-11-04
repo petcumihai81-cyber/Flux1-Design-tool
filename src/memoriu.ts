@@ -232,14 +232,18 @@ function fisaRows(it: CatalogItem): [string, string][] {
 function fisaTable(it: CatalogItem) {
   const wL = 3134
   const wV = W_TOTAL - wL
-  const rows = fisaRows(it)
+  const sectionRow = (title: string) => new TableRow({ children: [cell([title], W_TOTAL, { span: 2, shade: true, header: true })] })
+  const paramRow = (l: string, val: string) => new TableRow({ children: [cell([l], wL), cell([v(val)], wV)] })
+  // fișa completă din catalog (pe secțiuni), precedată de model / producător; altfel datele de bază
+  if (it.specs?.length) {
+    const rows: TableRow[] = [sectionRow('Model / producător'), paramRow('Model', it.model), paramRow('Producător', it.producator)]
+    for (const r of it.specs) rows.push('section' in r ? sectionRow(r.section) : paramRow(r.label, r.value))
+    return new Table({ width: { size: W_TOTAL, type: WidthType.DXA }, columnWidths: [wL, wV], rows })
+  }
   return new Table({
     width: { size: W_TOTAL, type: WidthType.DXA },
     columnWidths: [wL, wV],
-    rows: [
-      new TableRow({ children: [cell(['Date tehnice'], W_TOTAL, { span: 2, shade: true, header: true })] }),
-      ...rows.map(([l, val]) => new TableRow({ children: [cell([l], wL), cell([v(val)], wV)] })),
-    ],
+    rows: [sectionRow('Date tehnice'), ...fisaRows(it).map(([l, val]) => paramRow(l, val))],
   })
 }
 

@@ -16,6 +16,7 @@ import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel,
 import { loadBackground } from './background'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import { PdfPreview } from './PdfPreview'
+import { exportDxf } from './dxf'
 import type { PreviewPage } from './PdfPreview'
 import { exportDrawio } from './drawio'
 import { CalcPanel, CatalogDialog } from './CatalogUI'
@@ -935,6 +936,14 @@ export default function App() {
           <button className="primary" onClick={doExportPdf} title="Exportă planșa curentă">PDF planșă</button>
           <button className="primary" onClick={doExportAllPdf} title="Toate planșele într-un singur PDF">PDF toate</button>
           <button className="primary" onClick={() => exportExcel(project)} title="Liste echipamente, zone, jurnal cablu">Excel</button>
+          <button
+            className="primary"
+            onClick={() => notify(exportDxf(project, sheet).message)}
+            disabled={sheet.kind !== 'plan'}
+            title="Planșa curentă ca desen DXF pentru AutoCAD (în metri)"
+          >
+            DXF
+          </button>
           <button className="primary" onClick={doExportDrawio} title="Schemele bloc ca fișier draw.io editabil">draw.io</button>
           <button className="primary" onClick={() => setMemoOpen(true)} title="Memoriul tehnic pentru avizare (.docx)">Memoriu</button>
           <button className="help-btn" onClick={() => setHelpOpen(true)} title="Ghid de utilizare (Ajutor)" aria-label="Ajutor">?</button>

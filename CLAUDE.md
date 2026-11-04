@@ -29,7 +29,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `types.ts` | Modelul de date: `Project`, `Level`, `Device`, `Cable`, `Sheet`, `CatalogItem`, `Accessory`, `CalcParams`, `Tool`, `Selection` |
 | `symbols.ts` | Sistemele (`SYSTEMS`: EFR, CA, CCTV, INC, NET) și biblioteca de simboluri SVG (`SYMBOLS`), cu prefix, tip de cablu implicit, `hub` / `root` pentru schema bloc |
 | `project.ts` | Proiect gol, migrare (`normalizeProject`), numerotare (`nextLabel`), formate de pagină, limite desen, `deviceInfo` (date din catalog) |
-| `catalog.ts` | Catalogul inițial (`SEED_CATALOG`), categorii de accesorii, parametri impliciți de calcul |
+| `catalog.ts` + `catalogSpecs.ts` | Catalogul inițial (`SEED_CATALOG`) cu fișele tehnice complete din proiectul de referință (`SEED_SPECS`, pe secțiuni), parsarea fișelor lipite (`parseSpecs`), categorii de accesorii, parametri impliciți de calcul |
 | `calc.ts` | Calculele: acumulatori, stocare video, bilanț TVCI / UPS, buget PoE — funcții pure, fără UI |
 | `history.ts` | Undo / redo (`commit` = cu istoric, `update` = fără, `checkpoint` la început de tragere) |
 | `PlanCanvas.tsx` | Desenul planului (Konva): fundal, simboluri, conuri camere, cabluri, scară |
@@ -39,6 +39,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
+| `dxf.ts` | Export DXF R12 (ANSI_1250) al planșei de plan: metri (y în sus), straturi `ARH_*`, `GHENE`, `<SISTEM>_ECHIPAMENTE/_CABLURI/_ETICHETE`, `CCTV_CONURI`; simbolurile SVG convertite în blocuri; pereții întrerupți la goluri. Verificare: `ezdxf` (recover + randare PNG) |
 | `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
 | `arch.ts` + `ArchShapes.tsx` | Schița de arhitectură (`Project.arch`): pereți cu grosime reală, uși, ferestre, texte, cote; lipire de vârfuri și aliniere ortogonală; schiță fără plan = 50 px/m |
 | `PdfPreview.tsx` | Previzualizarea paginilor înainte de descărcarea PDF |
@@ -103,4 +104,3 @@ Principii:
 ## Direcții următoare (discutate cu utilizatorul)
 
 - Editor de schemă: puncte de traseu manuale pe legături, selecție multiplă, aliniere/distribuire.
-- Export DXF pentru AutoCAD.
