@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
-import type { ArchElement, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
+import type { ArchElement, Background, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
+import { backgroundKeys, deleteBackground, getBackground, putBackground } from './storage'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
 import { activeSheet, levelOf, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
@@ -20,6 +21,7 @@ import { MemoriuDialog } from './MemoriuDialog'
 import { HelpDialog } from './HelpDialog'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
+const DIRTY_KEY = 'plansa-securitate:nesalvat'
 
 function loadStored(): Project {
   try {
@@ -78,18 +80,98 @@ export default function App() {
     window.setTimeout(() => setToast((t) => (t === msg ? null : t)), 3500)
   }
 
-  // Salvare automată în browser
+  // ---------------------------------------------------------------- salvare automată în browser
+  // Proiectul (fără planurile de fundal) stă în localStorage; planurile mari stau în IndexedDB, pe nivel.
+  const restored = useRef(false)
+  const storedBgs = useRef(new Map<string, string>()) // id nivel → src salvat (ca să nu rescriem degeaba)
+  const warned = useRef(false)
+  /** Modificări nesalvate în fișier; se ține minte și peste reîncărcarea paginii */
+  const [dirty, setDirtyState] = useState(() => {
+    try {
+      return localStorage.getItem(DIRTY_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const setDirty = (v: boolean) => {
+    setDirtyState(v)
+    try {
+      localStorage.setItem(DIRTY_KEY, v ? '1' : '0')
+    } catch {
+      /* ignorat */
+    }
+  }
+  /** Schimbările de proiect care nu sunt modificări ale utilizatorului (deschidere, proiect nou, reîncărcarea planurilor) */
+  const skipDirty = useRef(true)
   useEffect(() => {
-    const t = window.setTimeout(() => {
+    if (skipDirty.current) {
+      skipDirty.current = false
+      return
+    }
+    if (!dirty) setDirty(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project])
+
+  // la pornire: planurile de fundal se reîncarcă din IndexedDB
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(project))
-      } catch {
-        // planurile de fundal pot depăși spațiul disponibil; încercăm fără ele (rămân în fișierul .plansa.json)
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...project, levels: project.levels.map((l) => ({ ...l, background: null })) }))
-        } catch {
-          /* ignorat */
+        const missing = project.levels.filter((l) => !l.background)
+        const found = new Map<string, Background>()
+        for (const l of missing) {
+          const bg = await getBackground(l.id)
+          if (bg) found.set(l.id, bg)
         }
+        for (const l of project.levels) if (l.background) storedBgs.current.set(l.id, '')
+        for (const [id, bg] of found) storedBgs.current.set(id, bg.src)
+        if (alive && found.size) {
+          const apply = (p: Project) => ({ ...p, levels: p.levels.map((l) => (!l.background && found.has(l.id) ? { ...l, background: found.get(l.id)! } : l)) })
+          skipDirty.current = true
+          h.update(apply)
+        }
+      } catch (err) {
+        console.warn('Planurile de fundal nu au putut fi citite din browser', err)
+      } finally {
+        restored.current = true
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    const t = window.setTimeout(async () => {
+      if (!restored.current) return
+      const warn = (what: string) => {
+        if (warned.current) return
+        warned.current = true
+        notify(`Atenție: ${what} nu încape în memoria browserului. Salvează proiectul în fișier (Ctrl+S) ca să nu-l pierzi.`)
+      }
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...project, levels: project.levels.map((l) => ({ ...l, background: null })) }))
+      } catch {
+        warn('proiectul')
+      }
+      try {
+        const ids = new Set(project.levels.map((l) => l.id))
+        for (const l of project.levels) {
+          if (l.background && storedBgs.current.get(l.id) !== l.background.src) {
+            await putBackground(l.id, l.background)
+            storedBgs.current.set(l.id, l.background.src)
+          } else if (!l.background && storedBgs.current.has(l.id)) {
+            await deleteBackground(l.id)
+            storedBgs.current.delete(l.id)
+          }
+        }
+        for (const key of await backgroundKeys()) {
+          if (!ids.has(String(key))) await deleteBackground(String(key))
+        }
+      } catch (err) {
+        console.warn(err)
+        warn('planul de fundal')
       }
     }, 600)
     return () => window.clearTimeout(t)
@@ -389,15 +471,22 @@ export default function App() {
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = `${(project.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')}.plansa.json`
+    document.body.appendChild(a)
     a.click()
-    URL.revokeObjectURL(a.href)
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(a.href), 30000)
+    setDirty(false)
   }
 
   const openJson = async (file: File) => {
+    if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Deschizi totuși alt proiect?')) return
     try {
       const v = JSON.parse(await file.text())
       if (!isProject(v)) throw new Error('Fișierul nu este un proiect valid.')
-      h.reset(normalizeProject(v))
+      const opened = normalizeProject(v)
+      skipDirty.current = true
+      h.reset(opened)
+      setDirty(false)
       setSelection(null)
       setTool({ kind: 'select' })
       setFitSignal((n) => n + 1)
@@ -408,8 +497,11 @@ export default function App() {
   }
 
   const newProject = () => {
-    if (!window.confirm('Începi un proiect nou? Modificările nesalvate în fișier se pierd.')) return
-    h.reset(emptyProject())
+    if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Începi totuși un proiect nou? (Salvează întâi cu Ctrl+S dacă vrei să le păstrezi.)')) return
+    const fresh = emptyProject()
+    skipDirty.current = true
+    h.reset(fresh)
+    setDirty(false)
     setSelection(null)
     setTool({ kind: 'select' })
     setFitSignal((n) => n + 1)
@@ -420,6 +512,8 @@ export default function App() {
   const setActiveSheet = (id: string) => {
     setSelection(null)
     setTool({ kind: 'select' })
+    // schimbarea planșei afișate nu e o modificare a proiectului
+    if (!dirty) skipDirty.current = true
     h.update((p) => ({ ...p, activeSheetId: id }))
     setFitSignal((n) => n + 1)
   }
@@ -606,6 +700,13 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Ctrl+S salvează oriunde, inclusiv din câmpurile de text și din dialoguri
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault()
+        ;(document.activeElement as HTMLElement | null)?.blur?.()
+        saveJson()
+        return
+      }
       if (catalogOpen || memoOpen || helpOpen || preview) {
         if (e.key === 'Escape') {
           setPreview(null)
@@ -633,9 +734,6 @@ export default function App() {
       } else if (mod && e.key.toLowerCase() === 'v' && sheet.kind === 'plan' && clipboard) {
         e.preventDefault()
         paste()
-      } else if (mod && e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        saveJson()
       } else if (e.key === 'Escape') {
         if (ctxMenu) setCtxMenu(null)
         else if (sheetMenu) setSheetMenu(null)
@@ -675,7 +773,9 @@ export default function App() {
         <div className="group">
           <button onClick={newProject} title="Proiect nou">Nou</button>
           <button onClick={() => openInput.current?.click()} title="Deschide proiect (.json)">Deschide</button>
-          <button onClick={saveJson} title="Salvează proiect (Ctrl+S)">Salvează</button>
+          <button onClick={saveJson} className={dirty ? 'unsaved' : ''} title={dirty ? 'Ai modificări nesalvate în fișier — Salvează (Ctrl+S)' : 'Salvează proiect (Ctrl+S)'}>
+            Salvează{dirty && <span className="dirty-dot" />}
+          </button>
           <button onClick={() => bgInput.current?.click()} title="Încarcă planul clădirii (PDF sau imagine)">Încarcă plan</button>
           <button onClick={() => setCatalogOpen(true)} title="Catalog echipamente (modele, consumuri)">Catalog</button>
         </div>
