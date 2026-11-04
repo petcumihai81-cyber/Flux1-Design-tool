@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
@@ -16,6 +16,9 @@ import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel,
 import { loadBackground } from './background'
 import type { PdfDoc } from './background'
 import { PdfPagePicker } from './PdfPagePicker'
+import { verifyProject } from './verify'
+import type { IssueTarget } from './verify'
+import { VerifyDialog } from './VerifyDialog'
 import { readDxf } from './dxfImport'
 import type { DxfDrawing } from './dxfImport'
 import { DxfImportDialog } from './DxfImportDialog'
@@ -53,6 +56,9 @@ export default function App() {
   /** Nivelul planșei curente (la schemele bloc: primul nivel) */
   const level = sheetLevel(project, sheet)
   const [catalogOpen, setCatalogOpen] = useState(false)
+  /** Elementul din catalog de deschis (din verificare) */
+  const [catalogFocus, setCatalogFocus] = useState<string | undefined>(undefined)
+  const [verifyOpen, setVerifyOpen] = useState(false)
   const [editTextId, setEditTextId] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ pages: PreviewPage[]; name: string; title: string } | null>(null)
   const [memoOpen, setMemoOpen] = useState(false)
@@ -661,6 +667,50 @@ export default function App() {
 
   // ---------------------------------------------------------------- planșe
 
+  /** Verificare: problemele proiectului (recalculate la fiecare modificare) */
+  const issues = useMemo(() => verifyProject(project), [project])
+  const verifyErrors = issues.filter((i) => i.sev === 'err').length
+
+  /** Navigare la locul unei probleme din verificare */
+  const goToIssue = (t: IssueTarget) => {
+    const sheetFor = (levelId: string, system?: string) =>
+      project.sheets.find((s) => s.kind === 'plan' && sheetLevel(project, s).id === levelId && (!system || s.systems.includes(system as never))) ??
+      project.sheets.find((s) => s.kind === 'plan' && sheetLevel(project, s).id === levelId)
+    switch (t.kind) {
+      case 'device':
+      case 'cable': {
+        const sys = t.kind === 'device' ? deviceSystem(project.devices.find((d) => d.id === t.id)!) : project.cables.find((c) => c.id === t.id)?.system
+        const sh = sheetFor(t.levelId, sys)
+        if (sh && sh.id !== sheet.id) setActiveSheet(sh.id)
+        setTimeout(() => select({ kind: t.kind, id: t.id }), 0)
+        break
+      }
+      case 'level': {
+        const sh = sheetFor(t.levelId)
+        if (sh && sh.id !== sheet.id) setActiveSheet(sh.id)
+        setTab('proiect')
+        break
+      }
+      case 'sheet':
+        if (t.sheetId !== sheet.id) setActiveSheet(t.sheetId)
+        setTab('proiect')
+        break
+      case 'catalog':
+        setCatalogFocus(t.itemId)
+        setCatalogOpen(true)
+        break
+      case 'memoriu':
+        setMemoOpen(true)
+        break
+      case 'project':
+        setTab('proiect')
+        break
+      case 'calc':
+        setTab('calcule')
+        break
+    }
+  }
+
   const setActiveSheet = (id: string) => {
     setSelection(null)
     setTool({ kind: 'select' })
@@ -970,6 +1020,10 @@ export default function App() {
           <button onClick={() => setFitSignal((n) => n + 1)} title="Încadrează în ecran (F)">Încadrare</button>
         </div>
         <div className="group right">
+          <button className="verify-btn" onClick={() => setVerifyOpen(true)} title="Verifică ce lipsește înainte de predarea proiectului">
+            Verificare
+            {verifyErrors > 0 && <span className="badge">{verifyErrors}</span>}
+          </button>
           <button className="primary" onClick={doExportPdf} title="Exportă planșa curentă">PDF planșă</button>
           <button className="primary" onClick={doExportAllPdf} title="Toate planșele într-un singur PDF">PDF toate</button>
           <button className="primary" onClick={() => exportExcel(project)} title="Liste echipamente, zone, jurnal cablu">Excel</button>
@@ -1244,8 +1298,12 @@ export default function App() {
       {catalogOpen && (
         <CatalogDialog
           project={project}
+          initialId={catalogFocus}
           onChange={(catalog) => h.commit((p) => ({ ...p, catalog }))}
-          onClose={() => setCatalogOpen(false)}
+          onClose={() => {
+            setCatalogOpen(false)
+            setCatalogFocus(undefined)
+          }}
           notify={notify}
         />
       )}
@@ -1253,6 +1311,7 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {helpOpen && <HelpDialog onClose={closeHelp} />}
+      {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}
       {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}
       {dxfImport && (
         <DxfImportDialog

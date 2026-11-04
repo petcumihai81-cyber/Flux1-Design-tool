@@ -25,6 +25,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   legăturile le urmăresc, se pot trage legături noi (eticheta se completează din cablul de pe plan), se adaugă texte și chenare de grupare,
   cu culori și linii punctate. Echipamentele rămân legate de plan; cele adăugate ulterior apar ca „neplasate”. „Regenerează” refă schema automat.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
+- **Verificare înainte de predare**: erori (scară necalibrată, cabluri nelegate, zone lipsă, consumuri lipsă, UPS / HDD / PoE insuficiente, numerotare dublă) și atenționări (modele, fișe tehnice, cartuș, memoriu), fiecare cu buton care duce la locul problemei.
 - **Import DXF** ca plan de fundal: alegi straturile și unitatea (mm / cm / m, ghicită dacă lipsește din fișier), iar planul vine deja calibrat la scara reală. DWG-ul se salvează întâi ca DXF.
 - **Export DXF** (AutoCAD, format R12): planșa de plan curentă în metri, cu straturi pe arhitectură și pe fiecare sistem (echipamente, cabluri, etichete, conuri camere), simbolurile ca blocuri; pereții se întrerup la uși și ferestre.
 - **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.

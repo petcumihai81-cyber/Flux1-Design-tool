@@ -44,14 +44,17 @@ export function CatalogDialog({
   onChange,
   onClose,
   notify,
+  initialId,
 }: {
+  /** Elementul selectat la deschidere */
+  initialId?: string
   project: Project
   onChange: (catalog: CatalogItem[]) => void
   onClose: () => void
   notify: (m: string) => void
 }) {
   const catalog = project.catalog
-  const [selId, setSelId] = useState<string | null>(catalog[0]?.id ?? null)
+  const [selId, setSelId] = useState<string | null>(initialId ?? catalog[0]?.id ?? null)
   const [q, setQ] = useState('')
   const [newType, setNewType] = useState('efr_pir')
   const sel = catalog.find((c) => c.id === selId)
