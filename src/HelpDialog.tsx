@@ -217,6 +217,7 @@ const SECTIONS: Section[] = [
   {
     id: 'fundal',
     title: 'Planul de fundal: estompare, aliniere, blocare',
+    img: 'help/15-fundal.webp',
     steps: [
       <>
         În tab-ul <B>Proiect</B>, la <B>Nivel</B>: <B>Estompare plan</B> (0–90%) face planul mai șters, ca o copie decolorată, iar simbolurile ies
@@ -236,6 +237,7 @@ const SECTIONS: Section[] = [
     id: 'import-dxf',
     title: 'Plan DXF de la arhitect',
     intro: 'Planul primit în format CAD se încarcă direct, la scara reală.',
+    img: 'help/14-import-dxf.webp',
     steps: [
       <>
         <B>Încarcă plan</B> → alege fișierul <B>.dxf</B>. Un <B>.dwg</B> nu se poate citi în browser: în AutoCAD (sau alt program CAD) folosește{' '}
@@ -259,6 +261,7 @@ const SECTIONS: Section[] = [
     id: 'verificare',
     title: 'Verificare înainte de predare',
     intro: 'O listă cu tot ce lipsește sau nu se potrivește, înainte să predai documentația.',
+    img: 'help/13-verificare.webp',
     steps: [
       <>
         Apasă <B>Verificare</B> (bara de sus). Bulina roșie de pe buton arată câte <B>erori</B> are proiectul acum.
@@ -280,6 +283,7 @@ const SECTIONS: Section[] = [
   {
     id: 'dxf',
     title: 'Export DXF pentru AutoCAD',
+    img: 'help/16-export-dxf.webp',
     steps: [
       <>
         Pe o planșă de plan apeși <B>DXF</B>: se descarcă desenul nivelului ca fișier <B>.dxf</B> (format R12), care se deschide în AutoCAD,

@@ -97,7 +97,7 @@ Principii:
 ## Ghidul din aplicație
 
 - Când se schimbă interfața sau se adaugă o funcție, se actualizează și secțiunea corespunzătoare din `HelpDialog.tsx`.
-- Capturile din `public/help/` se regenerează cu Playwright pe `vite preview`, pe un plan demonstrativ (birouri 20 × 12 m, 100 px/m, cotă de 10 m), cu viewport 1400×860 și deviceScaleFactor 1.25, apoi se convertesc în WebP (calitate ~82, lățime max. 1500 px). Scripturile sunt temporare, nu se pun în repo.
+- Capturile din `public/help/` (01–16) se regenerează cu Playwright pe `vite preview`, pe un plan demonstrativ (birouri 20 × 12 m, 100 px/m, cotă de 10 m), cu viewport 1400×860 și deviceScaleFactor 1.25, apoi se convertesc în WebP (calitate ~82, lățime max. 1500 px). `16-export-dxf` e randarea `ezdxf` a unui DXF exportat. Scripturile sunt temporare, nu se pun în repo.
 
 ## Git
 
@@ -106,4 +106,4 @@ Principii:
 
 ## Direcții următoare (discutate cu utilizatorul)
 
-- Capturi noi în ghid pentru funcțiile recente (DXF, zona planșei, fundal, pagini PDF, verificare, editor de schemă).
+- (nimic în așteptare — se completează la cererea utilizatorului)
