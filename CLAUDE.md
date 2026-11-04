@@ -39,6 +39,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
+| `dxf.ts` | Export DXF R12 (ANSI_1250) al planșei de plan: metri (y în sus), straturi `ARH_*`, `GHENE`, `<SISTEM>_ECHIPAMENTE/_CABLURI/_ETICHETE`, `CCTV_CONURI`; simbolurile SVG convertite în blocuri; pereții întrerupți la goluri. Verificare: `ezdxf` (recover + randare PNG) |
 | `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
 | `arch.ts` + `ArchShapes.tsx` | Schița de arhitectură (`Project.arch`): pereți cu grosime reală, uși, ferestre, texte, cote; lipire de vârfuri și aliniere ortogonală; schiță fără plan = 50 px/m |
 | `PdfPreview.tsx` | Previzualizarea paginilor înainte de descărcarea PDF |
@@ -102,4 +103,3 @@ Principii:
 ## Direcții următoare (discutate cu utilizatorul)
 
 - Editor de schemă: puncte de traseu manuale pe legături, selecție multiplă, aliniere/distribuire.
-- Export DXF pentru AutoCAD.
