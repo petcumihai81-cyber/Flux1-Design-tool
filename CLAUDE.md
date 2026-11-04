@@ -29,7 +29,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `types.ts` | Modelul de date: `Project`, `Level`, `Device`, `Cable`, `Sheet`, `CatalogItem`, `Accessory`, `CalcParams`, `Tool`, `Selection` |
 | `symbols.ts` | Sistemele (`SYSTEMS`: EFR, CA, CCTV, INC, NET) și biblioteca de simboluri SVG (`SYMBOLS`), cu prefix, tip de cablu implicit, `hub` / `root` pentru schema bloc |
 | `project.ts` | Proiect gol, migrare (`normalizeProject`), numerotare (`nextLabel`), formate de pagină, limite desen, `deviceInfo` (date din catalog) |
-| `catalog.ts` | Catalogul inițial (`SEED_CATALOG`), categorii de accesorii, parametri impliciți de calcul |
+| `catalog.ts` + `catalogSpecs.ts` | Catalogul inițial (`SEED_CATALOG`) cu fișele tehnice complete din proiectul de referință (`SEED_SPECS`, pe secțiuni), parsarea fișelor lipite (`parseSpecs`), categorii de accesorii, parametri impliciți de calcul |
 | `calc.ts` | Calculele: acumulatori, stocare video, bilanț TVCI / UPS, buget PoE — funcții pure, fără UI |
 | `history.ts` | Undo / redo (`commit` = cu istoric, `update` = fără, `checkpoint` la început de tragere) |
 | `PlanCanvas.tsx` | Desenul planului (Konva): fundal, simboluri, conuri camere, cabluri, scară |

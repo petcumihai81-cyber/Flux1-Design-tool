@@ -1,5 +1,6 @@
-import type { AccessoryKind, CalcParams, CatalogItem, SystemId } from './types'
+import type { AccessoryKind, CalcParams, CatalogItem, SpecRow, SystemId } from './types'
 import { symbolByType } from './symbols'
+import { SEED_SPECS } from './catalogSpecs'
 
 export const ACCESSORY_KINDS: { type: AccessoryKind; name: string }[] = [
   { type: 'acc_hdd', name: 'Hard disk' },
@@ -29,6 +30,7 @@ export const DEFAULT_CALC: CalcParams = {
 }
 
 const item = (id: string, type: string, system: SystemId, over: Partial<CatalogItem>): CatalogItem => ({
+  ...(SEED_SPECS[id] ? { specs: SEED_SPECS[id] } : {}),
   id,
   type,
   system,
@@ -179,13 +181,38 @@ export const SEED_CATALOG: CatalogItem[] = [
 
 const LIB_KEY = 'plansa-securitate:catalog'
 
+/** Completează fișele tehnice lipsă ale echipamentelor din catalogul inițial (după id) */
+export const withSeedSpecs = (items: CatalogItem[]): CatalogItem[] =>
+  items.map((i) => (!i.specs?.length && SEED_SPECS[i.id] ? { ...i, specs: SEED_SPECS[i.id] } : i))
+
+/** Împarte un tabel copiat din fișa producătorului în rânduri: „parametru<TAB>valoare”, „parametru: valoare” sau titlu de secțiune */
+export function parseSpecs(text: string): SpecRow[] {
+  const rows: SpecRow[] = []
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim()
+    if (!line) continue
+    const tab = line.split('\t').map((x) => x.trim()).filter(Boolean)
+    if (tab.length >= 2) {
+      rows.push({ label: tab[0], value: tab.slice(1).join(' / ') })
+      continue
+    }
+    const colon = line.indexOf(':')
+    if (colon > 0 && colon < line.length - 1) {
+      rows.push({ label: line.slice(0, colon).trim(), value: line.slice(colon + 1).trim() })
+      continue
+    }
+    rows.push({ section: line.replace(/:$/, '') })
+  }
+  return rows
+}
+
 /** Catalogul implicit pentru proiecte noi: cel salvat de utilizator sau cel inițial */
 export function defaultCatalog(): CatalogItem[] {
   try {
     const raw = localStorage.getItem(LIB_KEY)
     if (raw) {
       const v = JSON.parse(raw)
-      if (Array.isArray(v)) return v
+      if (Array.isArray(v)) return withSeedSpecs(v)
     }
   } catch {
     /* ignorat */

@@ -235,6 +235,11 @@ const SECTIONS: Section[] = [
       </>,
       <>Bifează „Baterie proprie” la echipamentele wireless: nu intră în calculul acumulatorilor.</>,
       <>
+        <B>Fișa tehnică</B> (jos în formular) apare în capitolul „Fișele tehnice ale echipamentelor” din memoriu, pe secțiuni. Cel mai repede:{' '}
+        <B>Lipește din fișa producătorului</B> — copiezi tabelul de pe site sau din PDF și îl lipești; rândurile „parametru – valoare” și titlurile
+        de secțiune se recunosc singure. Echipamentele din catalogul inițial au deja fișele completate.
+      </>,
+      <>
         <B>Salvează ca implicit</B> = proiectele noi pornesc cu acest catalog. <B>Export</B> / <B>Import</B> = îl muți pe alt calculator.
       </>,
     ],

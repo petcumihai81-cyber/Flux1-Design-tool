@@ -81,6 +81,9 @@ export interface Cable {
 /** Categorii de accesorii fără simbol pe plan */
 export type AccessoryKind = 'acc_hdd' | 'acc_acumulator' | 'acc_ups' | 'acc_sursa' | 'acc_altele'
 
+/** Rând de fișă tehnică: titlu de secțiune sau parametru + valoare */
+export type SpecRow = { section: string } | { label: string; value: string }
+
 export interface CatalogItem {
   id: string
   /** Tipul de simbol (efr_pir, cctv_nvr...) sau categoria de accesoriu (acc_hdd...) */
@@ -119,6 +122,8 @@ export interface CatalogItem {
   upsW?: number
   upsWh?: number
   note: string
+  /** Fișa tehnică completă (pentru memoriu), pe secțiuni */
+  specs?: SpecRow[]
 }
 
 export interface Accessory {
