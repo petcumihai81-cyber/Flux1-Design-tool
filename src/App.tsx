@@ -8,7 +8,7 @@ import type { Item } from './group'
 import { backgroundKeys, deleteBackground, getBackground, putBackground } from './storage'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
-import { activeSheet, levelOf, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { ALL_SYSTEMS, activeSheet, contentBounds, levelOf, outsideFrame, pageFrame, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
 import { SYSTEMS, canMirror, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
@@ -1150,6 +1150,14 @@ export default function App() {
               <LevelPanel
                 level={level}
                 paperMmPerPx={paperMmPerPx(project, sheet)}
+                frame={(() => {
+                  const f = pageFrame(project, sheet)
+                  return f ? { meters: f.meters, out: outsideFrame(project, sheet), format: formatLabel(sheet), scara: sheet.scara } : null
+                })()}
+                onCenterFrame={() => {
+                  const b = contentBounds(project, ALL_SYSTEMS, level.id)
+                  patchLevel(level.id, { pageCenter: b ? { x: b.x + b.width / 2, y: b.y + b.height / 2 } : { x: 0, y: 0 } })
+                }}
                 suggested={symbolForPaper(project, sheet)}
                 canDelete={project.levels.length > 1}
                 onChange={(patch) => patchLevel(level.id, patch)}

@@ -120,6 +120,12 @@ const SECTIONS: Section[] = [
         cablurile sunt reale din prima.
       </>,
       <>
+        Pe pagina albă, <B>chenarul albastru punctat</B> arată zona de desen a planșei (format și orientare din tab-ul <B>Proiect</B>) la scara din
+        cartuș, ex. A4 peisaj la 1:100 ≈ 16,5 × 18,6 m. Ce desenezi în chenar iese în PDF exact la acea scară; dacă desenul iese din chenar,
+        acesta devine portocaliu — alege un format mai mare sau o scară mai mică. <B>Centrează zona planșei pe desen</B> mută chenarul peste
+        desen.
+      </>,
+      <>
         <B>Perete exterior / interior</B>: click din punct în punct. Peretele se aliniază singur pe orizontală / verticală și se lipește de pereții
         existenți (<K>Shift</K> = liber). Click pe primul punct închide conturul; dublu-click sau <K>Enter</K> termină.
       </>,
