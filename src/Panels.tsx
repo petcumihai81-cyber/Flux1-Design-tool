@@ -1,26 +1,33 @@
 import { useMemo, useState } from 'react'
-import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableEnds, cableMeters, cablePixels, catalogItem, deviceSystem, isRiserRoute, levelOf, riserHost, verticalMeters } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
+import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
 export function Palette({
   tool,
   catalog,
+  customSymbols,
   onPick,
   onPickArch,
+  onUploadSymbol,
+  onEditSymbol,
 }: {
   tool: Tool
   catalog: CatalogItem[]
-  onPick: (type: string, catalogId?: string) => void
+  customSymbols: CustomSymbol[]
+  onPick: (type: string, catalogId?: string, symbolId?: string) => void
   onPickArch: (t: ArchTool) => void
+  onUploadSymbol: () => void
+  onEditSymbol: (id: string) => void
 }) {
-  const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, CAT: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
+  const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, CAT: true, CUSTOM: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
   const [q, setQ] = useState('')
   const query = q.trim().toLowerCase()
   return (
@@ -75,6 +82,7 @@ export function Palette({
               <div className="pal-grid">
                 {items.map((c) => {
                   const def = symbolByType(c.type)!
+                  const csym = c.symbolId ? customSymbols.find((x) => x.id === c.symbolId) : undefined
                   return (
                     <button
                       key={c.id}
@@ -87,14 +95,64 @@ export function Palette({
                       }}
                       onClick={() => onPick(c.type, c.id)}
                     >
-                      <img src={symbolDataUrl(def)} alt="" />
+                      <img src={csym ? symbolThumb(csym, csym.recolor ? systemById(def.system).color : undefined) : symbolDataUrl(def)} alt="" />
                       <span className="pal-prefix" style={{ color: systemById(def.system).color }}>
-                        {c.prefix || def.prefix}
+                        {c.prefix || csym?.prefix || def.prefix}
                       </span>
                       <span className="pal-name">{c.model || c.denumire}</span>
                     </button>
                   )
                 })}
+              </div>
+            )}
+          </section>
+        )
+      })()}
+      {(() => {
+        const items = customSymbols.filter((c) => !query || `${c.name} ${c.prefix}`.toLowerCase().includes(query))
+        if (query && !items.length) return null
+        const isOpen = open.CUSTOM || !!query
+        return (
+          <section>
+            <button className="pal-head" style={{ borderColor: '#8d6e63' }} onClick={() => setOpen((o) => ({ ...o, CUSTOM: !o.CUSTOM }))}>
+              <span className="dot" style={{ background: '#8d6e63' }} />
+              Simboluri personalizate ({customSymbols.length})
+              <span className="chev">{isOpen ? '▾' : '▸'}</span>
+            </button>
+            {isOpen && (
+              <div className="pal-grid">
+                {items.map((c) => {
+                  const def = symbolByType(c.base)!
+                  const col = systemById(def.system).color
+                  return (
+                    <div key={c.id} className="pal-custom">
+                      <button
+                        className={'pal-item' + (tool.kind === 'place' && tool.symbolId === c.id ? ' active' : '')}
+                        title={`${c.name}\nSe comportă ca: ${def.name}\nClick pentru plasare sau trage pe plan`}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('text/symbol-type', c.base)
+                          e.dataTransfer.setData('text/symbol-id', c.id)
+                          e.dataTransfer.effectAllowed = 'copy'
+                        }}
+                        onClick={() => onPick(c.base, undefined, c.id)}
+                      >
+                        <img src={symbolThumb(c, c.recolor ? col : undefined)} alt="" />
+                        <span className="pal-prefix" style={{ color: col }}>
+                          {c.prefix || def.prefix}
+                        </span>
+                        <span className="pal-name">{c.name}</span>
+                      </button>
+                      <button className="pal-edit" title="Editează / șterge simbolul" onClick={() => onEditSymbol(c.id)}>
+                        ✎
+                      </button>
+                    </div>
+                  )
+                })}
+                <button className="pal-item pal-upload" onClick={onUploadSymbol} title="Încarcă un simbol propriu (SVG, PNG, ICO, JPG, WebP)">
+                  <span className="plus">+</span>
+                  <span className="pal-name">Încarcă simbol</span>
+                </button>
               </div>
             )}
           </section>
@@ -172,13 +230,49 @@ function Num({ value, onChange, min, max, step = 1 }: { value: number; onChange:
 
 // ------------------------------------------------------------------ Proprietăți element
 
+/** Alegerea culorii unui simbol: culori propuse, culoare liberă și revenire la culoarea sistemului */
+export function ColorRow({
+  value,
+  defaultColor,
+  onChange,
+  showReset,
+}: {
+  value?: string
+  defaultColor: string
+  onChange: (c: string | undefined) => void
+  showReset?: boolean
+}) {
+  const cur = (value ?? defaultColor).toLowerCase()
+  return (
+    <div className="color-row">
+      {SYMBOL_COLORS.map((c) => (
+        <button
+          key={c.c}
+          className={'swatch' + (cur === c.c.toLowerCase() ? ' on' : '')}
+          title={c.name + (c.c.toLowerCase() === defaultColor.toLowerCase() ? ' (culoarea sistemului)' : '')}
+          style={{ background: c.c }}
+          onClick={() => onChange(c.c.toLowerCase() === defaultColor.toLowerCase() ? undefined : c.c)}
+        />
+      ))}
+      <input type="color" value={cur.length === 7 ? cur : '#000000'} title="Altă culoare" onChange={(e) => onChange(e.target.value)} />
+      {(value || showReset) && (
+        <button className="reset" onClick={() => onChange(undefined)} title="Culoarea sistemului">
+          Implicită
+        </button>
+      )}
+    </div>
+  )
+}
+
 export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; project: Project; onChange: (patch: Partial<Device>) => void; onDelete: () => void }) {
   const def = symbolByType(d.type)!
   const sys = systemById(def.system)
+  const csym = deviceSymbol(project, d)
+  const fromCatalog = !d.symbolId && csym
   return (
     <div className="props">
       <div className="props-title">
-        <img src={symbolDataUrl(def)} alt="" />
+        <img src={csym ? symbolThumb(csym, csym.recolor ? deviceColor(d) : undefined) : symbolDataUrl(def, false, d.color)} alt="" />
         <div>
           <b>{def.name}</b>
           <small style={{ color: sys.color }}>{sys.name}</small>
@@ -198,6 +292,29 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
               </option>
             ))}
         </select>
+      </Field>
+      <Field label="Simbol">
+        <select
+          value={d.symbolId ?? ''}
+          onChange={(e) => onChange({ symbolId: e.target.value || undefined })}
+          title="Simbolul standard sau unul personalizat cu același comportament"
+        >
+          <option value="">{fromCatalog ? `— din catalog: ${csym!.name} —` : `Standard: ${def.name}`}</option>
+          {project.customSymbols
+            .filter((c) => c.base === d.type)
+            .map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+        </select>
+      </Field>
+      <Field label="Culoare simbol">
+        {csym && !csym.recolor ? (
+          <span className="hint">Simbolul „{csym.name}” își păstrează culorile (nu e recolorabil).</span>
+        ) : (
+          <ColorRow value={d.color} defaultColor={sys.color} onChange={(c) => onChange({ color: c })} />
+        )}
       </Field>
       {catalogItem(project, d.catalogId) ? (
         <p className="hint">{catalogItem(project, d.catalogId)!.denumire}</p>
@@ -353,6 +470,9 @@ export function GroupPanel({
           </div>
           {field('Tip detecție / zonă', 'zoneType', 'întârziere / instantanee / 24h')}
           <p className="hint">Modificarea se aplică la ieșirea din câmp (sau Enter).</p>
+          <Field label="Culoare simboluri">
+            <ColorRow value={common(devices.map((d) => d.color ?? '')) || undefined} defaultColor="" showReset onChange={(c) => onPatchDevices({ color: c })} />
+          </Field>
         </>
       )}
       <h4>Aranjare</h4>

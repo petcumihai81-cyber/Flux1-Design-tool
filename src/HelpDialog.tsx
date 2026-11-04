@@ -305,6 +305,34 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'simboluri',
+    title: 'Culoarea simbolurilor și simboluri personalizate',
+    img: 'help/17-simboluri.webp',
+    steps: [
+      <>
+        <B>Culoare proprie</B>: selectezi echipamentul și alegi culoarea la <B>Culoare simbol</B> (tab-ul Element), sau click dreapta pe
+        el. Pentru mai multe deodată: selecție multiplă, apoi culoarea din panou sau din meniul de click dreapta. <B>Implicită</B> revine la
+        culoarea sistemului. Culoarea se vede pe simbol, etichetă și con, în legendă, PDF, schema bloc și DXF.
+      </>,
+      <>
+        <B>Simbol personalizat</B>: în paletă, la <B>Simboluri personalizate</B> → <B>Încarcă simbol</B>. Merge SVG (recomandat), PNG,
+        ICO, JPG, WebP. Alegi <B>Se comportă ca</B> (ex. cameră dome — primește con, cablu, rândul din liste și calcule), denumirea din
+        legendă și prefixul de numerotare.
+      </>,
+      <>
+        Simbolul se aduce automat la mărimea celorlalte. La imagini fără transparență (JPG), fundalul alb devine transparent. <B>Se
+        recolorează</B>: la SVG culorile devin culoarea sistemului / a echipamentului; la PNG merge pentru pictograme de o singură culoare.
+      </>,
+      <>
+        Simbolul nou se plasează cu click (sau tras pe plan). Un echipament existent își schimbă aspectul din <B>Simbol</B> (tab-ul
+        Element); în <B>Catalog</B> poți lega un model de un simbol personalizat. Creionul ✎ din paletă editează sau șterge simbolul.
+      </>,
+    ],
+    tips: [
+      <>Simbolurile se păstrează în proiect și, dacă bifezi, în biblioteca ta din browser (apar în proiectele noi). În DXF, simbolurile personalizate apar ca simbolul standard echivalent, cu culoarea lor.</>,
+    ],
+  },
+  {
     id: 'schema',
     title: 'Schema bloc',
     img: 'help/07-schema.webp',

@@ -2,7 +2,8 @@ import type Konva from 'konva'
 import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import type { Project, Sheet, SystemId } from './types'
-import { SYSTEMS, loadSymbolImage, symbolByType, systemById } from './symbols'
+import { SYSTEMS, symbolByType, systemById } from './symbols'
+import { deviceSymbol, loadLookImage } from './symbolLibrary'
 import { cableMeters, catalogItem, contentBounds, sheetDrawBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel, cableEnds, isRiserRoute, levelOf, riserHost } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
@@ -56,6 +57,9 @@ interface LegendRow {
   type?: string
   prefix?: string
   system?: SystemId
+  /** Aspectul simbolului (culoare proprie / simbol personalizat) */
+  color?: string
+  symbolId?: string
 }
 
 /** Legenda planșei: pe planșele de plan contează doar echipamentele nivelului afișat */
@@ -63,20 +67,22 @@ function legendRows(p: Project, systems: SystemId[], withCables: boolean, levelI
   const rows: LegendRow[] = []
   for (const sys of SYSTEMS) {
     if (!systems.includes(sys.id)) continue
-    // grupat pe tip + prefix (ex. CM și CMW apar separat)
+    // grupat pe tip + prefix + aspect (ex. CM și CMW apar separat; la fel culorile / simbolurile proprii)
     const counts = new Map<string, number>()
     for (const d of p.devices) {
       if (deviceSystem(d) !== sys.id || (levelId && d.levelId !== levelId)) continue
-      const key = d.type + '|' + devicePrefix(d.type, catalogItem(p, d.catalogId))
+      const sym = deviceSymbol(p, d)
+      const key = [d.type, devicePrefix(d.type, catalogItem(p, d.catalogId), sym), sym?.id ?? '', d.color ?? ''].join('|')
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     const hasCables = withCables && p.cables.some((c) => c.system === sys.id && (!levelId || c.levelId === levelId))
     if (!counts.size && !hasCables) continue
     rows.push({ kind: 'header', text: sys.name.toUpperCase(), system: sys.id })
     for (const [key, n] of counts) {
-      const [type, prefix] = key.split('|')
+      const [type, prefix, symbolId, color] = key.split('|')
       const def = symbolByType(type)!
-      rows.push({ kind: 'symbol', type, prefix, text: `${def.name} (${n} buc.)`, system: sys.id })
+      const sym = symbolId ? p.customSymbols.find((c) => c.id === symbolId) : undefined
+      rows.push({ kind: 'symbol', type, prefix, text: `${sym?.name || def.name} (${n} buc.)`, system: sys.id, symbolId: symbolId || undefined, color: color || undefined })
     }
     if (hasCables) rows.push({ kind: 'cable', text: `Traseu cablu ${sys.short.toLowerCase()}`, system: sys.id })
   }
@@ -287,10 +293,10 @@ export async function renderSheetPage(stage: Konva.Stage, p: Project, sh: Sheet)
       ctx.fillStyle = color
       fitText(ctx, row.text, lx, ly + lh * 0.72, colW - 2 * k, Math.min(3.1 * k, lh * 0.6), true)
     } else if (row.kind === 'symbol' && row.type) {
-      const img = await loadSymbolImage(row.type)
+      const img = await loadLookImage(p, { type: row.type, color: row.color, symbolId: row.symbolId })
       ctx.drawImage(img, lx, ly + (lh - iconS) / 2, iconS, iconS)
       const def = symbolByType(row.type)!
-      ctx.fillStyle = color
+      ctx.fillStyle = row.color ?? color
       fitText(ctx, row.prefix || def.prefix, lx + iconS + 1.5 * k, ly + lh * 0.68, 11 * k, fs, true)
       ctx.fillStyle = '#000'
       fitText(ctx, row.text, textX, ly + lh * 0.68, textW, fs)

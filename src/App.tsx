@@ -12,10 +12,12 @@ import { ALL_SYSTEMS, activeSheet, contentBounds, levelOf, outsideFrame, pageFra
 import { SYSTEMS, canMirror, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
-import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
+import { ArchProps, CableProps, ColorRow, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
 import type { PdfDoc } from './background'
 import { PdfPagePicker } from './PdfPagePicker'
+import { addToLibrary, defaultCustomSymbols, deviceSymbol, removeFromLibrary } from './symbolLibrary'
+import { CustomSymbolDialog } from './CustomSymbolDialog'
 import { verifyProject } from './verify'
 import type { IssueTarget } from './verify'
 import { VerifyDialog } from './VerifyDialog'
@@ -59,6 +61,8 @@ export default function App() {
   /** Elementul din catalog de deschis (din verificare) */
   const [catalogFocus, setCatalogFocus] = useState<string | undefined>(undefined)
   const [verifyOpen, setVerifyOpen] = useState(false)
+  /** Dialogul simbolului personalizat: {} = încărcare nouă, { id } = editare */
+  const [symDialog, setSymDialog] = useState<{ id?: string } | null>(null)
   const [editTextId, setEditTextId] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ pages: PreviewPage[]; name: string; title: string } | null>(null)
   const [memoOpen, setMemoOpen] = useState(false)
@@ -225,12 +229,13 @@ export default function App() {
   // ---------------------------------------------------------------- acțiuni
 
   const addDevice = useCallback(
-    (type: string, x: number, y: number, catalogId?: string) => {
+    (type: string, x: number, y: number, catalogId?: string, symbolId?: string) => {
       const def = symbolByType(type)
       if (!def) return
       const id = uid()
       h.commit((p) => {
         const it = catalogItem(p, catalogId)
+        const sym = deviceSymbol(p, { symbolId, catalogId })
         const d: Device = {
           id,
           levelId: sheetLevel(p, activeSheet(p)).id,
@@ -238,9 +243,10 @@ export default function App() {
           x,
           y,
           rotation: 0,
-          label: nextLabel(devicePrefix(type, it), p.devices.map((d) => d.label), p.numberPad),
+          label: nextLabel(devicePrefix(type, it, sym), p.devices.map((d) => d.label), p.numberPad),
           model: '',
           ...(it ? { catalogId: it.id } : {}),
+          ...(symbolId && p.customSymbols.some((c) => c.id === symbolId) ? { symbolId } : {}),
           zone: '',
           partition: '',
           notes: '',
@@ -298,10 +304,10 @@ export default function App() {
           if (it?.fovDeg != null && !('fov' in patch)) next.fov = it.fovDeg
           if (it?.rangeM != null && !('range' in patch)) next.range = it.rangeM
         }
-        // la schimbarea modelului din catalog, renumerotează dacă prefixul diferă (ex. PIR1 → PIRW1)
-        if ('catalogId' in patch && patch.catalogId !== d.catalogId) {
-          const oldP = devicePrefix(d.type, catalogItem(p, d.catalogId))
-          const newP = devicePrefix(d.type, catalogItem(p, patch.catalogId))
+        // la schimbarea modelului din catalog sau a simbolului, renumerotează dacă prefixul diferă (ex. PIR1 → PIRW1)
+        if (('catalogId' in patch && patch.catalogId !== d.catalogId) || ('symbolId' in patch && patch.symbolId !== d.symbolId)) {
+          const oldP = devicePrefix(d.type, catalogItem(p, d.catalogId), deviceSymbol(p, d))
+          const newP = devicePrefix(next.type, catalogItem(p, next.catalogId), deviceSymbol(p, next))
           if (oldP !== newP && new RegExp('^' + oldP.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\d+$').test(d.label)) {
             next.label = nextLabel(newP, p.devices.filter((x) => x.id !== id).map((x) => x.label), p.numberPad)
           }
@@ -396,7 +402,7 @@ export default function App() {
       ...p,
       devices: [
         ...p.devices,
-        { ...src, id, x: src.x + levelOf(p, src.levelId).symbolSize * 1.5, y: src.y, label: nextLabel(devicePrefix(src.type, catalogItem(p, src.catalogId)), p.devices.map((d) => d.label), p.numberPad) },
+        { ...src, id, x: src.x + levelOf(p, src.levelId).symbolSize * 1.5, y: src.y, label: nextLabel(devicePrefix(src.type, catalogItem(p, src.catalogId), deviceSymbol(p, src)), p.devices.map((d) => d.label), p.numberPad) },
       ],
     }))
     setSelection({ kind: 'device', id })
@@ -456,7 +462,7 @@ export default function App() {
       const labels = p.devices.map((x) => x.label)
       const systems = new Set<SystemId>()
       const devices = src.devices.map((d) => {
-        const label = nextLabel(devicePrefix(d.type, catalogItem(p, d.catalogId)), labels, p.numberPad)
+        const label = nextLabel(devicePrefix(d.type, catalogItem(p, d.catalogId), deviceSymbol(p, d)), labels, p.numberPad)
         labels.push(label)
         const sys = symbolByType(d.type)?.system
         if (sys) systems.add(sys)
@@ -1067,6 +1073,9 @@ export default function App() {
         <Palette
           tool={tool}
           catalog={project.catalog}
+          customSymbols={project.customSymbols}
+          onUploadSymbol={() => setSymDialog({})}
+          onEditSymbol={(id) => setSymDialog({ id })}
           onPickArch={(arch) => {
             if (sheet.kind === 'bloc') {
               const target = project.sheets.find((sh) => sh.kind === 'plan')
@@ -1076,7 +1085,7 @@ export default function App() {
             setSelection(null)
             setTool(tool.kind === 'arch' && tool.arch === arch ? { kind: 'select' } : { kind: 'arch', arch })
           }}
-          onPick={(type, catalogId) => {
+          onPick={(type, catalogId, symbolId) => {
             if (sheet.kind === 'bloc') {
               const sys = symbolByType(type)?.system
               const target =
@@ -1084,10 +1093,14 @@ export default function App() {
                 project.sheets.find((sh) => sh.kind === 'plan')
               if (!target) return notify('Adaugă întâi o planșă de tip plan.')
               setActiveSheet(target.id)
-              setTool({ kind: 'place', type, catalogId })
+              setTool({ kind: 'place', type, catalogId, symbolId })
               return
             }
-            setTool(tool.kind === 'place' && tool.type === type && tool.catalogId === catalogId ? { kind: 'select' } : { kind: 'place', type, catalogId })
+            setTool(
+              tool.kind === 'place' && tool.type === type && tool.catalogId === catalogId && tool.symbolId === symbolId
+                ? { kind: 'select' }
+                : { kind: 'place', type, catalogId, symbolId },
+            )
           }}
         />
 
@@ -1311,6 +1324,40 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {helpOpen && <HelpDialog onClose={closeHelp} />}
+      {symDialog && (
+        <CustomSymbolDialog
+          existing={symDialog.id ? project.customSymbols.find((c) => c.id === symDialog.id) : undefined}
+          usedBy={symDialog.id ? project.devices.filter((d) => d.symbolId === symDialog.id).length : 0}
+          onClose={() => setSymDialog(null)}
+          onSave={(sym, keep) => {
+            h.commit((p) => ({
+              ...p,
+              customSymbols: p.customSymbols.some((c) => c.id === sym.id) ? p.customSymbols.map((c) => (c.id === sym.id ? sym : c)) : [...p.customSymbols, sym],
+            }))
+            // biblioteca din browser: la adăugare (dacă e bifat) și la editarea unui simbol care e deja acolo
+            const inLib = defaultCustomSymbols().some((c) => c.id === sym.id)
+            if ((keep && !symDialog.id) || inLib) {
+              if (!addToLibrary(sym)) notify('Simbolul e în proiect, dar biblioteca din browser e plină.')
+            }
+            setSymDialog(null)
+            if (!symDialog.id) {
+              setTool({ kind: 'place', type: sym.base, symbolId: sym.id })
+              notify(`Simbolul „${sym.name}” a fost adăugat. Click pe plan pentru plasare.`)
+            }
+          }}
+          onDelete={() => {
+            const id = symDialog.id!
+            h.commit((p) => ({
+              ...p,
+              customSymbols: p.customSymbols.filter((c) => c.id !== id),
+              devices: p.devices.map((d) => (d.symbolId === id ? { ...d, symbolId: undefined } : d)),
+              catalog: p.catalog.map((c) => (c.symbolId === id ? { ...c, symbolId: undefined } : c)),
+            }))
+            removeFromLibrary(id)
+            setSymDialog(null)
+          }}
+        />
+      )}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}
       {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}
       {dxfImport && (
@@ -1394,6 +1441,21 @@ export default function App() {
                       Distribuie uniform pe verticală
                     </button>
                     {nDev > 0 && (
+                      <>
+                        <div className="ctx-label">Culoare simboluri ({nDev})</div>
+                        <div className="ctx-colors">
+                          <ColorRow
+                            defaultColor=""
+                            showReset
+                            onChange={(c) => {
+                              h.commit((p) => ({ ...p, devices: p.devices.map((d) => (multi.some((m) => m.kind === 'device' && m.id === d.id) ? { ...d, color: c } : d)) }))
+                              setCtxMenu(null)
+                            }}
+                          />
+                        </div>
+                      </>
+                    )}
+                    {nDev > 0 && (
                       <button
                         onClick={close(() => {
                           setTab('element')
@@ -1442,6 +1504,22 @@ export default function App() {
                       <>
                         <button onClick={close(() => patchDevice(dev.id, { flipX: !dev.flipX }))}>Oglindește orizontal ⇋</button>
                         <button onClick={close(() => patchDevice(dev.id, { flipY: !dev.flipY }))}>Oglindește vertical ⇵</button>
+                      </>
+                    )}
+                    {(!deviceSymbol(project, dev) || deviceSymbol(project, dev)!.recolor) && (
+                      <>
+                        <div className="ctx-sep" />
+                        <div className="ctx-label">Culoare simbol</div>
+                        <div className="ctx-colors">
+                          <ColorRow
+                            value={dev.color}
+                            defaultColor={systemById(symbolByType(dev.type)!.system).color}
+                            onChange={(c) => {
+                              patchDevice(dev.id, { color: c })
+                              setCtxMenu(null)
+                            }}
+                          />
+                        </div>
                       </>
                     )}
                     <div className="ctx-sep" />

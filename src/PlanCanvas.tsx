@@ -7,7 +7,8 @@ import ArchShapes from './ArchShapes'
 import { groupBounds, itemsInRect, sameItem, snapshot, toggleItem, translateGroup } from './group'
 import type { Item, Snapshot } from './group'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
-import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
+import { glyphLayout, onSymbolImage, symbolByType, systemById } from './symbols'
+import { deviceColor, deviceImage } from './symbolLibrary'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, UNCALIBRATED_PX_PER_M } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
@@ -23,7 +24,7 @@ interface Props {
   stageRef: React.RefObject<Konva.Stage | null>
   fitSignal: number
   onSelect: (s: Selection) => void
-  onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
+  onAddDevice: (type: string, x: number, y: number, catalogId?: string, symbolId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }, riser?: string) => void
   onScaleMeasured: (pixels: number) => void
   onAddArch: (el: NewArch) => void
@@ -101,6 +102,9 @@ export default function PlanCanvas(props: Props) {
   const bgImage = useImage(level.background?.src)
 
   const S = level.symbolSize
+  // imaginile simbolurilor colorate / personalizate se încarcă la cerere: redesenăm când sosesc
+  const [, setImgTick] = useState(0)
+  useEffect(() => onSymbolImage(() => setImgTick((n) => n + 1)), [])
   const ppm = level.pxPerMeter ?? FALLBACK_PX_PER_M
   const frame = pageFrame(project, sheet)
   /** Planul de fundal se poate trage cu mouse-ul (deblocat din panoul Nivel) */
@@ -283,7 +287,7 @@ export default function PlanCanvas(props: Props) {
         }
         break
       case 'place':
-        onAddDevice(tool.type, pt.x, pt.y, tool.catalogId)
+        onAddDevice(tool.type, pt.x, pt.y, tool.catalogId, tool.symbolId)
         break
       case 'scale':
         if (scalePts.length === 0) setScalePts([pt])
@@ -374,11 +378,12 @@ export default function PlanCanvas(props: Props) {
     e.preventDefault()
     const type = e.dataTransfer.getData('text/symbol-type')
     const catalogId = e.dataTransfer.getData('text/catalog-id') || undefined
+    const symbolId = e.dataTransfer.getData('text/symbol-id') || undefined
     const stage = stageRef.current
     if (!type || !stage) return
     stage.setPointersPositions(e.nativeEvent)
     const pt = stage.getRelativePointerPosition()
-    if (pt) onAddDevice(type, pt.x, pt.y, catalogId)
+    if (pt) onAddDevice(type, pt.x, pt.y, catalogId, symbolId)
   }
 
   const isSelect = tool.kind === 'select'
@@ -619,7 +624,7 @@ export default function PlanCanvas(props: Props) {
           {sheet.showCones && visibleDevices.map((d) => {
             const def = symbolByType(d.type)
             if (!def?.camera) return null
-            const color = systemById(def.system).color
+            const color = deviceColor(d)
             const fov = d.fov ?? def.camera.fov
             const range = (d.range ?? def.camera.range) * ppm
             return fov >= 360 ? (
@@ -689,10 +694,11 @@ export default function PlanCanvas(props: Props) {
         <Layer>
           {visibleDevices.map((d) => {
             const def = symbolByType(d.type)!
-            const color = systemById(def.system).color
-            // simbolurile cu text se rotesc doar ca contur; textul rămâne drept
-            const glyph = def.glyph ? glyphLayout(def) : null
-            const img = glyph ? symbolShapeImage(d.type) : symbolImage(d.type)
+            // culoare proprie / simbol personalizat; simbolurile standard cu text se rotesc doar ca contur, textul rămâne drept
+            const look = deviceImage(project, d)
+            const color = look.color
+            const glyph = look.glyph ? glyphLayout(def) : null
+            const img = look.img
             const rad = (d.rotation * Math.PI) / 180
             const gdy = glyph ? ((glyph.y - glyph.size * 0.36 - 20) / 40) * S : 0
             // dreptunghiul rotit se îngustează pe orizontală: micșorăm textul ca să încapă

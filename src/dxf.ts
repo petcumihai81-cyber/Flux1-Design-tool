@@ -26,6 +26,50 @@ const fmt = (n: number) => (Math.abs(n) < 1e-9 ? '0' : String(Math.round(n * 1e6
 /** Culori AutoCAD (ACI) pe sisteme */
 const ACI: Record<SystemId, number> = { EFR: 1, CA: 5, CCTV: 3, INC: 30, NET: 6 }
 
+/** Paleta ACI aproximată (RGB), pentru culorile proprii ale echipamentelor (R12 nu are culori RGB) */
+const ACI_RGB: [number, number, number, number][] = (() => {
+  const out: [number, number, number, number][] = [
+    [1, 255, 0, 0],
+    [2, 255, 255, 0],
+    [3, 0, 255, 0],
+    [4, 0, 255, 255],
+    [5, 0, 0, 255],
+    [6, 255, 0, 255],
+    [7, 0, 0, 0],
+    [8, 128, 128, 128],
+    [9, 192, 192, 192],
+  ]
+  for (let i = 10; i <= 249; i++) {
+    const h = ((Math.floor(i / 10) - 1) * 15) / 60
+    const k = i % 10
+    const v = [1, 1, 0.8, 0.8, 0.6, 0.6, 0.5, 0.5, 0.3, 0.3][k]
+    const sat = k % 2 ? 0.5 : 1
+    const c = v * sat
+    const x = c * (1 - Math.abs((h % 2) - 1))
+    const [r, g, b] = h < 1 ? [c, x, 0] : h < 2 ? [x, c, 0] : h < 3 ? [0, c, x] : h < 4 ? [0, x, c] : h < 5 ? [x, 0, c] : [c, 0, x]
+    const m = v - c
+    out.push([i, Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)])
+  }
+  return out
+})()
+
+/** Cea mai apropiată culoare ACI de o culoare #rrggbb */
+export function nearestAci(hex: string): number {
+  const n = parseInt(hex.replace('#', ''), 16)
+  if (!Number.isFinite(n)) return 7
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  let best = 7
+  let bd = Infinity
+  for (const [i, R, G, B] of ACI_RGB) {
+    const d = (r - R) ** 2 + (g - G) ** 2 + (b - B) ** 2
+    if (d < bd) {
+      bd = d
+      best = i
+    }
+  }
+  return best
+}
+
 /** Textul în DXF R12 se scrie în ANSI_1250 (central-europeană); ș / ț devin ş / ţ, ca să existe în această codificare */
 const CP1250: Record<string, number> = {
   'ă': 0xe3, 'Ă': 0xc3, 'â': 0xe2, 'Â': 0xc2, 'î': 0xee, 'Î': 0xce, 'ș': 0xba, 'Ș': 0xaa, 'ş': 0xba, 'Ş': 0xaa,
@@ -467,8 +511,11 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     const def = symbolByType(dv.type)!
     const sys = def.system
     const k = sM / 40
+    // culoare proprie: pe INSERT (blocul e desenat BYBLOCK) și pe texte; altfel culoarea stratului
+    const own = dv.color ? nearestAci(dv.color) : undefined
     d.pair(0, 'INSERT')
     d.pair(8, `${sys}_ECHIPAMENTE`)
+    if (own != null) d.pair(62, own)
     d.pair(2, blockName(dv.type))
     d.pair(10, X(dv.x))
     d.pair(20, Y(dv.y))
@@ -479,9 +526,9 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     d.pair(50, -dv.rotation)
     if (def.glyph) {
       const g = glyphLayout(def)
-      text(d, `${sys}_ECHIPAMENTE`, X(dv.x), Y(dv.y), (g.size / 40) * sM * 0.75, def.glyph, { h: 1, v: 2 })
+      text(d, `${sys}_ECHIPAMENTE`, X(dv.x), Y(dv.y), (g.size / 40) * sM * 0.75, def.glyph, { h: 1, v: 2, color: own })
     }
-    text(d, `${sys}_ETICHETE`, X(dv.x), Y(dv.y) - sM * 0.58, sM * 0.38, dv.label, { h: 1, v: 3 })
+    text(d, `${sys}_ETICHETE`, X(dv.x), Y(dv.y) - sM * 0.58, sM * 0.38, dv.label, { h: 1, v: 3, color: own })
   }
 
   d.pair(0, 'ENDSEC')

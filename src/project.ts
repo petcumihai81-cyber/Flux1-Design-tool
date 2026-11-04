@@ -1,5 +1,6 @@
 import type { Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
 import { DEFAULT_CALC, defaultCatalog, withSeedSpecs } from './catalog'
+import { defaultCustomSymbols } from './symbolLibrary'
 import { defaultMemoriu } from './memoriuDefaults'
 import { SYSTEMS, symbolByType } from './symbols'
 
@@ -54,6 +55,7 @@ export function emptyProject(): Project {
     activeSheetId: sheet.id,
     numberPad: false,
     catalog: defaultCatalog(),
+    customSymbols: defaultCustomSymbols(),
     accessories: [],
     calc: { ...DEFAULT_CALC },
     memoriu: defaultMemoriu(),
@@ -201,14 +203,14 @@ export function deviceInfo(p: Project, d: Device) {
   const def = symbolByType(d.type)
   return {
     item: it,
-    denumire: it?.denumire || def?.name || d.type,
+    denumire: it?.denumire || customSymbolOf(p, d)?.name || def?.name || d.type,
     model: it?.model || d.model,
     producator: it?.producator ?? '',
   }
 }
 
 /** Prefixul de numerotare pentru un echipament nou */
-export const devicePrefix = (type: string, it?: CatalogItem) => it?.prefix || symbolByType(type)?.prefix || 'X'
+export const devicePrefix = (type: string, it?: CatalogItem, sym?: { prefix: string }) => it?.prefix || sym?.prefix || symbolByType(type)?.prefix || 'X'
 
 export function deviceSystem(d: Device): SystemId | undefined {
   return symbolByType(d.type)?.system
@@ -414,6 +416,7 @@ export function normalizeProject(v: Project): Project {
     numberPad: v.numberPad ?? (v.version as number) === 1,
     catalog: Array.isArray(v.catalog) ? withSeedSpecs(v.catalog) : base.catalog,
     accessories: Array.isArray(v.accessories) ? v.accessories : [],
+    customSymbols: Array.isArray(v.customSymbols) ? v.customSymbols.filter((c) => c && c.id && c.data && symbolByType(c.base)) : [],
     calc: { ...DEFAULT_CALC, ...v.calc },
     memoriu: { ...defaultMemoriu(), ...v.memoriu },
     cables: (v.cables ?? []).map(fix),
@@ -422,4 +425,10 @@ export function normalizeProject(v: Project): Project {
     activeSheetId,
     version: 2,
   }
+}
+
+/** Simbolul personalizat al unui echipament (propriu sau din catalog) */
+export function customSymbolOf(p: Project, d: Pick<Device, 'symbolId' | 'catalogId'>) {
+  const id = d.symbolId ?? catalogItem(p, d.catalogId)?.symbolId
+  return id ? p.customSymbols.find((c) => c.id === id) : undefined
 }

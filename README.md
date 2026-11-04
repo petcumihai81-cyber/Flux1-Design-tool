@@ -27,6 +27,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Traseele legăturilor se ajustează manual (segmente trase cu mouse-ul, capete care alunecă pe laturile blocurilor); selecție multiplă
   (Shift+click / Shift+dreptunghi), mutare în grup, aliniere și distribuire.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
+- **Culoarea simbolurilor și simboluri personalizate**: culoare proprie pe echipament (proprietăți, click dreapta, selecție multiplă); simboluri încărcate (SVG, PNG, ICO, JPG, WebP), aduse la mărimea celorlalte, cu fundal transparent și recolorare, care se comportă ca un simbol standard ales (con, cabluri, liste, calcule); bibliotecă proprie pentru proiectele noi.
 - **Verificare înainte de predare**: erori (scară necalibrată, cabluri nelegate, zone lipsă, consumuri lipsă, UPS / HDD / PoE insuficiente, numerotare dublă) și atenționări (modele, fișe tehnice, cartuș, memoriu), fiecare cu buton care duce la locul problemei.
 - **Import DXF** ca plan de fundal: alegi straturile și unitatea (mm / cm / m, ghicită dacă lipsește din fișier), iar planul vine deja calibrat la scara reală. DWG-ul se salvează întâi ca DXF.
 - **Export DXF** (AutoCAD, format R12): planșa de plan curentă în metri, cu straturi pe arhitectură și pe fiecare sistem (echipamente, cabluri, etichete, conuri camere), simbolurile ca blocuri; pereții se întrerup la uși și ferestre.

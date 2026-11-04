@@ -301,3 +301,30 @@ button.unsaved { border-color: #f9a825; }
 .align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .align-grid.two { grid-template-columns: repeat(2, 1fr); }
 .align-grid button { padding: 5px 2px; font-size: 12px; white-space: nowrap; }
+
+/* Simboluri personalizate */
+.pal-custom { position: relative; display: flex; }
+.pal-custom .pal-item { flex: 1; }
+.pal-edit { position: absolute; top: 2px; right: 2px; border: none; background: rgba(255,255,255,0.9); padding: 0 4px; font-size: 12px; line-height: 18px; border-radius: 4px; opacity: 0; cursor: pointer; }
+.pal-custom:hover .pal-edit { opacity: 1; }
+.pal-upload { border-style: dashed !important; color: #666; }
+.pal-upload .plus { font-size: 22px; line-height: 28px; width: 28px; text-align: center; color: #8d6e63; }
+.modal.sym-dialog { width: min(820px, 100%); height: auto; max-height: calc(100vh - 40px); }
+.sym-body { gap: 20px; padding: 16px; overflow: auto; }
+.sym-preview { width: 260px; flex-shrink: 0; display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.sym-check { background: repeating-conic-gradient(#e6e9ee 0% 25%, #fff 0% 50%) 50% / 16px 16px; border: 1px solid var(--line); border-radius: 6px; display: grid; place-items: center; }
+.sym-check.big { width: 240px; height: 240px; }
+.sym-check.big img { width: 200px; height: 200px; }
+.sym-sizes { display: flex; align-items: flex-end; gap: 8px; }
+.sym-drop { width: 240px; height: 240px; border: 2px dashed #b0bec5; border-radius: 8px; background: #fafbfc; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #555; }
+.sym-drop .plus { font-size: 40px; color: #8d6e63; line-height: 1; }
+.sym-form { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+.sym-form .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.color-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.color-row .swatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #ccc; padding: 0; cursor: pointer; }
+.color-row .swatch.on { box-shadow: 0 0 0 2px #1e88e5; }
+.color-row input[type=color] { width: 28px; height: 24px; padding: 0; border: none; background: none; }
+.color-row .reset { font-size: 12px; padding: 2px 6px; }
+.ctx-label { font-size: 11.5px; color: #777; padding: 4px 12px 2px; }
+.ctx-colors { padding: 4px 10px 6px; }
+.ctx-colors .color-row { max-width: 210px; }

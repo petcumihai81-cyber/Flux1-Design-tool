@@ -3,7 +3,8 @@ import type Konva from 'konva'
 import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Diagram, DiagramEdge, DiagramNode, Project, Selection, Sheet } from './types'
-import { SYSTEMS, symbolImage, systemById } from './symbols'
+import { SYSTEMS, onSymbolImage, systemById } from './symbols'
+import { deviceImage } from './symbolLibrary'
 import { NODE_H, NODE_W, blockLayout, nodeTexts } from './blockLayout'
 import { cableEnds, deviceInfo, uid } from './project'
 import { GRID, alignNodes, diagramBounds, distributeNodes, edgePath, materialize, moveSegment, nodeAt, pruneDiagram, snap, unplacedDevices } from './diagram'
@@ -40,6 +41,9 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   const [mode, setMode] = useState<Mode>('select')
   const [sel, setSel] = useState<LocalSel>(null)
   const [conn, setConn] = useState<{ from: string; x: number; y: number } | null>(null)
+  // imaginile simbolurilor colorate / personalizate se încarcă la cerere
+  const [, setImgTick] = useState(0)
+  useEffect(() => onSymbolImage(() => setImgTick((n) => n + 1)), [])
   /** Selecție multiplă de blocuri (Shift+click sau Shift+tragere pe fundal) */
   const [multi, setMulti] = useState<string[]>([])
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
@@ -244,7 +248,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
     const dev = project.devices.find((d) => d.id === deviceId)
     if (!dev) return null
     const info = deviceInfo(project, dev)
-    const img = symbolImage(dev.type)
+    const img = deviceImage(project, dev).img
     const detail = [info.model, dev.zone].filter(Boolean).join(' · ')
     return (
       <>
@@ -418,7 +422,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
                 ))}
                 {layout.nodes.map((n) => {
                   const [code, name, detail] = nodeTexts(n)
-                  const img = n.device ? symbolImage(n.device.type) : undefined
+                  const img = n.device ? deviceImage(project, n.device).img : undefined
                   return (
                     <Group
                       key={n.id + n.x}

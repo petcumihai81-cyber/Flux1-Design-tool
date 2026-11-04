@@ -28,6 +28,28 @@ export interface Device {
   fov?: number
   /** Doar camere: distanța de vizualizare (m) */
   range?: number
+  /** Culoare proprie a simbolului (lipsă = culoarea sistemului) */
+  color?: string
+  /** Simbol personalizat (aspect); comportamentul rămâne al tipului `type` */
+  symbolId?: string
+}
+
+/**
+ * Simbol încărcat de utilizator (SVG sau imagine). Arată altfel, dar se comportă ca simbolul standard `base`
+ * (sistem, cabluri, conuri, liste, calcule).
+ */
+export interface CustomSymbol {
+  id: string
+  name: string
+  /** Tipul de simbol standard al cărui comportament îl preia (ex. cctv_dome_int) */
+  base: string
+  /** Prefix de numerotare propriu; gol = prefixul simbolului de bază */
+  prefix: string
+  kind: 'svg' | 'img'
+  /** SVG normalizat (casetă 40×40) sau PNG (data URL) normalizat, cu fundal transparent */
+  data: string
+  /** Se poate recolora: SVG — culorile devin culoarea aleasă; imagine — pictogramă monocromă colorată */
+  recolor: boolean
 }
 
 /** Element de arhitectură desenat manual (schiță): perete, ușă, fereastră, text încăpere, cotă */
@@ -124,6 +146,8 @@ export interface CatalogItem {
   note: string
   /** Fișa tehnică completă (pentru memoriu), pe secțiuni */
   specs?: SpecRow[]
+  /** Simbol personalizat folosit la plasarea acestui echipament */
+  symbolId?: string
 }
 
 export interface Accessory {
@@ -295,6 +319,8 @@ export interface Project {
   cables: Cable[]
   /** Schița de arhitectură (comună tuturor planșelor de tip plan) */
   arch: ArchElement[]
+  /** Simbolurile încărcate de utilizator */
+  customSymbols: CustomSymbol[]
 }
 
 export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
@@ -306,7 +332,7 @@ export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | '
 
 export type Tool =
   | { kind: 'select' }
-  | { kind: 'place'; type: string; catalogId?: string }
+  | { kind: 'place'; type: string; catalogId?: string; symbolId?: string }
   | { kind: 'scale' }
   | { kind: 'cable' }
   | { kind: 'arch'; arch: ArchTool }

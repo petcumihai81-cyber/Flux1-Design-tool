@@ -1,6 +1,7 @@
 import type { Diagram, Project, SystemId } from './types'
 import { symbolByType, symbolSvg, systemById } from './symbols'
 import { deviceInfo } from './project'
+import { deviceSymbol, lookDataUrl } from './symbolLibrary'
 import { materialize, pruneDiagram } from './diagram'
 
 const esc = (s: string) =>
@@ -14,7 +15,18 @@ function svgDataUri(type: string): string {
   return 'data:image/svg+xml,' + b64
 }
 
-function diagramXml(p: Project, item: DrawioItem, idx: number): string {
+/** Data URL (SVG utf-8 sau PNG base64) → forma acceptată de draw.io în stil */
+function drawioUri(url: string): string {
+  const m = url.match(/^data:([^;,]+)(;charset=utf-8)?(;base64)?,(.*)$/)
+  if (!m) return ''
+  const b64 = m[3] ? m[4] : btoa(unescape(encodeURIComponent(decodeURIComponent(m[4]))))
+  return `data:${m[1]},${b64}`
+}
+
+/** Imaginile echipamentelor cu aspect propriu (culoare / simbol personalizat), pregătite înainte de export */
+type Looks = Map<string, string>
+
+function diagramXml(p: Project, item: DrawioItem, idx: number, looks: Looks): string {
   const d = item.diagram ? pruneDiagram(p, item.diagram) : materialize(p, item.system)
   const sys = systemById(item.system)
   const cells: string[] = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>']
@@ -36,7 +48,7 @@ function diagramXml(p: Project, item: DrawioItem, idx: number): string {
       const style = `rounded=1;arcSize=6;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacingLeft=58;fontSize=11;fillColor=#ffffff;strokeColor=${c};strokeWidth=2;`
       cells.push(`<mxCell id="${cid(node.id)}" value="${esc(html)}" style="${style}" vertex="1" parent="1">${geo}</mxCell>`)
       cells.push(
-        `<mxCell id="${extra()}" value="" style="shape=image;html=1;imageAspect=1;aspect=fixed;image=${svgDataUri(dev.type)};" vertex="1" parent="${cid(node.id)}"><mxGeometry x="8" y="${(node.h - 44) / 2}" width="44" height="44" as="geometry"/></mxCell>`,
+        `<mxCell id="${extra()}" value="" style="shape=image;html=1;imageAspect=1;aspect=fixed;image=${looks.get(dev.id) ?? svgDataUri(dev.type)};" vertex="1" parent="${cid(node.id)}"><mxGeometry x="8" y="${(node.h - 44) / 2}" width="44" height="44" as="geometry"/></mxCell>`,
       )
     } else if (node.kind === 'rect') {
       const style = `rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontStyle=1;fontSize=${node.fontSize ?? 14};fontColor=${c};fillColor=none;strokeColor=${c};${node.dashed ? 'dashed=1;' : ''}`
@@ -81,8 +93,14 @@ export interface DrawioItem {
 }
 
 /** Fișier .drawio cu câte o pagină pentru fiecare schemă bloc */
-export function exportDrawio(p: Project, items: DrawioItem[]) {
-  const pages = items.map((it, i) => diagramXml(p, it, i + 1))
+export async function exportDrawio(p: Project, items: DrawioItem[]) {
+  const looks: Looks = new Map()
+  for (const d of p.devices) {
+    if (!d.color && !deviceSymbol(p, d)) continue
+    const u = drawioUri(await lookDataUrl(p, d))
+    if (u) looks.set(d.id, u)
+  }
+  const pages = items.map((it, i) => diagramXml(p, it, i + 1, looks))
   const xml = `<mxfile host="Flux1-Design-tool" type="device">${pages.join('')}</mxfile>`
   const blob = new Blob([xml], { type: 'application/xml' })
   const a = document.createElement('a')
