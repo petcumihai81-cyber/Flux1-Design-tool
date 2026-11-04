@@ -33,6 +33,10 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   - stocare video: C = BR·3600·24·Z·Ncam / (8·1024²), pentru înregistrare continuă și la detecție, cu verificare față de HDD-urile alese
   - bilanț energetic TVCI și UPS (PA = P / cosφ, autonomie estimată); camerele PoE sunt incluse în consumul switch-ului
   - buget PoE față de switch-uri, cu 20% rezervă
+- **Memoriu tehnic `.docx`** (butonul *Memoriu*), în formatul documentațiilor avizate: preambul, date generale și normative,
+  amplasament, zone funcționale, surse de alimentare, memorii pe fiecare subsistem, caiete de sarcini, breviarul de calcul complet,
+  instrucțiuni de exploatare, SSM, liste de echipamente, zone protejate, fișe tehnice din catalog, piese desenate și semnături.
+  Ce nu e completat apare ca **[DE COMPLETAT]**, marcat cu galben.
 - **Accesorii fără simbol pe plan** (HDD, acumulatori, UPS, surse), incluse în liste și în calcule.
 - **Salvare / deschidere proiect** ca fișier `.plansa.json`, plus salvare automată în browser.
 - Undo / redo, duplicare și scurtături de tastatură.

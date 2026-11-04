@@ -99,6 +99,33 @@ export interface CalcParams {
   autonomieMinimaMin: number
 }
 
+/** Datele memoriului tehnic (completate în dialogul „Memoriu”) */
+export interface MemoriuData {
+  cui: string
+  sediuSocial: string
+  activitate: string
+  caen: string
+  caenDenumire: string
+  vecinN: string
+  vecinE: string
+  vecinS: string
+  vecinV: string
+  accesPietonal: string
+  accesAuto: string
+  constructie: string
+  cerinteMinimale: string
+  /** Cele 8 zone funcționale (HG 301/2012), în ordine */
+  zoneFunctionale: string[]
+  mecanoFizice: string
+  circuite: string
+  upsSursa: string
+  comunicator: string
+  timpIesireS: string
+  timpIntrareS: string
+  directorTehnic: string
+  proiectantNume: string
+}
+
 /** Date comune tuturor planșelor (cartuș) */
 export interface TitleBlock {
   proiectant: string
@@ -153,6 +180,7 @@ export interface Project {
   catalog: CatalogItem[]
   accessories: Accessory[]
   calc: CalcParams
+  memoriu: MemoriuData
   devices: Device[]
   cables: Cable[]
 }

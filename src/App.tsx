@@ -14,6 +14,7 @@ import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import type { RenderedPage } from './exporters'
 import { exportDrawio } from './drawio'
 import { CalcPanel, CatalogDialog } from './CatalogUI'
+import { MemoriuDialog } from './MemoriuDialog'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
 
@@ -37,6 +38,7 @@ export default function App() {
   const project = h.value
   const sheet = activeSheet(project)
   const [catalogOpen, setCatalogOpen] = useState(false)
+  const [memoOpen, setMemoOpen] = useState(false)
   const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
@@ -392,8 +394,11 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (catalogOpen) {
-        if (e.key === 'Escape') setCatalogOpen(false)
+      if (catalogOpen || memoOpen) {
+        if (e.key === 'Escape') {
+          setCatalogOpen(false)
+          setMemoOpen(false)
+        }
         return
       }
       if ((e.target as HTMLElement)?.closest('input, textarea, select')) return
@@ -476,6 +481,7 @@ export default function App() {
           <button className="primary" onClick={doExportAllPdf} title="Toate planșele într-un singur PDF">PDF toate</button>
           <button className="primary" onClick={() => exportExcel(project)} title="Liste echipamente, zone, jurnal cablu">Excel</button>
           <button className="primary" onClick={doExportDrawio} title="Schemele bloc ca fișier draw.io editabil">draw.io</button>
+          <button className="primary" onClick={() => setMemoOpen(true)} title="Memoriul tehnic pentru avizare (.docx)">Memoriu</button>
         </div>
         <input
           ref={bgInput}
@@ -642,6 +648,9 @@ export default function App() {
           onClose={() => setCatalogOpen(false)}
           notify={notify}
         />
+      )}
+      {memoOpen && (
+        <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {busy && <div className="overlay">{busy}</div>}
       {toast && <div className="toast">{toast}</div>}
