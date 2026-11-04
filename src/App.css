@@ -251,3 +251,18 @@ button.unsaved { border-color: #f9a825; }
 .spec-tools button:hover { color: var(--text); }
 .spec-paste { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
 .spec-paste textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+
+/* Import DXF */
+.modal.dxf-import { width: min(1200px, 100%); height: min(800px, 100%); }
+.dxf-side { width: 320px; flex-shrink: 0; border-right: 1px solid var(--line); padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow: auto; }
+.dxf-side .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.dxf-layers-head { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
+.dxf-layers-head b { flex: 1; }
+.dxf-layers { display: flex; flex-direction: column; gap: 2px; overflow: auto; min-height: 120px; flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.dxf-layers .check { display: flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.dxf-layers .check i { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+.dxf-layers .check span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dxf-layers .check .muted { color: #999; }
+.dxf-layers .check small { color: #888; }
+.dxf-preview { flex: 1; min-width: 0; display: grid; place-items: center; padding: 12px; background: #eef1f5; overflow: hidden; }
+.dxf-preview canvas { background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
