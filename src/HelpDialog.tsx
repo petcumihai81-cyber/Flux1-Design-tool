@@ -1,0 +1,284 @@
+import { useState } from 'react'
+
+/**
+ * Ghidul aplicației: secțiuni „cum fac…”, cu pași și capturi de ecran (public/help/*.webp).
+ * Capturile se regenerează automat cu Playwright pe planul demonstrativ (vezi CLAUDE.md).
+ */
+
+interface Section {
+  id: string
+  title: string
+  intro?: string
+  img?: string
+  steps?: React.ReactNode[]
+  tips?: React.ReactNode[]
+}
+
+const K = ({ children }: { children: React.ReactNode }) => <kbd>{children}</kbd>
+const B = ({ children }: { children: React.ReactNode }) => <b>{children}</b>
+
+const SECTIONS: Section[] = [
+  {
+    id: 'start',
+    title: 'Început rapid',
+    intro: 'Un proiect nou în 4 pași: plan, scară, echipamente, export.',
+    img: 'help/01-scara.webp',
+    steps: [
+      <>
+        Apasă <B>Încarcă plan</B> și alege planul clădirii (PDF sau imagine). La un PDF cu mai multe pagini, alegi pagina.
+      </>,
+      <>
+        Apasă <B>Scară</B>, dă click pe cele două capete ale unei cote cunoscute (ex. o cotă de 10 m) și scrie lungimea reală în metri. Din acest
+        moment, conurile camerelor și lungimile cablurilor sunt la scară reală.
+      </>,
+      <>Plasează echipamentele din paleta din stânga și trage cablurile (vezi secțiunile următoare).</>,
+      <>
+        Exportă: <B>PDF planșă</B> / <B>PDF toate</B>, <B>Excel</B> (liste, zone, jurnal cablu, breviar), <B>Memoriu</B> (.docx).
+      </>,
+    ],
+    tips: [
+      <>
+        Salvează des cu <B>Salvează</B> sau <K>Ctrl+S</K>: proiectul se descarcă ca fișier <code>.plansa.json</code>, pe care îl redeschizi cu{' '}
+        <B>Deschide</B>, inclusiv pe alt calculator.
+      </>,
+      <>Navigare: rotița mouse-ului = zoom, tragi de fundal = deplasare, <K>F</K> = încadrare în ecran.</>,
+    ],
+  },
+  {
+    id: 'echipamente',
+    title: 'Plasarea echipamentelor',
+    img: 'help/02-echipamente.webp',
+    steps: [
+      <>
+        În paleta din stânga, secțiunea <B>Din catalog</B> are modelele tale (ex. Ajax HubBP, camere Hikvision), cu prefixul lor (PIRW, CMW,
+        CVIE…). Celelalte secțiuni au simbolurile generice pe sisteme.
+      </>,
+      <>
+        Dă click pe un simbol, apoi click pe plan, de câte ori ai nevoie. <K>Esc</K> sau click dreapta = gata. Poți și să tragi simbolul din paletă
+        direct pe plan.
+      </>,
+      <>Numerotarea e automată (CVIE1, CVIE2…). Selectează echipamentul ca să-i completezi în dreapta zona protejată, partiția, tipul de detecție, modelul din catalog.</>,
+      <>
+        Rotire: mânerul albastru de lângă simbol, sau <K>R</K> / <K>Shift+R</K> (±15°). La simbolurile cu text (NVR, CAE…) textul rămâne drept.
+      </>,
+    ],
+    tips: [<>Caută rapid un simbol sau un model scriind în câmpul de căutare de deasupra paletei.</>],
+  },
+  {
+    id: 'camere',
+    title: 'Camere: conul de vizualizare',
+    img: 'help/03-con.webp',
+    steps: [
+      <>Selectează camera: pe con apar mânerele.</>,
+      <>
+        <B>Pătratul din vârf</B> reglează distanța (pas 0,5 m), <B>cercurile de pe margini</B> reglează unghiul (pas 5°). Ține <K>Shift</K> pentru
+        reglaj fin.
+      </>,
+      <>Valorile se pot scrie și în panoul din dreapta (Unghi / Distanță vizualizare).</>,
+      <>
+        În catalog poți trece unghiul și distanța pe fiecare model de cameră: o cameră plasată din catalog pornește direct cu valorile modelului.
+      </>,
+    ],
+    tips: [<>Conurile se pot ascunde pe o planșă: tab-ul Proiect → „Conuri de vizualizare camere”.</>],
+  },
+  {
+    id: 'cabluri',
+    title: 'Trasee de cablu',
+    img: 'help/04-cabluri.webp',
+    steps: [
+      <>
+        Apasă <B>Cablu</B> (sau <K>C</K>). Click pe echipamentul de start, apoi click pe punctele de traseu, apoi click pe echipamentul final.
+      </>,
+      <>
+        <B>Traseu comun (ramificație):</B> dacă termini cablul <i>pe alt cablu</i>, aplicația înțelege că merge pe același traseu până la switch /
+        NVR / centrală. Lungimea include porțiunea comună.
+      </>,
+      <>
+        Editare: selectează cablul. Tragi de puncte ca să schimbi traseul; tragi un capăt pe alt echipament ca să-l legi. Dublu-click pe cablu adaugă
+        un punct, dublu-click pe un punct îl șterge.
+      </>,
+      <>În dreapta: cod, „De la” / „La” (din listă), tip cablu (propus automat după echipament), lungime calculată cu rezervă, traseu / observații.</>,
+    ],
+    tips: [<>În timpul desenării: <K>Backspace</K> șterge ultimul punct, <K>Enter</K> sau dublu-click termină cablul liber, <K>Esc</K> anulează.</>],
+  },
+  {
+    id: 'meniu',
+    title: 'Click dreapta: copiere, duplicare, ștergere',
+    img: 'help/05-meniu.webp',
+    steps: [
+      <>
+        Click dreapta pe un echipament: <B>Copiază</B>, <B>Taie</B>, <B>Lipește aici</B>, <B>Duplică</B>, <B>Rotește 90°</B>, <B>Șterge</B>.
+      </>,
+      <>Click dreapta pe o zonă goală: <B>Lipește aici</B>, exact unde ai dat click.</>,
+      <>Copia păstrează modelul din catalog, zona, partiția și conul camerei și primește următorul număr liber.</>,
+    ],
+    tips: [
+      <>
+        Scurtături: <K>Ctrl+C</K> <K>Ctrl+X</K> <K>Ctrl+V</K> <K>Ctrl+D</K> <K>Del</K>.
+      </>,
+    ],
+  },
+  {
+    id: 'planse',
+    title: 'Planșe și formate',
+    img: 'help/06-planse.webp',
+    steps: [
+      <>Bara de jos are planșele proiectului. Toate folosesc aceleași echipamente și cabluri; diferă ce sisteme afișează și formatul paginii.</>,
+      <>
+        <B>+ Planșă</B> → <B>Câte un plan pentru fiecare sistem folosit</B> creează automat planurile separate (efracție, CCTV…), sau alegi o schemă
+        bloc.
+      </>,
+      <>
+        În tab-ul <B>Proiect</B>: titlul și numărul planșei, scara din cartuș, formatul (A0–A4 sau personalizat), orientarea (peisaj / portret) și
+        sistemele afișate.
+      </>,
+      <>
+        <B>PDF planșă</B> exportă planșa curentă; <B>PDF toate</B> pune toate planșele într-un singur PDF, cu legendă și cartuș pe fiecare pagină.
+      </>,
+    ],
+  },
+  {
+    id: 'schema',
+    title: 'Schema bloc',
+    img: 'help/07-schema.webp',
+    steps: [
+      <>Schema se generează automat din plan: centrala / NVR / switch sus, echipamentele legate prin cablu dedesubt. Liniile punctate = echipamente fără cablu desenat pe plan.</>,
+      <>
+        <B>Editează schema</B> o face editabilă: <B>Selectare</B> (muți blocurile), <B>Legătură</B> (tragi de la un bloc la altul), <B>Text</B>,{' '}
+        <B>Chenar</B> (grupare, ex. „Camera tehnică”).
+      </>,
+      <>Selectezi o legătură sau un text și îi schimbi eticheta, culoarea, linia punctată; <K>Del</K> șterge.</>,
+      <>
+        <B>+ Neplasate</B> adaugă echipamentele puse pe plan după editare; <B>Regenerează</B> refă schema din plan.
+      </>,
+    ],
+    tips: [<>Cel mai simplu: desenează cablurile pe plan, apoi „Regenerează” — schema și jurnalul de cablu ies din aceleași date.</>],
+  },
+  {
+    id: 'catalog',
+    title: 'Catalogul de echipamente',
+    img: 'help/08-catalog.webp',
+    steps: [
+      <>
+        <B>Catalog</B> din bara de sus: modelele tale, cu producător, prefix de simbol, consumuri (veghe / alarmă), putere, PoE, bitrate, unghi
+        cameră, capacități (acumulator, HDD, UPS).
+      </>,
+      <>Bifează „Baterie proprie” la echipamentele wireless: nu intră în calculul acumulatorilor.</>,
+      <>
+        <B>Salvează ca implicit</B> = proiectele noi pornesc cu acest catalog. <B>Export</B> / <B>Import</B> = îl muți pe alt calculator.
+      </>,
+    ],
+    tips: [<>Câmpurile goale rămân „de completat” în breviar și în memoriu — nu se inventează valori.</>],
+  },
+  {
+    id: 'calcule',
+    title: 'Calcule și breviar',
+    img: 'help/09-calcule.webp',
+    steps: [
+      <>
+        Tab-ul <B>Calcule</B>: adaugă întâi <B>accesoriile</B> fără simbol pe plan (HDD, UPS, acumulator, surse).
+      </>,
+      <>Calculele se fac singure: acumulatori efracție / incendiu, stocare video, bilanț TVCI și UPS, buget PoE — fiecare cu formula și o verificare verde / roșie.</>,
+      <>Parametrii (23,5 h / 0,5 h, zile stocare, bitrate, cos φ…) se modifică în josul panoului.</>,
+      <>
+        <B>Excel</B> conține foaia „Breviar calcul”, iar memoriul include breviarul complet.
+      </>,
+    ],
+  },
+  {
+    id: 'memoriu',
+    title: 'Memoriul tehnic (.docx)',
+    img: 'help/10-memoriu.webp',
+    steps: [
+      <>
+        <B>Memoriu</B> din bara de sus: completezi datele obiectivului (beneficiar, CUI, CAEN, vecinătăți, zone funcționale, alimentare, semnături).
+      </>,
+      <>
+        <B>Generează memoriul</B>: documentul are toate capitolele avizate, cu listele, zonele, calculele, fișele tehnice din catalog și lista
+        planșelor.
+      </>,
+      <>Ce nu ai completat apare ca [DE COMPLETAT], evidențiat cu galben în Word.</>,
+    ],
+  },
+  {
+    id: 'scurtaturi',
+    title: 'Scurtături și salvare',
+    steps: [
+      <>
+        <K>V</K> selectare · <K>C</K> cablu · <K>F</K> încadrare · <K>R</K> / <K>Shift+R</K> rotire · <K>Esc</K> ieșire din unealtă
+      </>,
+      <>
+        <K>Ctrl+Z</K> / <K>Ctrl+Y</K> anulare / refacere · <K>Ctrl+S</K> salvare · <K>Del</K> ștergere
+      </>,
+      <>
+        <K>Ctrl+C</K> / <K>Ctrl+X</K> / <K>Ctrl+V</K> copiere / tăiere / lipire · <K>Ctrl+D</K> duplicare · click dreapta = meniu
+      </>,
+      <>
+        Proiectul curent se păstrează automat în browser, dar doar pe acest calculator. Pentru siguranță și arhivă, salvează fișierul{' '}
+        <code>.plansa.json</code>.
+      </>,
+    ],
+  },
+]
+
+export function HelpDialog({ onClose, start }: { onClose: () => void; start?: string }) {
+  const [id, setId] = useState(start ?? SECTIONS[0].id)
+  const idx = SECTIONS.findIndex((s) => s.id === id)
+  const s = SECTIONS[Math.max(0, idx)]
+  return (
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal help">
+        <header className="modal-head">
+          <b>Ghid de utilizare</b>
+          <span className="hint">Cum fac… pas cu pas</span>
+          <button className="close" onClick={onClose}>
+            ×
+          </button>
+        </header>
+        <div className="modal-body">
+          <nav className="help-nav">
+            {SECTIONS.map((x, i) => (
+              <button key={x.id} className={x.id === s.id ? 'on' : ''} onClick={() => setId(x.id)}>
+                <span className="n">{i + 1}</span>
+                {x.title}
+              </button>
+            ))}
+          </nav>
+          <article className="help-body">
+            <h2>{s.title}</h2>
+            {s.intro && <p className="lead">{s.intro}</p>}
+            {s.img && <img src={s.img} alt={s.title} loading="lazy" />}
+            {s.steps && (
+              <ol>
+                {s.steps.map((st, i) => (
+                  <li key={i}>{st}</li>
+                ))}
+              </ol>
+            )}
+            {s.tips && (
+              <div className="tips">
+                {s.tips.map((t, i) => (
+                  <p key={i}>💡 {t}</p>
+                ))}
+              </div>
+            )}
+            <div className="help-pager">
+              <button disabled={idx <= 0} onClick={() => setId(SECTIONS[idx - 1].id)}>
+                ← Înapoi
+              </button>
+              {idx < SECTIONS.length - 1 ? (
+                <button className="primary" onClick={() => setId(SECTIONS[idx + 1].id)}>
+                  Următorul: {SECTIONS[idx + 1].title} →
+                </button>
+              ) : (
+                <button className="primary" onClick={onClose}>
+                  Gata
+                </button>
+              )}
+            </div>
+          </article>
+        </div>
+      </div>
+    </div>
+  )
+}

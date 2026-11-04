@@ -44,6 +44,10 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Salvare / deschidere proiect** ca fișier `.plansa.json`, plus salvare automată în browser.
 - Undo / redo, duplicare și scurtături de tastatură.
 
+## Ghid
+
+Butonul **?** din bara de sus deschide ghidul de utilizare, cu pași și capturi de ecran pentru fiecare funcție. La prima vizită se deschide singur.
+
 ## Scurtături
 
 | Tastă | Acțiune |
