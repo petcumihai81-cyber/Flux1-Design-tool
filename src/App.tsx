@@ -383,11 +383,13 @@ export default function App() {
   }
 
   const doExportDrawio = () => {
-    const blocs = project.sheets.filter((sh) => sh.kind === 'bloc').map((sh) => sh.systems[0])
-    const systems = [...new Set(blocs.length ? blocs : systemsWithDevices(project))]
-    if (!systems.length) return notify('Nu există echipamente pentru schemele bloc.')
-    exportDrawio(project, systems)
-    notify(`Exportat ${systems.length} ${systems.length === 1 ? 'schemă bloc' : 'scheme bloc'} în draw.io.`)
+    const blocs = project.sheets.filter((sh) => sh.kind === 'bloc')
+    const items = blocs.length
+      ? blocs.map((sh) => ({ system: sh.systems[0], diagram: sh.diagram, name: `${sh.nr} ${sh.titlu}` }))
+      : systemsWithDevices(project).map((s) => ({ system: s, name: `Schemă bloc – ${systemById(s).name}` }))
+    if (!items.length) return notify('Nu există echipamente pentru schemele bloc.')
+    exportDrawio(project, items)
+    notify(`Exportat ${items.length} ${items.length === 1 ? 'schemă bloc' : 'scheme bloc'} în draw.io.`)
   }
 
   // ---------------------------------------------------------------- taste
@@ -419,7 +421,7 @@ export default function App() {
       } else if (e.key === 'Escape') {
         if (tool.kind !== 'select') setTool({ kind: 'select' })
         else setSelection(null)
-      } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection) {
+      } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection && sheet.kind === 'plan') {
         e.preventDefault()
         deleteSelection()
       } else if (e.key.toLowerCase() === 'r' && !mod) {
@@ -545,11 +547,14 @@ export default function App() {
           ) : (
             <BlockCanvas
               project={project}
-              system={sheet.systems[0]}
+              sheet={sheet}
               selection={selection}
               stageRef={stageRef}
               fitSignal={fitSignal}
               onSelect={select}
+              commit={h.commit}
+              update={h.update}
+              checkpoint={h.checkpoint}
             />
           )}
           <nav className="sheet-bar">

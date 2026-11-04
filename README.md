@@ -18,6 +18,9 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Fiecare planșă are titlul, numărul, scara, formatul (A0–A4 sau dimensiune personalizată în mm), orientarea (peisaj sau portret) și sistemele afișate proprii.
 - **Scheme bloc generate automat** din echipamentele și cablurile de pe plan (centrală → module → detectoare, NVR → switch → camere, rack → switch → prize).
   Echipamentele fără cablu desenat apar legate punctat de centrală.
+- **Editor de schemă** în stilul draw.io: „Editează schema” transformă schema generată într-una editabilă. Blocurile se mută liber (cu aliniere pe grilă),
+  legăturile le urmăresc, se pot trage legături noi (eticheta se completează din cablul de pe plan), se adaugă texte și chenare de grupare,
+  cu culori și linii punctate. Echipamentele rămân legate de plan; cele adăugate ulterior apar ca „neplasate”. „Regenerează” refă schema automat.
 - **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.
 - **Export PDF** pentru planșa curentă sau pentru toate planșele într-un singur PDF (formate diferite pe pagini diferite), cu chenar, legendă automată (simboluri folosite + cantități) și cartuș.
 - **Export Excel** cu patru foi:

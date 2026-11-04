@@ -6,6 +6,7 @@ import { SYSTEMS, loadSymbolImage, symbolByType, systemById } from './symbols'
 import { cableMeters, catalogItem, contentBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
+import { diagramBounds, pruneDiagram } from './diagram'
 
 function safeName(s: string) {
   return (s || 'plansa').replace(/[\\/:*?"<>|]+/g, '_').trim()
@@ -80,6 +81,7 @@ type Bounds = { x: number; y: number; width: number; height: number }
 /** Limitele desenului pentru o planșă */
 export function sheetBounds(p: Project, sh: Sheet): Bounds | null {
   if (sh.kind === 'bloc') {
+    if (sh.diagram) return diagramBounds(pruneDiagram(p, sh.diagram))
     const L = blockLayout(p, sh.systems[0])
     return L.nodes.length ? L.bounds : null
   }
