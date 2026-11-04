@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
 import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
+import { alignGroup, distributeGroup } from './group'
+import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableMeters, cablePixels, catalogItem, deviceSystem, levelOf } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
@@ -270,6 +272,103 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
       </Field>
       <button className="danger" onClick={onDelete}>
         Șterge echipamentul (Del)
+      </button>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ Selecție multiplă
+
+/** Valoarea comună a unui câmp pentru mai multe echipamente (sau undefined dacă diferă) */
+function common<T>(vals: T[]): T | undefined {
+  return vals.length && vals.every((v) => v === vals[0]) ? vals[0] : undefined
+}
+
+export function GroupPanel({
+  project,
+  items,
+  onPatchDevices,
+  onAlign,
+  onDelete,
+}: {
+  project: Project
+  items: Item[]
+  onPatchDevices: (patch: Partial<Device>) => void
+  onAlign: (fn: (p: Project, items: Item[]) => Project) => void
+  onDelete: () => void
+}) {
+  const devices = project.devices.filter((d) => items.some((i) => i.kind === 'device' && i.id === d.id))
+  const nArch = items.filter((i) => i.kind === 'arch').length
+  const nCab = items.filter((i) => i.kind === 'cable').length
+  const counts = new Map<string, number>()
+  for (const d of devices) counts.set(d.type, (counts.get(d.type) ?? 0) + 1)
+  const field = (label: string, key: 'zone' | 'partition' | 'module' | 'zoneType', placeholder?: string) => {
+    const v = common(devices.map((d) => d[key] ?? ''))
+    return (
+      <Field label={label}>
+        <input
+          key={key + (v ?? '~')}
+          defaultValue={v ?? ''}
+          placeholder={v === undefined ? '(valori diferite — scrie pentru a le înlocui)' : placeholder}
+          onBlur={(e) => {
+            const nv = e.target.value
+            if (nv !== (v ?? '') && !(v === undefined && nv === '')) onPatchDevices({ [key]: nv })
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+        />
+      </Field>
+    )
+  }
+  return (
+    <div className="props">
+      <div className="props-title">
+        <div>
+          <b>{items.length} elemente selectate</b>
+          <small style={{ color: 'var(--muted)' }}>
+            {devices.length} echipamente{nArch ? ` · ${nArch} arhitectură` : ''}
+            {nCab ? ` · ${nCab} cabluri` : ''}
+          </small>
+        </div>
+      </div>
+      {devices.length > 0 && (
+        <table className="group-counts">
+          <tbody>
+            {[...counts].map(([type, n]) => (
+              <tr key={type}>
+                <td>{symbolByType(type)?.prefix}</td>
+                <td>{symbolByType(type)?.name}</td>
+                <td className="num">{n}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {devices.length > 0 && (
+        <>
+          <h4>Editare în bloc (toate echipamentele selectate)</h4>
+          {field('Zona protejată / încăpere', 'zone', 'ex. Hol acces')}
+          <div className="row2">
+            {field('Modul', 'module', 'CAE')}
+            {field('Partiție', 'partition')}
+          </div>
+          {field('Tip detecție / zonă', 'zoneType', 'întârziere / instantanee / 24h')}
+          <p className="hint">Modificarea se aplică la ieșirea din câmp (sau Enter).</p>
+        </>
+      )}
+      <h4>Aranjare</h4>
+      <div className="grid2">
+        <button onClick={() => onAlign((p, it) => alignGroup(p, it, 'h'))}>Aliniază orizontal</button>
+        <button onClick={() => onAlign((p, it) => alignGroup(p, it, 'v'))}>Aliniază vertical</button>
+        <button disabled={items.length < 3} onClick={() => onAlign((p, it) => distributeGroup(p, it, 'h'))}>
+          Distribuie orizontal
+        </button>
+        <button disabled={items.length < 3} onClick={() => onAlign((p, it) => distributeGroup(p, it, 'v'))}>
+          Distribuie vertical
+        </button>
+      </div>
+      <p className="hint">Trage de chenarul albastru pentru a muta grupul. Shift + click adaugă sau scoate un element; Esc anulează selecția.</p>
+      <button className="danger" onClick={onDelete}>
+        Șterge {items.length} elemente (Del)
       </button>
     </div>
   )

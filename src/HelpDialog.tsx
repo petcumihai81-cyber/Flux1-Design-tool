@@ -145,6 +145,12 @@ const SECTIONS: Section[] = [
       </>,
       <>Click dreapta pe o zonă goală: <B>Lipește aici</B>, exact unde ai dat click.</>,
       <>Copia păstrează modelul din catalog, zona, partiția și conul camerei și primește următorul număr liber.</>,
+      <>
+        <B>Selecție multiplă</B>: <K>Shift</K> + tragere pe o zonă goală = dreptunghi de selecție; <K>Shift</K> + click adaugă / scoate un element;{' '}
+        <K>Ctrl+A</K> = tot de pe planșă. Grupul se mută trăgând de chenarul albastru (cablurile legate se ajustează), iar din click dreapta sau din
+        panoul din dreapta îl aliniezi, îl distribui uniform, îl copiezi, îl duplici, îl rotești sau îl ștergi. Tot acolo setezi odată zona,
+        modulul, partiția și tipul de detecție pentru toate echipamentele selectate.
+      </>,
     ],
     tips: [
       <>

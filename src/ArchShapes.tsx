@@ -18,7 +18,9 @@ interface Props {
   k: number
   selectedId?: string
   interactive: boolean
-  onSelect: (id: string) => void
+  onSelect: (id: string, shift: boolean) => void
+  /** Elementele din selecția multiplă (evidențiate, nemutabile individual) */
+  groupIds?: Set<string>
   /** Dublu-click pe un text: editare directă pe plan */
   onEditText: (id: string) => void
   checkpoint: () => void
@@ -37,7 +39,7 @@ function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n 
   return pts
 }
 
-export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, interactive, onSelect, onEditText, checkpoint, update }: Props) {
+export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, groupIds, interactive, onSelect, onEditText, checkpoint, update }: Props) {
   const patch = (id: string, p: Partial<ArchElement>) =>
     update((pr) => ({ ...pr, arch: pr.arch.map((a) => (a.id === id ? { ...a, ...p } : a)) }))
 
@@ -46,17 +48,17 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
     onClick: (e: KonvaEventObject<MouseEvent>) => {
       if (!interactive || e.evt.button !== 0) return
       e.cancelBubble = true
-      onSelect(a.id)
+      onSelect(a.id, e.evt.shiftKey)
     },
   })
 
   /** Mutarea întregului element (pereți și cote: se translatează punctele) */
   const moveProps = (a: ArchElement) => ({
-    draggable: interactive,
+    draggable: interactive && !locked,
     onDragStart: (e: KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true
       checkpoint()
-      onSelect(a.id)
+      onSelect(a.id, false)
     },
     onDragEnd: (e: KonvaEventObject<DragEvent>) => {
       e.cancelBubble = true
@@ -85,7 +87,8 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
     },
   })
 
-  const sel = (a: ArchElement) => a.id === selectedId
+  const sel = (a: ArchElement) => a.id === selectedId || !!groupIds?.has(a.id)
+  const locked = !!groupIds?.size
 
   return (
     <>

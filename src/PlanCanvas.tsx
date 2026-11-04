@@ -4,6 +4,8 @@ import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge }
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Level, NewArch, Project, Selection, Sheet, Tool } from './types'
 import ArchShapes from './ArchShapes'
+import { groupBounds, itemsInRect, sameItem, snapshot, toggleItem, translateGroup } from './group'
+import type { Item, Snapshot } from './group'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, nearestOnPolyline } from './project'
@@ -25,6 +27,9 @@ interface Props {
   onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
   onScaleMeasured: (pixels: number) => void
   onAddArch: (el: NewArch) => void
+  /** Selecția multiplă */
+  multi: Item[]
+  onMulti: (items: Item[]) => void
   /** Textul de încăpere editat direct pe plan (id) */
   editTextId: string | null
   onEditText: (id: string | null) => void
@@ -80,7 +85,7 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { editTextId, onEditText, project, sheet, level, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
+  const { multi, onMulti, editTextId, onEditText, project, sheet, level, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
@@ -89,6 +94,10 @@ export default function PlanCanvas(props: Props) {
   const [scalePts, setScalePts] = useState<Pt[]>([])
   /** Peretele sau cota în curs de desenare */
   const [archDraft, setArchDraft] = useState<number[]>([])
+  /** Dreptunghiul de selecție (coordonate plan) */
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  /** Copia grupului la începutul tragerii */
+  const groupSnap = useRef<{ snap: Snapshot; x: number; y: number } | null>(null)
   const bgImage = useImage(level.background?.src)
 
   const S = level.symbolSize
@@ -240,7 +249,10 @@ export default function PlanCanvas(props: Props) {
     const onEmpty = e.target === stage || e.target.name() === 'background'
     switch (tool.kind) {
       case 'select':
-        if (onEmpty) onSelect(null)
+        if (onEmpty && !e.evt.shiftKey) {
+          onSelect(null)
+          if (multi.length) onMulti([])
+        }
         break
       case 'place':
         onAddDevice(tool.type, pt.x, pt.y, tool.catalogId)
@@ -331,6 +343,21 @@ export default function PlanCanvas(props: Props) {
   const selDevice = selection?.kind === 'device' ? project.devices.find((d) => d.id === selection.id) : undefined
   const selCable = selection?.kind === 'cable' ? project.cables.find((c) => c.id === selection.id) : undefined
   const k = 1 / view.scale // pentru elemente cu dimensiune constantă pe ecran
+
+  /** Shift + click: adaugă / scoate un element din selecția multiplă */
+  const toggle = (it: Item) => {
+    const base = multi.length ? multi : selection ? [selection] : []
+    const next = toggleItem(base, it)
+    if (next.length === 1) {
+      onMulti([])
+      onSelect(next[0])
+    } else if (next.length === 0) {
+      onMulti([])
+      onSelect(null)
+    } else onMulti(next)
+  }
+  const inGroup = (kind: Item['kind'], id: string) => multi.some((x) => x.kind === kind && x.id === id)
+  const archGroup = useMemo(() => new Set(multi.filter((x) => x.kind === 'arch').map((x) => x.id)), [multi])
 
   /** Mânere pe conul camerei selectate: vârful = distanța, marginile = unghiul */
   const coneHandles = (d: Device) => {
@@ -463,8 +490,34 @@ export default function PlanCanvas(props: Props) {
           const n = draft.points.length
           if (pt && Math.hypot(pt.x - draft.points[n - 2], pt.y - draft.points[n - 1]) < 8 * k) finishDraft()
         }}
+        onMouseDown={(e) => {
+          // Shift + tragere pe fundal = dreptunghi de selecție
+          if (!isSelect || !e.evt.shiftKey || e.evt.button !== 0) return
+          if (e.target !== stageRef.current && e.target.name() !== 'background') return
+          const pt = pointer()
+          if (!pt) return
+          stageRef.current?.draggable(false)
+          setMarquee({ x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y })
+        }}
         onMouseMove={() => {
           if (tool.kind === 'cable' || tool.kind === 'scale' || tool.kind === 'arch') setCursor(pointer())
+          if (marquee) {
+            const pt = pointer()
+            if (pt) setMarquee({ ...marquee, x1: pt.x, y1: pt.y })
+          }
+        }}
+        onMouseUp={() => {
+          if (!marquee) return
+          stageRef.current?.draggable(true)
+          const r = { x: Math.min(marquee.x0, marquee.x1), y: Math.min(marquee.y0, marquee.y1), width: Math.abs(marquee.x1 - marquee.x0), height: Math.abs(marquee.y1 - marquee.y0) }
+          setMarquee(null)
+          if (r.width < 3 && r.height < 3) return
+          const found = itemsInRect(r, { devices: visibleDevices, cables: visibleCables, arch: levelArch })
+          // dreptunghiul începe o selecție nouă; adaugă doar la o selecție multiplă existentă
+          let next = multi
+          for (const it of found) if (!next.some((x) => sameItem(x, it))) next = [...next, it]
+          if (next.length === 1) onSelect(next[0])
+          else if (next.length > 1) onMulti(next)
         }}
       >
         {/* Fundal */}
@@ -484,7 +537,8 @@ export default function PlanCanvas(props: Props) {
             onEditText={(id) => onEditText(id)}
             selectedId={selection?.kind === 'arch' ? selection.id : undefined}
             interactive={isSelect}
-            onSelect={(id) => onSelect({ kind: 'arch', id })}
+            onSelect={(id, shift) => (shift ? toggle({ kind: 'arch', id }) : onSelect({ kind: 'arch', id }))}
+            groupIds={archGroup}
             checkpoint={checkpoint}
             update={update}
           />
@@ -517,7 +571,7 @@ export default function PlanCanvas(props: Props) {
           })}
           {visibleCables.map((c) => {
             const color = systemById(c.system).color
-            const selected = selCable?.id === c.id
+            const selected = selCable?.id === c.id || inGroup('cable', c.id)
             return (
               <Line
                 key={c.id}
@@ -532,7 +586,8 @@ export default function PlanCanvas(props: Props) {
                 listening={isSelect}
                 onClick={(e) => {
                   e.cancelBubble = true
-                  onSelect({ kind: 'cable', id: c.id })
+                  if (e.evt.shiftKey) toggle({ kind: 'cable', id: c.id })
+                  else onSelect({ kind: 'cable', id: c.id })
                 }}
                 onDblClick={(e) => {
                   // dublu-click pe cablul selectat adaugă un punct de traseu
@@ -582,12 +637,13 @@ export default function PlanCanvas(props: Props) {
                 key={d.id}
                 x={d.x}
                 y={d.y}
-                draggable={isSelect}
+                draggable={isSelect && !multi.length}
                 listening={isSelect || tool.kind === 'cable'}
                 onClick={(e) => {
                   if (!isSelect) return
                   e.cancelBubble = true
-                  onSelect({ kind: 'device', id: d.id })
+                  if (e.evt.shiftKey) toggle({ kind: 'device', id: d.id })
+                  else onSelect({ kind: 'device', id: d.id })
                 }}
                 onDragStart={(e) => {
                   e.cancelBubble = true
@@ -651,6 +707,69 @@ export default function PlanCanvas(props: Props) {
 
         {/* Elemente de interfață (ascunse la export) */}
         <Layer name="ui">
+          {/* selecția multiplă: fiecare echipament încercuit + chenarul grupului (se trage pentru mutare) */}
+          {multi.length > 0 &&
+            visibleDevices
+              .filter((d) => inGroup('device', d.id))
+              .map((d) => <Circle key={'g' + d.id} x={d.x} y={d.y} radius={S * 0.75} stroke="#1e88e5" strokeWidth={2 * k} dash={[6 * k, 4 * k]} listening={false} />)}
+          {multi.length > 0 &&
+            isSelect &&
+            (() => {
+              const b = groupBounds(project, multi, S * 0.9)
+              if (!b) return null
+              return (
+                <Rect
+                  x={b.x}
+                  y={b.y}
+                  width={b.width}
+                  height={b.height}
+                  fill="rgba(30,136,229,0.06)"
+                  stroke="#1e88e5"
+                  strokeWidth={1.5 * k}
+                  dash={[8 * k, 5 * k]}
+                  draggable
+                  onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = 'move')}
+                  onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+                  onClick={(e) => {
+                    // click în chenar fără tragere: Shift = adaugă / scoate echipamentul de dedesubt
+                    e.cancelBubble = true
+                    const pt = pointer()
+                    const dev = pt && deviceAt(pt)
+                    if (e.evt.shiftKey && dev) toggle({ kind: 'device', id: dev.id })
+                  }}
+                  onDragStart={(e) => {
+                    e.cancelBubble = true
+                    checkpoint()
+                    groupSnap.current = { snap: snapshot(project, multi), x: e.target.x(), y: e.target.y() }
+                  }}
+                  onDragMove={(e) => {
+                    e.cancelBubble = true
+                    const g = groupSnap.current
+                    if (!g) return
+                    const dx = e.target.x() - g.x
+                    const dy = e.target.y() - g.y
+                    update((p) => translateGroup(p, multi, g.snap, dx, dy))
+                  }}
+                  onDragEnd={(e) => {
+                    e.cancelBubble = true
+                    groupSnap.current = null
+                  }}
+                />
+              )
+            })()}
+          {marquee && (
+            <Rect
+              x={Math.min(marquee.x0, marquee.x1)}
+              y={Math.min(marquee.y0, marquee.y1)}
+              width={Math.abs(marquee.x1 - marquee.x0)}
+              height={Math.abs(marquee.y1 - marquee.y0)}
+              fill="rgba(30,136,229,0.08)"
+              stroke="#1e88e5"
+              strokeWidth={1.5 * k}
+              dash={[6 * k, 4 * k]}
+              listening={false}
+            />
+          )}
           {selDevice && !hidden.has(deviceSystem(selDevice)!) && (
             <>
               <Circle x={selDevice.x} y={selDevice.y} radius={S * 0.8} stroke="#1e88e5" strokeWidth={2 * k} dash={[6 * k, 4 * k]} listening={false} />

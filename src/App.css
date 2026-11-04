@@ -233,3 +233,7 @@ button.link { border: none; background: none; padding: 0; color: var(--accent); 
 /* Modificări nesalvate în fișier */
 button.unsaved { border-color: #f9a825; }
 .dirty-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #f9a825; margin-left: 6px; vertical-align: middle; }
+.group-counts { width: 100%; border-collapse: collapse; font-size: 12px; }
+.group-counts td { padding: 2px 4px; border-bottom: 1px solid #eef0f3; }
+.group-counts td:first-child { font-weight: 700; width: 40px; }
+.group-counts td.num { text-align: right; font-weight: 600; }
