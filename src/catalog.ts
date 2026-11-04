@@ -135,7 +135,7 @@ export const SEED_CATALOG: CatalogItem[] = [
     tensiuneV: 12,
     putereW: 6,
     poeW: 6,
-    note: '8 MP; PoE 802.3af',
+    note: '8 MP; obiectiv 2.8 mm; IR max. 40 m; PoE 802.3af',
   }),
   item('hik-2087g2h', 'cctv_bullet_ext', 'CCTV', {
     prefix: 'CVIE',
@@ -146,7 +146,8 @@ export const SEED_CATALOG: CatalogItem[] = [
     tensiuneV: 12,
     putereW: 7,
     poeW: 7,
-    note: '8 MP; PoE 802.3af',
+    fovDeg: 105.1,
+    note: '8 MP; obiectiv 2.8 mm; FOV orizontal 105.1°, vertical 54.8°; IR până la 40 m; PoE 802.3af',
   }),
   item('hik-3e0310hp', 'cctv_switch', 'CCTV', {
     prefix: 'SW',

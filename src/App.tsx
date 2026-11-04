@@ -106,7 +106,7 @@ export default function App() {
           zone: '',
           partition: '',
           notes: '',
-          ...(def.camera ? { fov: def.camera.fov, range: def.camera.range } : {}),
+          ...(def.camera ? { fov: it?.fovDeg ?? def.camera.fov, range: it?.rangeM ?? def.camera.range } : {}),
         }
         const sheets = p.sheets.map((sh) =>
           sh.id === p.activeSheetId && sh.kind === 'plan' && !sh.systems.includes(def.system)
@@ -151,6 +151,12 @@ export default function App() {
       devices: p.devices.map((d) => {
         if (d.id !== id) return d
         const next = { ...d, ...patch }
+        // la alegerea unui model de cameră din catalog, conul preia unghiul și distanța modelului
+        if ('catalogId' in patch && patch.catalogId !== d.catalogId) {
+          const it = catalogItem(p, patch.catalogId)
+          if (it?.fovDeg != null && !('fov' in patch)) next.fov = it.fovDeg
+          if (it?.rangeM != null && !('range' in patch)) next.range = it.rangeM
+        }
         // la schimbarea modelului din catalog, renumerotează dacă prefixul diferă (ex. PIR1 → PIRW1)
         if ('catalogId' in patch && patch.catalogId !== d.catalogId) {
           const oldP = devicePrefix(d.type, catalogItem(p, d.catalogId))

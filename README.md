@@ -11,7 +11,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Plan de fundal**: încarci planul clădirii ca PDF (orice pagină) sau imagine.
 - **Calibrare scară**: unealta *Scară* → click pe capetele unei cote cunoscute → introduci lungimea în metri.
 - **Bibliotecă de simboluri** pe cele 4 subsisteme: plasare prin click sau drag & drop, cu numerotare automată (PIR01, CVe02, DF03…).
-- **Camere video** cu con de vizualizare reglabil (unghi + distanță în metri, la scară reală) și rotire din mâner sau tasta `R`.
+- **Camere video** cu con de vizualizare la scară reală: se reglează direct pe plan (vârful conului = distanța, marginile = unghiul, mânerul albastru = rotirea; `Shift` = fără pas) sau din panoul de proprietăți. Unghiul și distanța pot fi trecute în catalog pe fiecare model de cameră.
 - **Trasee de cablu** între echipamente, cu lungime calculată din scară, rezervă configurabilă și tip de cablu propus automat după echipament.
 - **Proprietăți per echipament**: cod, model, zonă protejată, partiție sau buclă, observații.
 - **Mai multe planșe în același proiect** (bara de jos): o planșă cu toate sistemele sau, automat, câte o planșă pentru fiecare sistem.

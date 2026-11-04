@@ -219,6 +219,7 @@ function fisaRows(it: CatalogItem): [string, string][] {
   if (it.poeW != null) rows.push(['Consum PoE', `${it.poeW} W`])
   if (it.poeBugetW != null) rows.push(['Buget PoE', `${it.poeBugetW} W`])
   if (it.bitrateKbps != null) rows.push(['Bitrate', `${it.bitrateKbps} kbps`])
+  if (it.fovDeg != null) rows.push(['Unghi de vizualizare orizontal', `${it.fovDeg}°`])
   if (it.capacitateAh != null) rows.push(['Capacitate', `${it.capacitateAh} Ah`])
   if (it.capacitateTB != null) rows.push(['Capacitate', `${it.capacitateTB} TB`])
   if (it.upsVA != null) rows.push(['Putere aparentă', `${it.upsVA} VA`])
