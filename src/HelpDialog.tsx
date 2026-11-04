@@ -256,6 +256,28 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'verificare',
+    title: 'Verificare înainte de predare',
+    intro: 'O listă cu tot ce lipsește sau nu se potrivește, înainte să predai documentația.',
+    steps: [
+      <>
+        Apasă <B>Verificare</B> (bara de sus). Bulina roșie de pe buton arată câte <B>erori</B> are proiectul acum.
+      </>,
+      <>
+        <B>Erorile</B> (roșu) fac documentația greșită sau incompletă: scară necalibrată, cabluri nelegate, zone necompletate în tabelele din
+        memoriu, consumuri lipsă din calcule, UPS / HDD / buget PoE insuficiente, numerotare dublă.
+      </>,
+      <>
+        <B>Atenționările</B> (portocaliu) sunt de verificat: modele sau producători lipsă în liste, fișe tehnice goale, echipamente fără cablu
+        (wireless?), desen care iese din planșă, simboluri prea mari / mici, cartuș și memoriu necompletate, scheme bloc lipsă.
+      </>,
+      <>
+        Butonul de lângă fiecare problemă te duce la ea: <B>Arată pe plan</B> selectează echipamentul sau cablul, celelalte deschid catalogul,
+        calculele, cartușul sau memoriul.
+      </>,
+    ],
+  },
+  {
     id: 'dxf',
     title: 'Export DXF pentru AutoCAD',
     steps: [

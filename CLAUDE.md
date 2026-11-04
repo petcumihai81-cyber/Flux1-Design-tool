@@ -38,6 +38,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `CatalogUI.tsx` | Dialogul de catalog și tab-ul Calcule |
 | `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
+| `verify.ts` + `VerifyDialog.tsx` | Verificarea înainte de predare: `verifyProject` (funcție pură) întoarce erori / atenționări pe grupe, cu țintă de navigare (echipament, cablu, nivel, planșă, catalog, calcule, cartuș, memoriu); refolosește `missing` din `calc.ts`. La o regulă nouă de proiectare se adaugă și verificarea ei aici |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
 | `dxf.ts` | Export DXF R12 (ANSI_1250) al planșei de plan: metri (y în sus), straturi `ARH_*`, `GHENE`, `<SISTEM>_ECHIPAMENTE/_CABLURI/_ETICHETE`, `CCTV_CONURI`; simbolurile SVG convertite în blocuri; pereții întrerupți la goluri. Verificare: `ezdxf` (recover + randare PNG) |
 | `background.ts` + `PdfPagePicker.tsx` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine); la PDF cu mai multe pagini, alegerea paginii din miniaturi |
