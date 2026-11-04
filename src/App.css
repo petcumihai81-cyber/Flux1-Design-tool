@@ -237,3 +237,17 @@ button.unsaved { border-color: #f9a825; }
 .group-counts td { padding: 2px 4px; border-bottom: 1px solid #eef0f3; }
 .group-counts td:first-child { font-weight: 700; width: 40px; }
 .group-counts td.num { text-align: right; font-weight: 600; }
+
+/* Fișa tehnică în catalog */
+.specs h4 { display: flex; gap: 6px; align-items: baseline; }
+.spec-rows { display: flex; flex-direction: column; gap: 3px; max-height: 320px; overflow-y: auto; border: 1px solid var(--line); border-radius: 6px; padding: 6px; }
+.spec-rows:empty { display: none; }
+.spec-row { display: grid; grid-template-columns: 2fr 3fr auto; gap: 4px; align-items: center; }
+.spec-row.section { grid-template-columns: 1fr auto; }
+.spec-row.section input { font-weight: 700; background: #eef1f5; }
+.spec-row input { padding: 3px 6px; font-size: 12.5px; }
+.spec-tools { display: flex; gap: 1px; }
+.spec-tools button { padding: 1px 6px; border: none; color: var(--muted); background: transparent; }
+.spec-tools button:hover { color: var(--text); }
+.spec-paste { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.spec-paste textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }

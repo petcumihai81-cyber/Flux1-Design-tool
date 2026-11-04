@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
-import type { CatalogItem, Project, SystemId } from './types'
+import type { CatalogItem, Project, SpecRow, SystemId } from './types'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
-import { ACCESSORY_KINDS, SEED_CATALOG, isAccessory, itemSystem, kindName, newCatalogItem, saveDefaultCatalog } from './catalog'
+import { ACCESSORY_KINDS, SEED_CATALOG, isAccessory, itemSystem, kindName, newCatalogItem, parseSpecs, saveDefaultCatalog } from './catalog'
 import { batteryCalc, fmt, poeCalc, powerCalc, storageCalc } from './calc'
 import { uid } from './project'
 
@@ -239,6 +239,7 @@ export function CatalogDialog({
                   <span>Note (alimentare, autonomie etc.)</span>
                   <textarea rows={2} value={sel.note} onChange={(e) => patch({ note: e.target.value })} />
                 </label>
+                <SpecsEditor key={sel.id} specs={sel.specs ?? []} onChange={(specs) => patch({ specs })} />
                 <div className="inline">
                   <button
                     onClick={() => {
@@ -315,6 +316,89 @@ export function CatalogDialog({
           </button>
         </footer>
       </div>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ fișa tehnică
+
+function SpecsEditor({ specs, onChange }: { specs: SpecRow[]; onChange: (s: SpecRow[]) => void }) {
+  const [paste, setPaste] = useState<string | null>(null)
+  const set = (i: number, row: SpecRow) => onChange(specs.map((r, j) => (j === i ? row : r)))
+  const move = (i: number, d: number) => {
+    const j = i + d
+    if (j < 0 || j >= specs.length) return
+    const next = [...specs]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+  }
+  const nParams = specs.filter((r) => 'label' in r).length
+  return (
+    <div className="specs">
+      <h4>
+        Fișa tehnică (memoriu) <span className="hint">· {nParams} parametri</span>
+      </h4>
+      {specs.length === 0 && (
+        <p className="hint">Fără fișă completă: în memoriu apar doar datele de mai sus. Lipește tabelul din fișa producătorului sau adaugă rânduri.</p>
+      )}
+      <div className="spec-rows">
+        {specs.map((r, i) =>
+          'section' in r ? (
+            <div key={i} className="spec-row section">
+              <input value={r.section} onChange={(e) => set(i, { section: e.target.value })} placeholder="Titlu secțiune" />
+              <span className="spec-tools">
+                <button title="Sus" onClick={() => move(i, -1)}>↑</button>
+                <button title="Jos" onClick={() => move(i, 1)}>↓</button>
+                <button title="Șterge" onClick={() => onChange(specs.filter((_, j) => j !== i))}>×</button>
+              </span>
+            </div>
+          ) : (
+            <div key={i} className="spec-row">
+              <input value={r.label} onChange={(e) => set(i, { ...r, label: e.target.value })} placeholder="Parametru" />
+              <input value={r.value} onChange={(e) => set(i, { ...r, value: e.target.value })} placeholder="Valoare" />
+              <span className="spec-tools">
+                <button title="Sus" onClick={() => move(i, -1)}>↑</button>
+                <button title="Jos" onClick={() => move(i, 1)}>↓</button>
+                <button title="Șterge" onClick={() => onChange(specs.filter((_, j) => j !== i))}>×</button>
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+      <div className="inline">
+        <button onClick={() => onChange([...specs, { section: 'Secțiune nouă' }])}>+ Secțiune</button>
+        <button onClick={() => onChange([...specs, { label: '', value: '' }])}>+ Parametru</button>
+        <button onClick={() => setPaste(paste == null ? '' : null)}>{paste == null ? 'Lipește din fișa producătorului…' : 'Renunță'}</button>
+        {specs.length > 0 && (
+          <button className="danger" onClick={() => window.confirm('Ștergi toată fișa tehnică a acestui echipament?') && onChange([])}>
+            Golește
+          </button>
+        )}
+      </div>
+      {paste != null && (
+        <div className="spec-paste">
+          <textarea
+            rows={8}
+            autoFocus
+            value={paste}
+            onChange={(e) => setPaste(e.target.value)}
+            placeholder={'Copiază tabelul din fișa producătorului (site sau PDF) și lipește-l aici.\nFormat: „Parametru<TAB>Valoare” sau „Parametru: Valoare”; rândurile fără valoare devin titluri de secțiune.'}
+          />
+          <div className="inline">
+            <span className="hint">{parseSpecs(paste).length} rânduri recunoscute</span>
+            <button
+              className="primary"
+              disabled={!paste.trim()}
+              onClick={() => {
+                onChange([...specs, ...parseSpecs(paste)])
+                setPaste(null)
+              }}
+            >
+              Adaugă la fișă
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
