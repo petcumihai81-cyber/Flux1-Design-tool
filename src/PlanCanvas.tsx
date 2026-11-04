@@ -275,7 +275,8 @@ export default function PlanCanvas(props: Props) {
           })
         } else if (tool.arch === 'label') {
           const text = window.prompt('Numele încăperii:', 'Birou')
-          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: 0.45, rotation: 0 })
+          // înălțimea textului: cel puțin 0,45 m, dar nu mai mică decât jumătate din simbol, ca să fie citibil
+          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: Math.round(Math.max(0.45, (S * 0.5) / ppm) * 20) / 20, rotation: 0 })
         }
         break
       }
@@ -476,6 +477,7 @@ export default function PlanCanvas(props: Props) {
             arch={levelArch}
             ppm={ppm}
             k={k}
+            symbolSize={S}
             selectedId={selection?.kind === 'arch' ? selection.id : undefined}
             interactive={isSelect}
             onSelect={(id) => onSelect({ kind: 'arch', id })}

@@ -124,7 +124,14 @@ const SECTIONS: Section[] = [
       </>,
       <>Elementele se selectează, se mută, se duplică și se șterg ca echipamentele (inclusiv din click dreapta). Vârfurile pereților se trag cu mânerele albastre.</>,
     ],
-    tips: [<>Schița apare pe toate planșele de tip plan și în PDF, sub echipamente și cabluri.</>],
+    tips: [
+      <>Schița apare pe planșele nivelului ei și în PDF, sub echipamente și cabluri.</>,
+      <>
+        Pereții, ușile și ferestrele au mărime reală (în metri); simbolurile au mărimea „de planșă”. Dacă simbolurile par uriașe lângă ferestre și
+        texte, apasă în tab-ul Proiect → Nivel <B>Potrivește simbolurile la planșă (~6 mm)</B>. Textul unui nume de încăpere se mărește din „Înălțime
+        litere”.
+      </>,
+    ],
   },
   {
     id: 'meniu',

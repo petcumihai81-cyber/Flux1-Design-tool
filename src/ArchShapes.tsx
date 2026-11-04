@@ -12,6 +12,8 @@ import { polylineLength } from './project'
 interface Props {
   arch: ArchElement[]
   ppm: number
+  /** Mărimea simbolurilor (px) — textul cotelor se scalează cu ea */
+  symbolSize: number
   /** px de ecran → unități plan (pentru mânere de mărime constantă) */
   k: number
   selectedId?: string
@@ -33,7 +35,7 @@ function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n 
   return pts
 }
 
-export default function ArchShapes({ arch, ppm, k, selectedId, interactive, onSelect, checkpoint, update }: Props) {
+export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, interactive, onSelect, checkpoint, update }: Props) {
   const patch = (id: string, p: Partial<ArchElement>) =>
     update((pr) => ({ ...pr, arch: pr.arch.map((a) => (a.id === id ? { ...a, ...p } : a)) }))
 
@@ -161,7 +163,7 @@ export default function ArchShapes({ arch, ppm, k, selectedId, interactive, onSe
           const nx = -Math.sin(ang)
           const ny = Math.cos(ang)
           const color = sel(a) ? '#1565c0' : INK
-          const fs = Math.max(0.3 * ppm, 10 * k)
+          const fs = Math.max(0.3 * ppm, symbolSize * 0.35, 10 * k)
           let deg = (ang * 180) / Math.PI
           if (deg > 90 || deg < -90) deg += 180
           return (

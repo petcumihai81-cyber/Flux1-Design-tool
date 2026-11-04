@@ -5,7 +5,7 @@ import './App.css'
 import type { ArchElement, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
-import { activeSheet, levelOf, newLevel, sheetLevel, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { activeSheet, levelOf, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
 import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
@@ -339,11 +339,12 @@ export default function App() {
     if (answer == null) return
     const m = parseFloat(answer.replace(',', '.'))
     if (!(m > 0)) return notify('Valoare invalidă.')
+    const ppm = pixels / m
     h.commit((p) => {
       const lvl = sheetLevel(p, activeSheet(p))
-      return { ...p, levels: p.levels.map((l) => (l.id === lvl.id ? { ...l, pxPerMeter: pixels / m } : l)) }
+      return { ...p, levels: p.levels.map((l) => (l.id === lvl.id ? { ...l, pxPerMeter: ppm } : l)) }
     })
-    notify(`Scară calibrată: ${(pixels / m).toFixed(2)} px/m`)
+    notify(`Scară calibrată: ${ppm.toFixed(2)} px/m.`)
   }
 
   /** Nivelul pe care se încarcă următorul plan de fundal (implicit: nivelul planșei curente) */
@@ -894,8 +895,22 @@ export default function App() {
             {tab === 'proiect' && sheet.kind === 'plan' && (
               <LevelPanel
                 level={level}
+                paperMmPerPx={paperMmPerPx(project, sheet)}
+                suggested={symbolForPaper(project, sheet)}
                 canDelete={project.levels.length > 1}
                 onChange={(patch) => patchLevel(level.id, patch)}
+                onFitSymbols={(size) =>
+                  h.commit((p) => {
+                    const ppm = levelOf(p, level.id).pxPerMeter ?? SKETCH_PX_PER_M
+                    const minText = Math.round(((size * 0.5) / ppm) * 20) / 20
+                    return {
+                      ...p,
+                      levels: p.levels.map((l) => (l.id === level.id ? { ...l, symbolSize: size } : l)),
+                      // textele de încăpere prea mici cresc odată cu simbolurile
+                      arch: p.arch.map((a) => (a.levelId === level.id && a.kind === 'label' && (a.size ?? 0.45) < minText ? { ...a, size: minText } : a)),
+                    }
+                  })
+                }
                 onLoadPlan={() => {
                   bgTarget.current = level.id
                   bgInput.current?.click()

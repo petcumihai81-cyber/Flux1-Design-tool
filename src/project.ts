@@ -91,6 +91,35 @@ export function formatLabel(sh: Sheet): string {
   return `${sh.format} ${o[sh.orientation]}`
 }
 
+/** Mărimea țintă a simbolurilor pe planșa tipărită (mm) */
+export const SYMBOL_PAPER_MM = 6
+
+/**
+ * Câți mm pe hârtie are un pixel de plan, când nivelul e încadrat în zona de desen a planșei
+ * (aceeași așezare ca la export: chenar, coloana / banda cu legendă și cartuș).
+ */
+export function paperMmPerPx(p: Project, sh: Sheet): number | null {
+  const b = contentBounds(p, sh.systems, sheetLevel(p, sh).id)
+  if (!b || b.width <= 0 || b.height <= 0) return null
+  const [W, H] = pageSizeMm(sh)
+  const small = Math.min(W, H) <= 210
+  const m = small ? 7 : 10
+  const fw = W - 20 - m
+  const fh = H - 2 * m
+  const landscape = W >= H
+  const tbW = Math.min(small ? 95 : 130, fw * (landscape ? 0.4 : 0.6))
+  const tbH = (small ? 7.5 : 9.5) * 9.2
+  const areaW = (landscape ? fw - tbW : fw) - 10
+  const areaH = (landscape ? fh : fh - tbH) - 10
+  return Math.min(areaW / b.width, areaH / b.height)
+}
+
+/** Mărimea simbolurilor (px) ca să iasă ~6 mm pe planșă */
+export function symbolForPaper(p: Project, sh: Sheet): number | null {
+  const k = paperMmPerPx(p, sh)
+  return k ? Math.max(6, Math.min(600, Math.round(SYMBOL_PAPER_MM / k))) : null
+}
+
 /** Următorul număr de planșă liber (P01, P02...) */
 export const nextSheetNr = (p: Project) => nextLabel('P', p.sheets.map((s) => s.nr))
 
