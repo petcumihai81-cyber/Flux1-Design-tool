@@ -15,6 +15,7 @@ import type { RenderedPage } from './exporters'
 import { exportDrawio } from './drawio'
 import { CalcPanel, CatalogDialog } from './CatalogUI'
 import { MemoriuDialog } from './MemoriuDialog'
+import { HelpDialog } from './HelpDialog'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
 
@@ -39,6 +40,22 @@ export default function App() {
   const sheet = activeSheet(project)
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [memoOpen, setMemoOpen] = useState(false)
+  // ghidul se deschide singur la prima vizită
+  const [helpOpen, setHelpOpen] = useState(() => {
+    try {
+      return !localStorage.getItem('plansa-securitate:ghid-vazut')
+    } catch {
+      return false
+    }
+  })
+  const closeHelp = () => {
+    setHelpOpen(false)
+    try {
+      localStorage.setItem('plansa-securitate:ghid-vazut', '1')
+    } catch {
+      /* ignorat */
+    }
+  }
   const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
@@ -443,10 +460,11 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (catalogOpen || memoOpen) {
+      if (catalogOpen || memoOpen || helpOpen) {
         if (e.key === 'Escape') {
           setCatalogOpen(false)
           setMemoOpen(false)
+          if (helpOpen) closeHelp()
         }
         return
       }
@@ -473,6 +491,7 @@ export default function App() {
         saveJson()
       } else if (e.key === 'Escape') {
         if (ctxMenu) setCtxMenu(null)
+        else if (sheetMenu) setSheetMenu(null)
         else if (tool.kind !== 'select') setTool({ kind: 'select' })
         else setSelection(null)
       } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection && sheet.kind === 'plan') {
@@ -538,6 +557,7 @@ export default function App() {
           <button className="primary" onClick={() => exportExcel(project)} title="Liste echipamente, zone, jurnal cablu">Excel</button>
           <button className="primary" onClick={doExportDrawio} title="Schemele bloc ca fișier draw.io editabil">draw.io</button>
           <button className="primary" onClick={() => setMemoOpen(true)} title="Memoriul tehnic pentru avizare (.docx)">Memoriu</button>
+          <button className="help-btn" onClick={() => setHelpOpen(true)} title="Ghid de utilizare (Ajutor)" aria-label="Ajutor">?</button>
         </div>
         <input
           ref={bgInput}
@@ -716,6 +736,7 @@ export default function App() {
       {memoOpen && (
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
+      {helpOpen && <HelpDialog onClose={closeHelp} />}
       {busy && <div className="overlay">{busy}</div>}
       {ctxMenu && (
         <div className="ctx-back" onMouseDown={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>

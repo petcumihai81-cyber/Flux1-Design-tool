@@ -40,6 +40,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
 | `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
+| `HelpDialog.tsx` + `public/help/*.webp` | Ghidul din aplicație (butonul „?”), cu secțiuni „cum fac…” și capturi de ecran; se deschide singur la prima vizită |
 | `App.tsx` | Starea aplicației, bara de unelte, planșe, scurtături, export |
 
 Principii:
@@ -84,6 +85,11 @@ Principii:
 - Testele end-to-end se fac cu Playwright (preinstalat în mediul cloud) pe `vite preview`. Scenariile se scriu în fișiere temporare, nu în repo.
 - Coordonatele de pe plan se transformă în coordonate de ecran cu `window.Konva.stages[0].getAbsoluteTransform().point(...)`.
 - După modificări la export: generează PDF-ul și Excel-ul și verifică vizual pagina (`pdftoppm`) și conținutul (`openpyxl`).
+
+## Ghidul din aplicație
+
+- Când se schimbă interfața sau se adaugă o funcție, se actualizează și secțiunea corespunzătoare din `HelpDialog.tsx`.
+- Capturile din `public/help/` se regenerează cu Playwright pe `vite preview`, pe un plan demonstrativ (birouri 20 × 12 m, 100 px/m, cotă de 10 m), cu viewport 1400×860 și deviceScaleFactor 1.25, apoi se convertesc în WebP (calitate ~82, lățime max. 1500 px). Scripturile sunt temporare, nu se pun în repo.
 
 ## Git
 
