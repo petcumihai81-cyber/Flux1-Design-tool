@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
-import { cableMeters, catalogItem, deviceSystem, polylineLength } from './project'
+import { cableMeters, cablePixels, catalogItem, deviceSystem } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 // ------------------------------------------------------------------ Paleta de simboluri
@@ -222,11 +222,31 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
   )
 }
 
+/** Leagă un capăt de cablu de alt echipament (mută și punctul de capăt pe echipament) */
+function endPatch(c: Cable, p: Project, end: 'from' | 'to', id?: string): Partial<Cable> {
+  const pts = [...c.points]
+  const d = p.devices.find((x) => x.id === id)
+  if (d) {
+    const i = end === 'from' ? 0 : pts.length - 2
+    pts[i] = d.x
+    pts[i + 1] = d.y
+  }
+  return end === 'from' ? { from: id, points: pts } : { to: id, points: pts, via: undefined }
+}
+
 export function CableProps({ c, project, onChange, onDelete }: { c: Cable; project: Project; onChange: (patch: Partial<Cable>) => void; onDelete: () => void }) {
   const sys = systemById(c.system)
   const byId = new Map(project.devices.map((d) => [d.id, d]))
   const meters = cableMeters(c, project)
-  const raw = project.pxPerMeter ? polylineLength(c.points) / project.pxPerMeter : null
+  const raw = project.pxPerMeter ? cablePixels(c, project) / project.pxPerMeter : null
+  const via = c.via ? project.cables.find((x) => x.id === c.via!.cableId) : undefined
+  const devOptions = [...project.devices]
+    .sort((a, b) => Number(deviceSystem(b) === c.system) - Number(deviceSystem(a) === c.system) || a.label.localeCompare(b.label, 'ro', { numeric: true }))
+    .map((d) => (
+      <option key={d.id} value={d.id}>
+        {d.label} – {symbolByType(d.type)?.name}
+      </option>
+    ))
   return (
     <div className="props">
       <div className="props-title">
@@ -241,12 +261,27 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
       </Field>
       <div className="row2">
         <Field label="De la">
-          <input value={(c.from && byId.get(c.from)?.label) || '—'} readOnly />
+          <select value={c.from ?? ''} onChange={(e) => onChange(endPatch(c, project, 'from', e.target.value || undefined))}>
+            <option value="">— liber —</option>
+            {devOptions}
+          </select>
         </Field>
         <Field label="La">
-          <input value={(c.to && byId.get(c.to)?.label) || '—'} readOnly />
+          <select value={c.to ?? ''} onChange={(e) => onChange(endPatch(c, project, 'to', e.target.value || undefined))}>
+            <option value="">— liber —</option>
+            {devOptions}
+          </select>
         </Field>
       </div>
+      {via && (
+        <p className="hint">
+          Ramificație pe cablul <b>{via.code}</b>: merge pe același traseu până la {(c.to && byId.get(c.to)?.label) || 'capătul lui'}; lungimea include porțiunea
+          comună.{' '}
+          <button className="link" onClick={() => onChange({ via: undefined })}>
+            Anulează ramificația
+          </button>
+        </p>
+      )}
       <Field label="Subsistem">
         <select value={c.system} onChange={(e) => onChange({ system: e.target.value as SystemId })}>
           {SYSTEMS.map((s) => (
@@ -281,7 +316,7 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
       <Field label="Traseu / observații">
         <textarea rows={2} value={c.notes} placeholder="ex. Tavan fals, tub flexibil Ø20" onChange={(e) => onChange({ notes: e.target.value })} />
       </Field>
-      <p className="hint">Trage de punctele albe pentru a modifica traseul; dublu-click pe un punct intermediar îl șterge.</p>
+      <p className="hint">Trage de puncte pentru a modifica traseul; trage un capăt pe un echipament ca să-l legi (sau pe alt cablu, pentru ramificație). Dublu-click pe cablu adaugă un punct; dublu-click pe un punct intermediar îl șterge.</p>
       <button className="danger" onClick={onDelete}>
         Șterge cablul (Del)
       </button>

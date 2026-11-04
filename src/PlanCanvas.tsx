@@ -4,7 +4,7 @@ import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge }
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Project, Selection, Sheet, Tool } from './types'
 import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
-import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem } from './project'
+import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, nearestOnPolyline } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = 20
@@ -18,7 +18,7 @@ interface Props {
   fitSignal: number
   onSelect: (s: Selection) => void
   onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
-  onAddCable: (points: number[], from?: string, to?: string) => void
+  onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
   onScaleMeasured: (pixels: number) => void
   /** Click dreapta: poziția pe ecran, pe plan și elementul de sub cursor */
   onContext: (info: { clientX: number; clientY: number; x: number; y: number; target: Selection }) => void
@@ -152,7 +152,30 @@ export default function PlanCanvas(props: Props) {
     return best
   }
 
-  function finishDraft(to?: string, extra?: number[]) {
+  /** Cablul vizibil cel mai apropiat de punct (pentru ramificații), dacă e destul de aproape */
+  const cableAt = (pt: Pt, exclude?: string) => {
+    let best: { cable: (typeof visibleCables)[number]; x: number; y: number; along: number } | undefined
+    let bestD = Math.max(S * 0.4, 8 * k)
+    for (const c of visibleCables) {
+      if (c.id === exclude) continue
+      const n = nearestOnPolyline(c.points, pt.x, pt.y)
+      if (n.dist < bestD) {
+        bestD = n.dist
+        best = { cable: c, x: n.x, y: n.y, along: n.along }
+      }
+    }
+    return best
+  }
+
+  /** Capătul spre care merge ramificația: cel legat de un echipament central (switch, NVR, centrală) */
+  const viaEnd = (c: (typeof visibleCables)[number]): 'from' | 'to' => {
+    const hub = (id?: string) => !!id && !!symbolByType(project.devices.find((d) => d.id === id)?.type ?? '')?.hub
+    if (hub(c.to)) return 'to'
+    if (hub(c.from)) return 'from'
+    return c.to ? 'to' : 'from'
+  }
+
+  function finishDraft(to?: string, extra?: number[], via?: { cableId: string; end: 'from' | 'to' }) {
     const pts = [...draft.points, ...(extra ?? [])]
     // elimină punctele consecutive identice (ex. de la dublu-click)
     const clean: number[] = []
@@ -161,7 +184,7 @@ export default function PlanCanvas(props: Props) {
       if (n && Math.hypot(clean[n - 2] - pts[i], clean[n - 1] - pts[i + 1]) < 0.5) continue
       clean.push(pts[i], pts[i + 1])
     }
-    if (clean.length >= 4) onAddCable(clean, draft.from, to)
+    if (clean.length >= 4) onAddCable(clean, draft.from, to, via)
     setDraft({ points: [] })
   }
 
@@ -192,6 +215,11 @@ export default function PlanCanvas(props: Props) {
           setDraft(dev ? { points: [dev.x, dev.y], from: dev.id } : { points: [pt.x, pt.y] })
         } else if (dev && dev.id !== draft.from) {
           finishDraft(dev.id, [dev.x, dev.y])
+        } else if (!dev && cableAt(pt)) {
+          // ramificație pe un cablu existent: merge pe traseul lui până la echipamentul central
+          const hit = cableAt(pt)!
+          const end = viaEnd(hit.cable)
+          finishDraft(end === 'to' ? hit.cable.to : hit.cable.from, [hit.x, hit.y], { cableId: hit.cable.id, end })
         } else {
           setDraft((d) => ({ ...d, points: [...d.points, pt.x, pt.y] }))
         }
@@ -345,7 +373,13 @@ export default function PlanCanvas(props: Props) {
           onContext({ clientX: e.evt.clientX, clientY: e.evt.clientY, x: pt.x, y: pt.y, target })
         }}
         onClick={onStageClick}
-        onDblClick={() => tool.kind === 'cable' && finishDraft()}
+        onDblClick={() => {
+          if (tool.kind !== 'cable' || draft.points.length < 2) return
+          // dublu-click real = al doilea click în același loc; click-urile rapide în locuri diferite nu termină cablul
+          const pt = pointer()
+          const n = draft.points.length
+          if (pt && Math.hypot(pt.x - draft.points[n - 2], pt.y - draft.points[n - 1]) < 8 * k) finishDraft()
+        }}
         onMouseMove={() => {
           if (tool.kind === 'cable' || tool.kind === 'scale') setCursor(pointer())
         }}
@@ -400,6 +434,27 @@ export default function PlanCanvas(props: Props) {
                 onClick={(e) => {
                   e.cancelBubble = true
                   onSelect({ kind: 'cable', id: c.id })
+                }}
+                onDblClick={(e) => {
+                  // dublu-click pe cablul selectat adaugă un punct de traseu
+                  e.cancelBubble = true
+                  if (!selected) return
+                  const pt = pointer()
+                  if (!pt) return
+                  let best = 2
+                  let bestD = Infinity
+                  for (let i = 2; i < c.points.length; i += 2) {
+                    const n = nearestOnPolyline(c.points.slice(i - 2, i + 2), pt.x, pt.y)
+                    if (n.dist < bestD) {
+                      bestD = n.dist
+                      best = i
+                    }
+                  }
+                  checkpoint()
+                  update((p) => ({
+                    ...p,
+                    cables: p.cables.map((x) => (x.id === c.id ? { ...x, points: [...x.points.slice(0, best), pt.x, pt.y, ...x.points.slice(best)] } : x)),
+                  }))
                 }}
               />
             )
@@ -557,7 +612,7 @@ export default function PlanCanvas(props: Props) {
                     fill={attached ? '#90a4ae' : '#fff'}
                     stroke="#1e88e5"
                     strokeWidth={2 * k}
-                    draggable={isSelect && !attached}
+                    draggable={isSelect}
                     onDragStart={(e) => {
                       e.cancelBubble = true
                       checkpoint()
@@ -579,6 +634,34 @@ export default function PlanCanvas(props: Props) {
                     }}
                     onDragEnd={(e) => {
                       e.cancelBubble = true
+                      if (!isEnd) return
+                      // capăt de cablu: se leagă de echipamentul sau cablul de sub el, altfel rămâne liber
+                      const pt = { x: e.target.x(), y: e.target.y() }
+                      const isLast = i === selCable.points.length - 2
+                      const dev = deviceAt(pt)
+                      const host = !dev && isLast ? cableAt(pt, selCable.id) : undefined
+                      update((p) => ({
+                        ...p,
+                        cables: p.cables.map((c) => {
+                          if (c.id !== selCable.id) return c
+                          const pts = [...c.points]
+                          const next = { ...c }
+                          if (dev) {
+                            pts[i] = dev.x
+                            pts[i + 1] = dev.y
+                          } else if (host) {
+                            pts[i] = host.x
+                            pts[i + 1] = host.y
+                          }
+                          const end = host ? viaEnd(host.cable) : undefined
+                          if (i === 0) next.from = dev?.id
+                          if (isLast) {
+                            next.to = dev ? dev.id : host ? (end === 'to' ? host.cable.to : host.cable.from) : undefined
+                            next.via = host ? { cableId: host.cable.id, end: end! } : undefined
+                          }
+                          return { ...next, points: pts }
+                        }),
+                      }))
                     }}
                     onDblClick={(e) => {
                       // dublu-click pe un punct intermediar îl șterge
@@ -650,8 +733,8 @@ export default function PlanCanvas(props: Props) {
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
           {tool.kind === 'cable' && (
             <>
-              Click pe echipamentul de start, apoi puncte de traseu; click pe echipamentul final (sau dublu-click / Enter) pentru a
-              termina. Backspace = șterge ultimul punct, Esc = anulare.
+              Click pe echipamentul de start, apoi puncte de traseu; click pe echipamentul final pentru a termina — sau pe alt cablu, pentru o
+              ramificație pe traseu comun. Dublu-click / Enter = termină liber, Backspace = șterge ultimul punct, Esc = anulare.
             </>
           )}
         </div>
