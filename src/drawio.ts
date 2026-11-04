@@ -1,6 +1,7 @@
-import type { Project, SystemId } from './types'
+import type { Diagram, Project, SystemId } from './types'
 import { symbolByType, symbolSvg, systemById } from './symbols'
-import { NODE_H, NODE_W, blockLayout, nodeTexts } from './blockLayout'
+import { deviceInfo } from './project'
+import { materialize, pruneDiagram } from './diagram'
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '&#xa;')
@@ -13,77 +14,73 @@ function svgDataUri(type: string): string {
   return 'data:image/svg+xml,' + b64
 }
 
-function diagramXml(p: Project, system: SystemId, idx: number): string {
-  const L = blockLayout(p, system)
-  const sys = systemById(system)
+function diagramXml(p: Project, item: DrawioItem, idx: number): string {
+  const d = item.diagram ? pruneDiagram(p, item.diagram) : materialize(p, item.system)
+  const sys = systemById(item.system)
   const cells: string[] = ['<mxCell id="0"/>', '<mxCell id="1" parent="0"/>']
-  const nodeId = new Map<object, string>()
+  const cid = (id: string) => `c${idx}_${id}`
   let n = 0
-  const id = () => `c${idx}_${++n}`
+  const extra = () => `c${idx}_x${++n}`
 
-  for (const node of L.nodes) {
-    const [code, name, detail] = nodeTexts(node)
-    const vid = id()
-    nodeId.set(node, vid)
-    const html = `<b style="color:${sys.color};font-size:14px">${esc(code)}</b><br>${esc(name)}${detail ? `<br><font color="#666666" style="font-size:10px">${esc(detail)}</font>` : ''}`
+  // chenarele primele, ca să rămână în spate
+  const ordered = [...d.nodes.filter((x) => x.kind === 'rect'), ...d.nodes.filter((x) => x.kind !== 'rect')]
+  for (const node of ordered) {
+    const c = node.color ?? sys.color
+    const geo = `<mxGeometry x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" as="geometry"/>`
+    if (node.kind === 'device') {
+      const dev = p.devices.find((x) => x.id === node.deviceId)
+      if (!dev) continue
+      const info = deviceInfo(p, dev)
+      const detail = [info.model, dev.zone].filter(Boolean).join(' · ')
+      const html = `<b style="color:${c};font-size:14px">${esc(dev.label)}</b><br>${esc(info.denumire)}${detail ? `<br><font color="#666666" style="font-size:10px">${esc(detail)}</font>` : ''}`
+      const style = `rounded=1;arcSize=6;whiteSpace=wrap;html=1;align=left;verticalAlign=middle;spacingLeft=58;fontSize=11;fillColor=#ffffff;strokeColor=${c};strokeWidth=2;`
+      cells.push(`<mxCell id="${cid(node.id)}" value="${esc(html)}" style="${style}" vertex="1" parent="1">${geo}</mxCell>`)
+      cells.push(
+        `<mxCell id="${extra()}" value="" style="shape=image;html=1;imageAspect=1;aspect=fixed;image=${svgDataUri(dev.type)};" vertex="1" parent="${cid(node.id)}"><mxGeometry x="8" y="${(node.h - 44) / 2}" width="44" height="44" as="geometry"/></mxCell>`,
+      )
+    } else if (node.kind === 'rect') {
+      const style = `rounded=1;arcSize=3;whiteSpace=wrap;html=1;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontStyle=1;fontSize=${node.fontSize ?? 14};fontColor=${c};fillColor=none;strokeColor=${c};${node.dashed ? 'dashed=1;' : ''}`
+      cells.push(`<mxCell id="${cid(node.id)}" value="${esc(node.text ?? '')}" style="${style}" vertex="1" parent="1">${geo}</mxCell>`)
+    } else {
+      const style = `text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=${node.fontSize ?? 16};fontColor=${c};`
+      cells.push(`<mxCell id="${cid(node.id)}" value="${esc(node.text ?? '')}" style="${style}" vertex="1" parent="1">${geo}</mxCell>`)
+    }
+  }
+
+  // legăturile (draw.io le rutează ortogonal; se pot muta liber)
+  const ids = new Set(d.nodes.map((x) => x.id))
+  for (const e of d.edges) {
+    if (!ids.has(e.from) || !ids.has(e.to)) continue
     const style = [
-      'rounded=1',
-      'arcSize=6',
-      'whiteSpace=wrap',
+      'edgeStyle=orthogonalEdgeStyle',
+      'rounded=0',
       'html=1',
-      'align=left',
-      'verticalAlign=middle',
-      'spacingLeft=58',
-      'fontSize=11',
-      'fillColor=#ffffff',
-      `strokeColor=${sys.color}`,
+      'endArrow=none',
+      `strokeColor=${e.color ?? sys.color}`,
       'strokeWidth=2',
-      node.device ? '' : 'dashed=1',
+      'fontSize=10',
+      'labelBackgroundColor=#ffffff',
+      e.dashed ? 'dashed=1' : '',
     ]
       .filter(Boolean)
       .join(';')
     cells.push(
-      `<mxCell id="${vid}" value="${esc(html)}" style="${style};" vertex="1" parent="1"><mxGeometry x="${node.x}" y="${node.y}" width="${NODE_W}" height="${NODE_H}" as="geometry"/></mxCell>`,
+      `<mxCell id="${extra()}" value="${esc(e.label)}" style="${style};" edge="1" parent="1" source="${cid(e.from)}" target="${cid(e.to)}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
     )
-    if (node.device) {
-      cells.push(
-        `<mxCell id="${id()}" value="" style="shape=image;html=1;verticalAlign=top;imageAspect=1;aspect=fixed;image=${svgDataUri(node.device.type)};" vertex="1" parent="${vid}"><mxGeometry x="8" y="${(NODE_H - 44) / 2}" width="44" height="44" as="geometry"/></mxCell>`,
-      )
-    }
   }
 
-  // legături părinte → copil (draw.io le rutează ortogonal; se pot muta liber)
-  for (const node of L.nodes) {
-    for (const c of node.children) {
-      const label = c.cable ? `${c.cable.code} · ${c.cable.cableType}` : ''
-      const style = [
-        'edgeStyle=orthogonalEdgeStyle',
-        'rounded=0',
-        'html=1',
-        'endArrow=none',
-        `strokeColor=${sys.color}`,
-        'strokeWidth=2',
-        'fontSize=10',
-        'labelBackgroundColor=#ffffff',
-        'exitX=0.5;exitY=1;exitDx=0;exitDy=0',
-        'entryX=0.5;entryY=0;entryDx=0;entryDy=0',
-        c.dashed ? 'dashed=1' : '',
-      ]
-        .filter(Boolean)
-        .join(';')
-      cells.push(
-        `<mxCell id="${id()}" value="${esc(label)}" style="${style};" edge="1" parent="1" source="${nodeId.get(node)}" target="${nodeId.get(c)}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
-      )
-    }
-  }
+  return `<diagram id="d${idx}" name="${esc(item.name)}"><mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0"><root>${cells.join('')}</root></mxGraphModel></diagram>`
+}
 
-  const name = `Schemă bloc – ${sys.name}`
-  return `<diagram id="d${idx}" name="${esc(name)}"><mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0"><root>${cells.join('')}</root></mxGraphModel></diagram>`
+export interface DrawioItem {
+  system: SystemId
+  diagram?: Diagram
+  name: string
 }
 
 /** Fișier .drawio cu câte o pagină pentru fiecare schemă bloc */
-export function exportDrawio(p: Project, systems: SystemId[]) {
-  const pages = systems.map((s, i) => diagramXml(p, s, i + 1))
+export function exportDrawio(p: Project, items: DrawioItem[]) {
+  const pages = items.map((it, i) => diagramXml(p, it, i + 1))
   const xml = `<mxfile host="Flux1-Design-tool" type="device">${pages.join('')}</mxfile>`
   const blob = new Blob([xml], { type: 'application/xml' })
   const a = document.createElement('a')

@@ -147,6 +147,36 @@ export interface Background {
 export type PageFormat = 'A0' | 'A1' | 'A2' | 'A3' | 'A4' | 'CUSTOM'
 export type Orientation = 'landscape' | 'portrait'
 
+/** Element al unei scheme editate manual */
+export interface DiagramNode {
+  id: string
+  /** device = bloc legat de un echipament de pe plan; text = text liber; rect = chenar / grupare */
+  kind: 'device' | 'text' | 'rect'
+  deviceId?: string
+  x: number
+  y: number
+  w: number
+  h: number
+  text?: string
+  color?: string
+  dashed?: boolean
+  fontSize?: number
+}
+
+export interface DiagramEdge {
+  id: string
+  from: string
+  to: string
+  label: string
+  dashed: boolean
+  color?: string
+}
+
+export interface Diagram {
+  nodes: DiagramNode[]
+  edges: DiagramEdge[]
+}
+
 export interface Sheet {
   id: string
   /** plan = plan de amplasare; bloc = schemă bloc generată automat */
@@ -163,6 +193,8 @@ export interface Sheet {
   systems: SystemId[]
   /** Afișează conurile de vizualizare ale camerelor */
   showCones: boolean
+  /** Schema bloc editată manual (lipsă = generată automat) */
+  diagram?: Diagram
 }
 
 export interface Project {
