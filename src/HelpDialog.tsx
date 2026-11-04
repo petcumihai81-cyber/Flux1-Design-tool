@@ -305,6 +305,31 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'straturi',
+    title: 'Straturi: arată / ascunde, blochează',
+    intro: 'Ca în AutoCAD sau Photoshop: fiecare planșă de plan are straturi.',
+    img: 'help/18-straturi.webp',
+    steps: [
+      <>
+        Tab-ul <B>Straturi</B> (dreapta): <B>Plan de fundal</B>, <B>Arhitectură</B> (pereți, uși și ferestre, texte, cote, ghene) și, pe fiecare
+        sistem, <B>echipamente</B>, <B>etichete</B>, <B>trasee cabluri</B> (la CCTV și <B>conuri</B>). Lângă fiecare: câte elemente are pe
+        nivelul planșei.
+      </>,
+      <>
+        <B>Ochiul</B> arată / ascunde stratul pe planșa curentă — ce e ascuns nu apare nici în PDF-ul și DXF-ul planșei, nici în legendă.
+        Ochiul de pe grupă ascunde tot sistemul (ca bifele din tab-ul Proiect).
+      </>,
+      <>
+        <B>Lacătul</B> blochează stratul: se vede și se tipărește, dar nu se poate selecta sau muta (ex. blochezi pereții și cablurile ca să
+        muți doar echipamentele). La fundal, lacătul e același cu „Plan blocat”.
+      </>,
+      <>
+        Fiecare planșă are straturile ei: poți face din același nivel o planșă doar cu trasee și una fără etichete. Când plasezi un element
+        pe un strat ascuns, stratul se arată singur. <B>Arată tot</B> / <B>Deblochează tot</B> readuc totul la normal.
+      </>,
+    ],
+  },
+  {
     id: 'simboluri',
     title: 'Culoarea simbolurilor și simboluri personalizate',
     img: 'help/17-simboluri.webp',

@@ -7,6 +7,7 @@ import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } 
 import { cableEnds, cableMeters, cablePixels, catalogItem, deviceSystem, isRiserRoute, levelOf, riserHost, verticalMeters } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
+import { ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
@@ -1034,6 +1035,171 @@ export function ListsPanel({ project, onSelectDevice }: { project: Project; onSe
         ) : null,
       )}
       {!project.devices.length && <p className="hint">Nu există încă echipamente pe planșă.</p>}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ Straturi (ca în AutoCAD / Photoshop)
+
+const EyeIcon = ({ on }: { on: boolean }) =>
+  on ? (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z" fill="none" stroke="currentColor" strokeWidth="2" />
+      <circle cx="12" cy="12" r="3.2" fill="currentColor" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+      <path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.45" />
+      <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" />
+    </svg>
+  )
+
+const LockIcon = ({ on }: { on: boolean }) => (
+  <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+    <rect x="4.5" y="10.5" width="15" height="10" rx="2" fill={on ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" />
+    <path d={on ? 'M8 10.5V7.5a4 4 0 0 1 8 0v3' : 'M8 10.5V7.5a4 4 0 0 1 7.5-2'} fill="none" stroke="currentColor" strokeWidth="2" />
+  </svg>
+)
+
+/** Panoul de straturi al planșei de plan: arată / ascunde și blochează straturi */
+export function LayersPanel({
+  project,
+  sheet,
+  level,
+  onChange,
+  onLevelChange,
+}: {
+  project: Project
+  sheet: Sheet
+  level: Level
+  onChange: (patch: Partial<Sheet>) => void
+  onLevelChange: (patch: Partial<Level>) => void
+}) {
+  const [closed, setClosed] = useState<Record<string, boolean>>({})
+  const devs = project.devices.filter((d) => d.levelId === level.id)
+  const cabs = project.cables.filter((c) => c.levelId === level.id)
+  const arch = project.arch.filter((a) => a.levelId === level.id)
+  const count = (key: string): number => {
+    const [g, k] = key.split(':')
+    if (g === 'arh') return arch.filter((a) => archLayer(a) === key).length
+    if (k === 'cabluri') return cabs.filter((c) => c.system === g).length
+    if (k === 'conuri') return devs.filter((d) => deviceSystem(d) === 'CCTV' && symbolByType(d.type)?.camera).length
+    return devs.filter((d) => deviceSystem(d) === g).length
+  }
+  const usedSystems = SYSTEMS.filter((s) => devs.some((d) => deviceSystem(d) === s.id) || cabs.some((c) => c.system === s.id))
+  const otherSystems = SYSTEMS.filter((s) => !usedSystems.includes(s))
+
+  const row = (key: string, name: string, n: number, opts: { lockable?: boolean } = {}) => {
+    const vis = layerVisible(sheet, key)
+    const locked = layerLocked(sheet, key)
+    return (
+      <div key={key} className={'layer-row' + (vis ? '' : ' off')}>
+        <button className="ly-eye" title={vis ? 'Ascunde stratul' : 'Arată stratul'} onClick={() => onChange(toggleLayerVisible(sheet, key))}>
+          <EyeIcon on={vis} />
+        </button>
+        {opts.lockable !== false ? (
+          <button className={'ly-lock' + (locked ? ' on' : '')} title={locked ? 'Deblochează (se poate selecta)' : 'Blochează (nu se poate selecta / muta)'} onClick={() => onChange(toggleLayerLocked(sheet, key))}>
+            <LockIcon on={locked} />
+          </button>
+        ) : (
+          <span className="ly-lock-space" />
+        )}
+        <span className="ly-name">{name}</span>
+        <span className="ly-count">{n || ''}</span>
+      </div>
+    )
+  }
+
+  /** Grup: ochiul arată / ascunde toate straturile grupei; lacătul le blochează pe toate */
+  const group = (id: string, name: string, color: string, layers: { key: string; name: string }[], sysOn?: boolean, onSys?: (on: boolean) => void) => {
+    const allVis = sysOn ?? layers.every((l) => layerVisible(sheet, l.key))
+    const allLocked = layers.every((l) => layerLocked(sheet, l.key))
+    const isClosed = closed[id]
+    return (
+      <div key={id} className="layer-group">
+        <div className={'layer-row group' + (allVis ? '' : ' off')}>
+          <button
+            className="ly-eye"
+            title={allVis ? 'Ascunde toată grupa' : 'Arată toată grupa'}
+            onClick={() => {
+              if (onSys) return onSys(!allVis)
+              const hidden = new Set(sheet.hiddenLayers ?? [])
+              for (const l of layers) {
+                if (allVis) hidden.add(l.key)
+                else hidden.delete(l.key)
+              }
+              onChange({ hiddenLayers: [...hidden] })
+            }}
+          >
+            <EyeIcon on={allVis} />
+          </button>
+          <button
+            className={'ly-lock' + (allLocked ? ' on' : '')}
+            title={allLocked ? 'Deblochează toată grupa' : 'Blochează toată grupa'}
+            onClick={() => {
+              const lk = new Set(sheet.lockedLayers ?? [])
+              for (const l of layers) {
+                if (allLocked) lk.delete(l.key)
+                else lk.add(l.key)
+              }
+              onChange({ lockedLayers: [...lk] })
+            }}
+          >
+            <LockIcon on={allLocked} />
+          </button>
+          <span className="dot" style={{ background: color }} />
+          <button className="ly-group-name" onClick={() => setClosed((c) => ({ ...c, [id]: !c[id] }))}>
+            {name}
+            <span className="chev">{isClosed ? '▸' : '▾'}</span>
+          </button>
+        </div>
+        {!isClosed && <div className="layer-children">{layers.map((l) => row(l.key, l.name, count(l.key)))}</div>}
+      </div>
+    )
+  }
+
+  const setSystem = (id: SystemId, on: boolean) =>
+    onChange({ systems: on ? SYSTEMS.map((s) => s.id).filter((s) => s === id || sheet.systems.includes(s)) : sheet.systems.filter((s) => s !== id) })
+
+  return (
+    <div className="props layers-panel">
+      <h4>Straturi – {sheet.nr} {sheet.titlu}</h4>
+      <p className="hint">
+        Ochiul arată / ascunde stratul pe această planșă (și în PDF / DXF). Lacătul îl blochează: se vede, dar nu se poate selecta sau
+        muta.
+      </p>
+      {level.background && (
+        <div className="layer-group">
+          <div className={'layer-row group' + (layerVisible(sheet, 'fundal') ? '' : ' off')}>
+            <button className="ly-eye" title="Arată / ascunde planul de fundal" onClick={() => onChange(toggleLayerVisible(sheet, 'fundal'))}>
+              <EyeIcon on={layerVisible(sheet, 'fundal')} />
+            </button>
+            <button
+              className={'ly-lock' + (level.bgLocked !== false ? ' on' : '')}
+              title={level.bgLocked !== false ? 'Planul e blocat; click = deblochează ca să-l poți muta' : 'Blochează planul'}
+              onClick={() => onLevelChange({ bgLocked: level.bgLocked === false })}
+            >
+              <LockIcon on={level.bgLocked !== false} />
+            </button>
+            <span className="dot" style={{ background: '#9e9e9e' }} />
+            <span className="ly-name">Plan de fundal</span>
+          </div>
+        </div>
+      )}
+      {group('arh', 'Arhitectură (schiță)', '#222', ARCH_LAYERS)}
+      {usedSystems.map((s) => group(s.id, s.name, s.color, systemLayers(s.id), sheet.systems.includes(s.id), (on) => setSystem(s.id, on)))}
+      {otherSystems.length > 0 && <p className="hint">Fără elemente pe acest nivel: {otherSystems.map((s) => s.short).join(', ')}.</p>}
+      <div className="grid2">
+        <button
+          onClick={() => onChange({ hiddenLayers: [], showCones: true, systems: SYSTEMS.map((s) => s.id) })}
+          title="Arată toate straturile pe această planșă"
+        >
+          Arată tot
+        </button>
+        <button onClick={() => onChange({ lockedLayers: [] })} title="Deblochează toate straturile">
+          Deblochează tot
+        </button>
+      </div>
     </div>
   )
 }

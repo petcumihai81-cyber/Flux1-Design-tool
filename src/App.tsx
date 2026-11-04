@@ -12,12 +12,13 @@ import { ALL_SYSTEMS, activeSheet, contentBounds, levelOf, outsideFrame, pageFra
 import { SYSTEMS, canMirror, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
-import { ArchProps, CableProps, ColorRow, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
+import { ArchProps, CableProps, ColorRow, DeviceProps, GroupPanel, LayersPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
 import type { PdfDoc } from './background'
 import { PdfPagePicker } from './PdfPagePicker'
 import { addToLibrary, defaultCustomSymbols, deviceSymbol, removeFromLibrary } from './symbolLibrary'
 import { CustomSymbolDialog } from './CustomSymbolDialog'
+import { archLayer } from './layers'
 import { verifyProject } from './verify'
 import type { IssueTarget } from './verify'
 import { VerifyDialog } from './VerifyDialog'
@@ -49,7 +50,7 @@ function loadStored(): Project {
   return emptyProject()
 }
 
-type Tab = 'element' | 'proiect' | 'calcule' | 'liste'
+type Tab = 'element' | 'proiect' | 'straturi' | 'calcule' | 'liste'
 
 export default function App() {
   const h = useHistory<Project>(loadStored)
@@ -252,11 +253,12 @@ export default function App() {
           notes: '',
           ...(def.camera ? { fov: it?.fovDeg ?? def.camera.fov, range: it?.rangeM ?? def.camera.range } : {}),
         }
-        const sheets = p.sheets.map((sh) =>
-          sh.id === p.activeSheetId && sh.kind === 'plan' && !sh.systems.includes(def.system)
-            ? { ...sh, systems: SYSTEMS.map((x) => x.id).filter((x) => x === def.system || sh.systems.includes(x)) }
-            : sh,
-        )
+        const sheets = p.sheets.map((sh) => {
+          if (sh.id !== p.activeSheetId || sh.kind !== 'plan') return sh
+          // sistemul și stratul de echipamente devin vizibile pe planșa curentă
+          const systems = sh.systems.includes(def.system) ? sh.systems : SYSTEMS.map((x) => x.id).filter((x) => x === def.system || sh.systems.includes(x))
+          return { ...sh, systems, hiddenLayers: (sh.hiddenLayers ?? []).filter((k) => k !== `${def.system}:echipamente`) }
+        })
         return { ...p, sheets, devices: [...p.devices, d] }
       })
       setSelection({ kind: 'device', id })
@@ -285,7 +287,9 @@ export default function App() {
           lengthOverride: null,
           notes: '',
         }
-        return { ...p, cables: [...p.cables, c] }
+        // stratul traseelor sistemului devine vizibil pe planșa curentă
+        const sheets = p.sheets.map((sh) => (sh.id === p.activeSheetId ? { ...sh, hiddenLayers: (sh.hiddenLayers ?? []).filter((k) => k !== `${c.system}:cabluri`) } : sh))
+        return { ...p, sheets, cables: [...p.cables, c] }
       })
       select({ kind: 'cable', id })
     },
@@ -349,6 +353,8 @@ export default function App() {
           ...p,
           levels: p.levels.map((l) => (l.id === lvl.id && !l.pxPerMeter && !l.background ? { ...l, pxPerMeter: SKETCH_PX_PER_M } : l)),
           arch: [...p.arch, { ...el, id, levelId: lvl.id }],
+          // stratul elementului nou devine vizibil pe planșa curentă
+          sheets: p.sheets.map((sh) => (sh.id === p.activeSheetId ? { ...sh, hiddenLayers: (sh.hiddenLayers ?? []).filter((k) => k !== archLayer(el)) } : sh)),
         }
       })
       if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
@@ -1218,6 +1224,7 @@ export default function App() {
           <nav className="tabs">
             <button className={tab === 'element' ? 'on' : ''} onClick={() => setTab('element')}>Element</button>
             <button className={tab === 'proiect' ? 'on' : ''} onClick={() => setTab('proiect')}>Proiect</button>
+            <button className={tab === 'straturi' ? 'on' : ''} onClick={() => setTab('straturi')} title="Straturi: arată / ascunde, blochează">Straturi</button>
             <button className={tab === 'calcule' ? 'on' : ''} onClick={() => setTab('calcule')}>Calcule</button>
             <button className={tab === 'liste' ? 'on' : ''} onClick={() => setTab('liste')}>Liste</button>
           </nav>
@@ -1250,6 +1257,20 @@ export default function App() {
                     <li><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> anulare / refacere</li>
                     <li>Rotiță mouse = zoom · trage pe fundal = deplasare</li>
                   </ul>
+                </div>
+              ))}
+            {tab === 'straturi' &&
+              (sheet.kind === 'plan' ? (
+                <LayersPanel
+                  project={project}
+                  sheet={sheet}
+                  level={level}
+                  onChange={(patch) => patchSheet(sheet.id, patch)}
+                  onLevelChange={(patch) => patchLevel(level.id, patch)}
+                />
+              ) : (
+                <div className="props">
+                  <p className="hint">Straturile sunt pentru planșele de plan. Schema bloc arată un singur sistem (alege-l din tab-ul Proiect).</p>
                 </div>
               ))}
             {tab === 'proiect' && (

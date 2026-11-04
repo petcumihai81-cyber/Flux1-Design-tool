@@ -295,6 +295,10 @@ export interface Sheet {
   customH: number
   /** Sistemele afișate (pentru schemă bloc: un singur sistem) */
   systems: SystemId[]
+  /** Straturi ascunse pe această planșă (ex. 'arh:cote', 'EFR:etichete', 'fundal'); vezi layers.ts */
+  hiddenLayers?: string[]
+  /** Straturi blocate (se văd, dar nu se pot selecta sau muta) */
+  lockedLayers?: string[]
   /** Afișează conurile de vizualizare ale camerelor */
   showCones: boolean
   /** Schema bloc editată manual (lipsă = generată automat) */
