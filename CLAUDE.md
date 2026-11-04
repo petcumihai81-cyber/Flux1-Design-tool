@@ -26,7 +26,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 
 | Fișier | Rol |
 |---|---|
-| `types.ts` | Modelul de date: `Project`, `Device`, `Cable`, `Sheet`, `CatalogItem`, `Accessory`, `CalcParams`, `Tool`, `Selection` |
+| `types.ts` | Modelul de date: `Project`, `Level`, `Device`, `Cable`, `Sheet`, `CatalogItem`, `Accessory`, `CalcParams`, `Tool`, `Selection` |
 | `symbols.ts` | Sistemele (`SYSTEMS`: EFR, CA, CCTV, INC, NET) și biblioteca de simboluri SVG (`SYMBOLS`), cu prefix, tip de cablu implicit, `hub` / `root` pentru schema bloc |
 | `project.ts` | Proiect gol, migrare (`normalizeProject`), numerotare (`nextLabel`), formate de pagină, limite desen, `deviceInfo` (date din catalog) |
 | `catalog.ts` | Catalogul inițial (`SEED_CATALOG`), categorii de accesorii, parametri impliciți de calcul |
@@ -46,7 +46,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `App.tsx` | Starea aplicației, bara de unelte, planșe, scurtături, export |
 
 Principii:
-- **Un singur proiect, mai multe planșe.** Echipamentele și cablurile sunt comune; fiecare `Sheet` alege ce sisteme afișează (`systems`) și formatul paginii. Planșele `bloc` sunt generate din aceleași date.
+- **Un singur proiect, mai multe niveluri și planșe.** Fiecare `Level` (Parter, Etaj 1…) are fundalul, scara (`pxPerMeter`) și mărimea simbolurilor proprii. Echipamentele, cablurile și schița stau în listele comune ale proiectului, fiecare cu `levelId`; o planșă de plan afișează un nivel (`Sheet.levelId`) și alege sistemele (`systems`) și formatul paginii. Listele, calculele, memoriul și schemele bloc cuprind toate nivelurile. Ce depinde de scară se ia din nivelul elementului (`levelOf(p, x.levelId)`).
 - **Toată starea e în `Project`** (salvat ca `.plansa.json` și automat în `localStorage`). Orice câmp nou trebuie adăugat și în `emptyProject()` și în `normalizeProject()`, ca fișierele vechi să se deschidă în continuare.
 - **Modificările trec prin istoric**: `h.commit(p => ...)`, nu se modifică starea direct.
 - **Textul din PDF se desenează pe canvas** (nu cu fonturile jsPDF), ca diacriticele să apară corect.

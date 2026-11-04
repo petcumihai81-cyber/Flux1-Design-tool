@@ -148,7 +148,15 @@ const SECTIONS: Section[] = [
     title: 'Planșe și formate',
     img: 'help/06-planse.webp',
     steps: [
-      <>Bara de jos are planșele proiectului. Toate folosesc aceleași echipamente și cabluri; diferă ce sisteme afișează și formatul paginii.</>,
+      <>
+        <B>Niveluri (etaje)</B>: fiecare nivel are planul lui (poză, PDF sau pagină albă), scara lui și echipamentele lui. <B>+ Planșă</B> →{' '}
+        <B>Nivel nou – încarcă planul</B> sau <B>Nivel nou – pagină albă</B>. Numele nivelului (Parter, Etaj 1…) se schimbă din tab-ul{' '}
+        <B>Proiect</B>, secțiunea „Nivel”.
+      </>,
+      <>
+        Pe același nivel poți avea mai multe planșe (ex. Parter – efracție, Parter – CCTV): diferă sistemele afișate și formatul paginii.
+        Numerotarea, listele, calculele, memoriul și schemele bloc cuprind toate nivelurile.
+      </>,
       <>
         <B>+ Planșă</B> → <B>Câte un plan pentru fiecare sistem folosit</B> creează automat planurile separate (efracție, CCTV…), sau alegi o schemă
         bloc.

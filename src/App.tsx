@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
-import type { ArchElement, Cable, Device, Project, Selection, Sheet, SystemId, Tool } from './types'
+import type { ArchElement, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
-import { activeSheet, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { activeSheet, levelOf, newLevel, sheetLevel, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
 import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
-import { ArchProps, CableProps, DeviceProps, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
+import { ArchProps, CableProps, DeviceProps, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
 import { exportExcel, renderSheetPage, savePdf } from './exporters'
 import { PdfPreview } from './PdfPreview'
@@ -40,6 +40,8 @@ export default function App() {
   const h = useHistory<Project>(loadStored)
   const project = h.value
   const sheet = activeSheet(project)
+  /** Nivelul planșei curente (la schemele bloc: primul nivel) */
+  const level = sheetLevel(project, sheet)
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [preview, setPreview] = useState<{ pages: PreviewPage[]; name: string; title: string } | null>(null)
   const [memoOpen, setMemoOpen] = useState(false)
@@ -81,9 +83,9 @@ export default function App() {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(project))
       } catch {
-        // planul de fundal poate depăși spațiul disponibil; încercăm fără el
+        // planurile de fundal pot depăși spațiul disponibil; încercăm fără ele (rămân în fișierul .plansa.json)
         try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...project, background: null }))
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...project, levels: project.levels.map((l) => ({ ...l, background: null })) }))
         } catch {
           /* ignorat */
         }
@@ -120,6 +122,7 @@ export default function App() {
         const it = catalogItem(p, catalogId)
         const d: Device = {
           id,
+          levelId: sheetLevel(p, activeSheet(p)).id,
           type,
           x,
           y,
@@ -153,6 +156,7 @@ export default function App() {
         const system = (a && symbolByType(a.type)?.system) || (b && symbolByType(b.type)?.system) || 'EFR'
         const c: Cable = {
           id,
+          levelId: sheetLevel(p, activeSheet(p)).id,
           code: nextCableCode(system, p.cables),
           system,
           points,
@@ -219,13 +223,16 @@ export default function App() {
 
   /** Adaugă un element de arhitectură; o schiță fără plan de fundal pornește la scara 1 m = 50 px */
   const addArch = useCallback(
-    (el: ArchElement) => {
+    (el: NewArch) => {
       const id = uid()
-      h.commit((p) => ({
-        ...p,
-        pxPerMeter: p.pxPerMeter ?? (p.background ? p.pxPerMeter : SKETCH_PX_PER_M),
-        arch: [...p.arch, { ...el, id }],
-      }))
+      h.commit((p) => {
+        const lvl = sheetLevel(p, activeSheet(p))
+        return {
+          ...p,
+          levels: p.levels.map((l) => (l.id === lvl.id && !l.pxPerMeter && !l.background ? { ...l, pxPerMeter: SKETCH_PX_PER_M } : l)),
+          arch: [...p.arch, { ...el, id, levelId: lvl.id }],
+        }
+      })
       if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
     },
     [h],
@@ -257,7 +264,7 @@ export default function App() {
       const src = project.arch.find((a) => a.id === selection.id)
       if (!src) return
       const id = uid()
-      const off = 0.5 * (project.pxPerMeter ?? SKETCH_PX_PER_M)
+      const off = 0.5 * (levelOf(project, src.levelId).pxPerMeter ?? SKETCH_PX_PER_M)
       h.commit((p) => ({
         ...p,
         arch: [
@@ -277,11 +284,11 @@ export default function App() {
       ...p,
       devices: [
         ...p.devices,
-        { ...src, id, x: src.x + p.symbolSize * 1.5, y: src.y, label: nextLabel(devicePrefix(src.type, catalogItem(p, src.catalogId)), p.devices.map((d) => d.label), p.numberPad) },
+        { ...src, id, x: src.x + levelOf(p, src.levelId).symbolSize * 1.5, y: src.y, label: nextLabel(devicePrefix(src.type, catalogItem(p, src.catalogId)), p.devices.map((d) => d.label), p.numberPad) },
       ],
     }))
     setSelection({ kind: 'device', id })
-  }, [selection, project.devices, project.arch, project.pxPerMeter, h])
+  }, [selection, project, h])
 
   // ---------------------------------------------------------------- copiere / lipire
 
@@ -307,10 +314,12 @@ export default function App() {
     const id = uid()
     const sys = symbolByType(clipboard.type)?.system
     h.commit((p) => {
-      const off = p.symbolSize * 1.5 * pasteCount.current
+      const lvl = sheetLevel(p, activeSheet(p))
+      const off = lvl.symbolSize * 1.5 * pasteCount.current
       const d: Device = {
         ...clipboard,
         id,
+        levelId: lvl.id,
         x: at?.x ?? clipboard.x + off,
         y: at?.y ?? clipboard.y + off,
         label: nextLabel(devicePrefix(clipboard.type, catalogItem(p, clipboard.catalogId)), p.devices.map((x) => x.label), p.numberPad),
@@ -330,11 +339,19 @@ export default function App() {
     if (answer == null) return
     const m = parseFloat(answer.replace(',', '.'))
     if (!(m > 0)) return notify('Valoare invalidă.')
-    h.commit((p) => ({ ...p, pxPerMeter: pixels / m }))
+    h.commit((p) => {
+      const lvl = sheetLevel(p, activeSheet(p))
+      return { ...p, levels: p.levels.map((l) => (l.id === lvl.id ? { ...l, pxPerMeter: pixels / m } : l)) }
+    })
     notify(`Scară calibrată: ${(pixels / m).toFixed(2)} px/m`)
   }
 
+  /** Nivelul pe care se încarcă următorul plan de fundal (implicit: nivelul planșei curente) */
+  const bgTarget = useRef<string | null>(null)
+
   const onBackgroundFile = async (file: File) => {
+    const targetId = bgTarget.current ?? level.id
+    bgTarget.current = null
     setBusy('Se încarcă planul…')
     try {
       const bg = await loadBackground(file, (count) => {
@@ -344,9 +361,16 @@ export default function App() {
       if (!bg) return
       h.commit((p) => ({
         ...p,
-        background: bg,
-        pxPerMeter: null,
-        symbolSize: p.devices.length ? p.symbolSize : Math.max(16, Math.round(Math.max(bg.width, bg.height) / 50)),
+        levels: p.levels.map((l) =>
+          l.id === targetId
+            ? {
+                ...l,
+                background: bg,
+                pxPerMeter: null,
+                symbolSize: p.devices.some((d) => d.levelId === l.id) ? l.symbolSize : Math.max(16, Math.round(Math.max(bg.width, bg.height) / 50)),
+              }
+            : l,
+        ),
       }))
       setFitSignal((n) => n + 1)
       notify('Plan încărcat. Calibrează scara: unealta „Scară”.')
@@ -405,9 +429,10 @@ export default function App() {
     let firstId: string | undefined
     h.commit((p) => {
       const added: Sheet[] = []
+      const lvlId = sheetLevel(p, activeSheet(p)).id
       for (const sh of make(p)) {
         const nr = nextSheetNr({ ...p, sheets: [...p.sheets, ...added] })
-        added.push({ ...sh, nr, format: sheet.format, orientation: sheet.orientation })
+        added.push({ ...sh, nr, format: sheet.format, orientation: sheet.orientation, levelId: sh.kind === 'plan' ? sh.levelId ?? lvlId : undefined })
       }
       if (!added.length) return p
       firstId = added[0].id
@@ -423,12 +448,83 @@ export default function App() {
   const systemsWithDevices = (p: Project): SystemId[] =>
     SYSTEMS.map((s) => s.id).filter((id) => p.devices.some((d) => deviceSystem(d) === id))
 
+  /** Titlul unei planșe de plan: include nivelul când proiectul are mai multe niveluri */
+  const planTitle = (p: Project, lvl: Level, what?: string) =>
+    ['Plan amplasare', p.levels.length > 1 ? lvl.name : '', what ?? ''].filter(Boolean).join(' – ')
+
   const addPlanPerSystem = () =>
-    addSheets((p) =>
-      systemsWithDevices(p)
-        .filter((id) => !p.sheets.some((sh) => sh.kind === 'plan' && sh.systems.length === 1 && sh.systems[0] === id))
-        .map((id) => newSheet({ titlu: `Plan amplasare – ${systemById(id).name}`, systems: [id], showCones: id === 'CCTV' })),
-    )
+    addSheets((p) => {
+      const lvl = sheetLevel(p, activeSheet(p))
+      return SYSTEMS.map((s) => s.id)
+        .filter((id) => p.devices.some((d) => d.levelId === lvl.id && deviceSystem(d) === id))
+        .filter((id) => !p.sheets.some((sh) => sh.kind === 'plan' && sh.levelId === lvl.id && sh.systems.length === 1 && sh.systems[0] === id))
+        .map((id) => newSheet({ titlu: planTitle(p, lvl, systemById(id).name), systems: [id], showCones: id === 'CCTV', levelId: lvl.id }))
+    })
+
+  /** Nume propus pentru nivelul următor: Etaj 1, Etaj 2... (sau Plan 2, Plan 3 la proiectele vechi) */
+  const nextLevelName = (p: Project) => {
+    const n = p.levels.length
+    if (p.levels.some((l) => /^Plan \d+$/.test(l.name))) return `Plan ${n + 1}`
+    return `Etaj ${n}`
+  }
+
+  /** Nivel nou cu o planșă de plan; cu `withImage`, se deschide imediat alegerea planului de fundal */
+  const addLevel = (withImage: boolean) => {
+    const lvl = newLevel(nextLevelName(project))
+    h.commit((p) => {
+      const withLvl = { ...p, levels: [...p.levels, lvl] }
+      const sh = newSheet({ levelId: lvl.id, titlu: planTitle(withLvl, lvl), nr: nextSheetNr(p), format: sheet.format, orientation: sheet.orientation })
+      return { ...withLvl, sheets: [...p.sheets, sh], activeSheetId: sh.id }
+    })
+    setSheetMenu(null)
+    setSelection(null)
+    setTool({ kind: 'select' })
+    setFitSignal((n) => n + 1)
+    if (withImage) {
+      bgTarget.current = lvl.id
+      bgInput.current?.click()
+    } else notify(`Nivel nou „${lvl.name}”: pagină albă pentru schiță. Îl redenumești din tab-ul Proiect.`)
+  }
+
+  /** Planșă nouă pe un nivel existent */
+  const addSheetOnLevel = (levelId: string) =>
+    addSheets((p) => [newSheet({ levelId, titlu: planTitle(p, levelOf(p, levelId)) })])
+
+  const patchLevel = (id: string, patch: Partial<Level>) =>
+    h.commit((p) => {
+      const old = levelOf(p, id).name
+      // la redenumire, titlurile planșelor nivelului care conțin vechiul nume se actualizează
+      const sheets =
+        patch.name && old && patch.name !== old
+          ? p.sheets.map((sh) => (sh.kind === 'plan' && sh.levelId === id && sh.titlu.includes(old) ? { ...sh, titlu: sh.titlu.split(old).join(patch.name!) } : sh))
+          : p.sheets
+      return { ...p, sheets, levels: p.levels.map((l) => (l.id === id ? { ...l, ...patch } : l)) }
+    })
+
+  const deleteLevel = (id: string) => {
+    if (project.levels.length < 2) return
+    const lvl = levelOf(project, id)
+    const nDev = project.devices.filter((d) => d.levelId === id).length
+    const nCab = project.cables.filter((c) => c.levelId === id).length
+    const nSh = project.sheets.filter((s) => s.kind === 'plan' && s.levelId === id).length
+    if (!window.confirm(`Ștergi nivelul „${lvl.name}”? Se șterg și ${nSh} planșe, ${nDev} echipamente și ${nCab} cabluri de pe el (poți reveni cu Ctrl+Z).`)) return
+    h.commit((p) => {
+      const sheets = p.sheets.filter((s) => !(s.kind === 'plan' && s.levelId === id))
+      const keep = sheets.length ? sheets : [newSheet({ levelId: p.levels.find((l) => l.id !== id)!.id })]
+      const gone = new Set(p.devices.filter((d) => d.levelId === id).map((d) => d.id))
+      return {
+        ...p,
+        levels: p.levels.filter((l) => l.id !== id),
+        sheets: keep,
+        activeSheetId: keep.some((s) => s.id === p.activeSheetId) ? p.activeSheetId : keep[0].id,
+        devices: p.devices.filter((d) => d.levelId !== id),
+        cables: p.cables.filter((c) => c.levelId !== id).map((c) => ({ ...c, from: c.from && gone.has(c.from) ? undefined : c.from, to: c.to && gone.has(c.to) ? undefined : c.to })),
+        arch: p.arch.filter((a) => a.levelId !== id),
+      }
+    })
+    setSelection(null)
+    setFitSignal((n) => n + 1)
+  }
 
   const addBlocSheet = (id: SystemId) =>
     addSheets(() => [newSheet({ kind: 'bloc', titlu: `Schemă bloc – ${systemById(id).name}`, systems: [id] })])
@@ -666,6 +762,7 @@ export default function App() {
             <PlanCanvas
               project={project}
               sheet={sheet}
+              level={level}
               tool={tool}
               selection={selection}
               stageRef={stageRef}
@@ -705,7 +802,10 @@ export default function App() {
                 >
                   <span className="sheet-kind">{sh.kind === 'bloc' ? '⊞' : '▭'}</span>
                   <b>{sh.nr}</b> {sh.titlu}
-                  <small>{formatLabel(sh)}</small>
+                  <small>
+                    {formatLabel(sh)}
+                    {sh.kind === 'plan' && project.levels.length > 1 ? ` · ${levelOf(project, sh.levelId).name}` : ''}
+                  </small>
                 </button>
                 {sh.id === sheet.id && project.sheets.length > 1 && (
                   <button className="sheet-x" title="Șterge planșa" onClick={() => deleteSheet(sh.id)}>
@@ -726,8 +826,24 @@ export default function App() {
               </button>
               {sheetMenu && (
                 <div className="menu" style={sheetMenu} onMouseLeave={() => setSheetMenu(null)}>
-                  <button onClick={() => addSheets(() => [newSheet()])}>Plan nou (toate sistemele)</button>
+                  <div className="menu-sep">Pe nivelul „{level.name}”</div>
+                  <button onClick={() => addSheets((p) => [newSheet({ titlu: planTitle(p, level) })])}>Plan nou (toate sistemele)</button>
                   <button onClick={addPlanPerSystem}>Câte un plan pentru fiecare sistem folosit</button>
+                  <div className="menu-sep">Nivel nou (etaj)</div>
+                  <button onClick={() => addLevel(true)}>Nivel nou – încarcă planul (PDF / imagine)…</button>
+                  <button onClick={() => addLevel(false)}>Nivel nou – pagină albă (schiță)</button>
+                  {project.levels.length > 1 && (
+                    <>
+                      <div className="menu-sep">Planșă pe alt nivel</div>
+                      {project.levels
+                        .filter((l) => l.id !== level.id)
+                        .map((l) => (
+                          <button key={l.id} onClick={() => addSheetOnLevel(l.id)}>
+                            ▭ {l.name}
+                          </button>
+                        ))}
+                    </>
+                  )}
                   <div className="menu-sep">Schemă bloc</div>
                   {SYSTEMS.map((s) => (
                     <button key={s.id} onClick={() => addBlocSheet(s.id)}>
@@ -768,16 +884,31 @@ export default function App() {
                   </ul>
                 </div>
               ))}
-            {tab === 'proiect' && <SheetPanel sheet={sheet} onChange={(patch) => patchSheet(sheet.id, patch)} />}
             {tab === 'proiect' && (
-              <ProjectPanel
-                project={project}
-                onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))}
+              <SheetPanel
+                sheet={sheet}
+                levels={project.levels}
+                onChange={(patch) => patchSheet(sheet.id, patch)}
+              />
+            )}
+            {tab === 'proiect' && sheet.kind === 'plan' && (
+              <LevelPanel
+                level={level}
+                canDelete={project.levels.length > 1}
+                onChange={(patch) => patchLevel(level.id, patch)}
+                onLoadPlan={() => {
+                  bgTarget.current = level.id
+                  bgInput.current?.click()
+                }}
                 onCalibrate={() => {
                   setTool({ kind: 'scale' })
                   setSelection(null)
                 }}
+                onDelete={() => deleteLevel(level.id)}
               />
+            )}
+            {tab === 'proiect' && (
+              <ProjectPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} />
             )}
             {tab === 'calcule' && (
               <CalcPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onOpenCatalog={() => setCatalogOpen(true)} />

@@ -1,5 +1,5 @@
-import type { ArchElement, ArchTool } from './types'
-import { nearestOnPolyline, uid } from './project'
+import type { ArchElement, ArchTool, NewArch } from './types'
+import { nearestOnPolyline } from './project'
 
 /** Scara implicită pentru schițe fără plan de fundal: 1 m = 50 px */
 export const SKETCH_PX_PER_M = 50
@@ -40,7 +40,7 @@ export const ARCH_NAMES: Record<ArchElement['kind'], string> = {
   dim: 'Cotă',
 }
 
-export const newWall = (points: number[], thickness: number): ArchElement => ({ id: uid(), kind: 'wall', points, thickness })
+export const newWall = (points: number[], thickness: number): NewArch => ({ kind: 'wall', points, thickness })
 
 /** Peretele cel mai apropiat de un punct (pentru așezarea ușilor și ferestrelor pe perete) */
 export function wallAt(arch: ArchElement[], x: number, y: number, tol: number) {

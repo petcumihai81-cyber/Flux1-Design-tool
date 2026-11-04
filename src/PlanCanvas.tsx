@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
 import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
-import type { ArchElement, Device, Project, Selection, Sheet, Tool } from './types'
+import type { Device, Level, NewArch, Project, Selection, Sheet, Tool } from './types'
 import ArchShapes from './ArchShapes'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, symbolByType, symbolImage, symbolShapeImage, systemById } from './symbols'
@@ -14,6 +14,8 @@ export const FALLBACK_PX_PER_M = 20
 interface Props {
   project: Project
   sheet: Sheet
+  /** Nivelul afișat de planșă */
+  level: Level
   tool: Tool
   selection: Selection
   stageRef: React.RefObject<Konva.Stage | null>
@@ -22,7 +24,7 @@ interface Props {
   onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
   onScaleMeasured: (pixels: number) => void
-  onAddArch: (el: ArchElement) => void
+  onAddArch: (el: NewArch) => void
   /** Click dreapta: poziția pe ecran, pe plan și elementul de sub cursor */
   onContext: (info: { clientX: number; clientY: number; x: number; y: number; target: Selection }) => void
   checkpoint: () => void
@@ -75,7 +77,7 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
+  const { project, sheet, level, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
@@ -84,16 +86,18 @@ export default function PlanCanvas(props: Props) {
   const [scalePts, setScalePts] = useState<Pt[]>([])
   /** Peretele sau cota în curs de desenare */
   const [archDraft, setArchDraft] = useState<number[]>([])
-  const bgImage = useImage(project.background?.src)
+  const bgImage = useImage(level.background?.src)
 
-  const S = project.symbolSize
-  const ppm = project.pxPerMeter ?? FALLBACK_PX_PER_M
+  const S = level.symbolSize
+  const ppm = level.pxPerMeter ?? FALLBACK_PX_PER_M
+  const levelArch = useMemo(() => project.arch.filter((a) => a.levelId === level.id), [project.arch, level.id])
   const hidden = useMemo(() => new Set(ALL_SYSTEMS.filter((s) => !sheet.systems.includes(s))), [sheet.systems])
   const visibleDevices = project.devices.filter((d) => {
+    if (d.levelId !== level.id) return false
     const sys = deviceSystem(d)
     return sys && !hidden.has(sys)
   })
-  const visibleCables = project.cables.filter((c) => !hidden.has(c.system))
+  const visibleCables = project.cables.filter((c) => c.levelId === level.id && !hidden.has(c.system))
 
   // Dimensiunea zonei de desen
   useEffect(() => {
@@ -107,7 +111,7 @@ export default function PlanCanvas(props: Props) {
 
   // Încadrare în ecran
   useEffect(() => {
-    const b = contentBounds(project)
+    const b = contentBounds(project, undefined, level.id)
     if (!b) {
       setView({ x: size.width / 2, y: size.height / 2, scale: 1 })
       return
@@ -119,7 +123,7 @@ export default function PlanCanvas(props: Props) {
       y: (size.height - b.height * scale) / 2 - b.y * scale,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitSignal, project.background?.src, size.width > 0])
+  }, [fitSignal, level.id, level.background?.src, size.width > 0])
 
   // Resetare desen temporar la schimbarea uneltei
   useEffect(() => {
@@ -161,7 +165,7 @@ export default function PlanCanvas(props: Props) {
     const n = archDraft.length
     const prev = n ? { x: archDraft[n - 2], y: archDraft[n - 1] } : undefined
     const own = n >= 4 ? [{ x: archDraft[0], y: archDraft[1] }] : []
-    return snapPoint(pt, prev, [...wallVertices(project.arch), ...own], 10 * k, free)
+    return snapPoint(pt, prev, [...wallVertices(levelArch), ...own], 10 * k, free)
   }
 
   function finishWall(extra?: Pt) {
@@ -257,13 +261,12 @@ export default function PlanCanvas(props: Props) {
           const p = archSnap(pt, free)
           if (!archDraft.length) setArchDraft([p.x, p.y])
           else {
-            onAddArch({ id: '', kind: 'dim', points: [archDraft[0], archDraft[1], p.x, p.y] })
+            onAddArch({ kind: 'dim', points: [archDraft[0], archDraft[1], p.x, p.y] })
             setArchDraft([])
           }
         } else if (tool.arch === 'door' || tool.arch === 'window') {
-          const w = wallAt(project.arch, pt.x, pt.y, 0.5 * ppm)
+          const w = wallAt(levelArch, pt.x, pt.y, 0.5 * ppm)
           onAddArch({
-            id: '',
             kind: tool.arch,
             x: w?.x ?? pt.x,
             y: w?.y ?? pt.y,
@@ -272,7 +275,7 @@ export default function PlanCanvas(props: Props) {
           })
         } else if (tool.arch === 'label') {
           const text = window.prompt('Numele încăperii:', 'Birou')
-          if (text) onAddArch({ id: '', kind: 'label', x: pt.x, y: pt.y, text, size: 0.45, rotation: 0 })
+          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: 0.45, rotation: 0 })
         }
         break
       }
@@ -462,15 +465,15 @@ export default function PlanCanvas(props: Props) {
       >
         {/* Fundal */}
         <Layer listening={!!bgImage}>
-          {bgImage && project.background && (
-            <KImage name="background" image={bgImage} width={project.background.width} height={project.background.height} />
+          {bgImage && level.background && (
+            <KImage name="background" image={bgImage} width={level.background.width} height={level.background.height} />
           )}
         </Layer>
 
         {/* Schița de arhitectură */}
         <Layer listening={isSelect}>
           <ArchShapes
-            arch={project.arch}
+            arch={levelArch}
             ppm={ppm}
             k={k}
             selectedId={selection?.kind === 'arch' ? selection.id : undefined}
