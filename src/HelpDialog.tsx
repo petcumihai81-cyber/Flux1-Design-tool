@@ -196,6 +196,11 @@ const SECTIONS: Section[] = [
         sistemele afișate.
       </>,
       <>
+        Filele de jos se folosesc ca foile din Excel: <B>click dreapta</B> pe filă = Deschide, Redenumește, <B>Duplică planșa</B>, Mută la
+        stânga / dreapta / început / sfârșit, <B>Renumerotează planșele în ordine</B> (P01, P02…), Șterge. <B>Dublu-click</B> pe filă =
+        redenumire; <B>tragi fila</B> cu mouse-ul ca s-o muți între celelalte.
+      </>,
+      <>
         <B>PDF planșă</B> exportă planșa curentă; <B>PDF toate</B> pune toate planșele într-un singur PDF, cu legendă și cartuș pe fiecare pagină.
       </>,
     ],
