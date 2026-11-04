@@ -25,6 +25,30 @@ export interface Device {
   range?: number
 }
 
+/** Element de arhitectură desenat manual (schiță): perete, ușă, fereastră, text încăpere, cotă */
+export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim'
+
+export interface ArchElement {
+  id: string
+  kind: ArchKind
+  /** Perete: polilinie; cotă: [x1, y1, x2, y2] */
+  points?: number[]
+  /** Grosimea peretelui (m) */
+  thickness?: number
+  /** Ușă / fereastră / text: poziție (centru) și rotire */
+  x?: number
+  y?: number
+  rotation?: number
+  /** Lățimea golului (m) */
+  width?: number
+  /** Ușă: balamaua pe partea cealaltă / deschidere spre partea cealaltă */
+  flipX?: boolean
+  flipY?: boolean
+  /** Text: conținut și înălțimea literelor (m) */
+  text?: string
+  size?: number
+}
+
 export interface Cable {
   id: string
   code: string
@@ -224,12 +248,17 @@ export interface Project {
   memoriu: MemoriuData
   devices: Device[]
   cables: Cable[]
+  /** Schița de arhitectură (comună tuturor planșelor de tip plan) */
+  arch: ArchElement[]
 }
 
-export type Selection = { kind: 'device' | 'cable'; id: string } | null
+export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
+
+export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim'
 
 export type Tool =
   | { kind: 'select' }
   | { kind: 'place'; type: string; catalogId?: string }
   | { kind: 'scale' }
   | { kind: 'cable' }
+  | { kind: 'arch'; arch: ArchTool }

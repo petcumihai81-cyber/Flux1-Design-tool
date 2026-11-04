@@ -8,8 +8,14 @@ import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
 import { diagramBounds, pruneDiagram } from './diagram'
 
-function safeName(s: string) {
-  return (s || 'plansa').replace(/[\\/:*?"<>|]+/g, '_').trim()
+/** Nume de fișier sigur: fără caractere interzise și fără diacritice (ș → s), ca să fie păstrat de orice browser sau server */
+export function safeName(s: string) {
+  return (s || 'plansa')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—]/g, '-')
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .trim()
 }
 
 /** Scrie text pe o singură linie, micșorând fontul până încape */
@@ -314,7 +320,15 @@ export function savePdf(pages: RenderedPage[], fileName: string) {
     if (i > 0) pdf.addPage([pg.wmm, pg.hmm], orient(pg))
     pdf.addImage(pg.canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pg.wmm, pg.hmm, undefined, 'FAST')
   })
-  pdf.save(`${safeName(fileName)}.pdf`)
+  // descărcare cu link atașat în pagină (numele fișierului se păstrează sigur în toate browserele)
+  const url = URL.createObjectURL(pdf.output('blob'))
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${safeName(fileName)}.pdf`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 30000)
 }
 
 type Row = (string | number)[]
