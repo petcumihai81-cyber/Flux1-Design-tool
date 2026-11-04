@@ -1,5 +1,6 @@
 import type { Cable, CatalogItem, Device, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
 import { DEFAULT_CALC, defaultCatalog } from './catalog'
+import { defaultMemoriu } from './memoriuDefaults'
 import { SYSTEMS, symbolByType } from './symbols'
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
@@ -46,6 +47,7 @@ export function emptyProject(): Project {
     catalog: defaultCatalog(),
     accessories: [],
     calc: { ...DEFAULT_CALC },
+    memoriu: defaultMemoriu(),
     devices: [],
     cables: [],
   }
@@ -193,6 +195,7 @@ export function normalizeProject(v: Project): Project {
     catalog: Array.isArray(v.catalog) ? v.catalog : base.catalog,
     accessories: Array.isArray(v.accessories) ? v.accessories : [],
     calc: { ...DEFAULT_CALC, ...v.calc },
+    memoriu: { ...defaultMemoriu(), ...v.memoriu },
     cables: v.cables ?? [],
     sheets,
     activeSheetId,

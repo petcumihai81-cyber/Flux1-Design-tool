@@ -37,6 +37,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `Panels.tsx` | Paleta, proprietăți echipament / cablu, panourile Proiect / Planșă / Liste |
 | `CatalogUI.tsx` | Dialogul de catalog și tab-ul Calcule |
 | `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
+| `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
 | `background.ts` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine) |
 | `App.tsx` | Starea aplicației, bara de unelte, planșe, scurtături, export |
@@ -66,6 +67,12 @@ Principii:
 - PoE: consum total + 20% rezervă ≤ bugetul switch-urilor.
 - Verificare: proiectul de referință (Ajax HubBP + 7 camere Hikvision) trebuie să dea 130 / 400 mA → 1 acumulator, 147,8 W, ~75 min autonomie UPS, 43 W PoE.
 
+## Memoriul tehnic
+
+- Textele standard (preambul, normative, memorii pe subsisteme, caiete de sarcini, SSM) provin din proiectele avizate ale utilizatorului. Se modifică doar la cererea lui.
+- Structura capitolelor urmează tiparul avizat, inclusiv numerotarea (Cap. IV apare de două ori: caiete de sarcini și liste; urmează V, VI, VIII).
+- Pagina: A4, margini sus 1440 / dreapta 360 / jos 1134 / stânga 1080 DXA; Arial 11; titluri bold și subliniate (14 pt capitole, 12 pt subsisteme).
+
 ## Date tehnice
 
 - **Nu se inventează niciodată specificații tehnice** (consumuri, puteri, capacități). Ce nu se găsește în fișa tehnică rămâne gol, adică „de completat”.
@@ -85,5 +92,4 @@ Principii:
 ## Direcții următoare (discutate cu utilizatorul)
 
 - Editor de schemă propriu, în stilul draw.io: blocuri mutate liber, legături, text, forme, pornind de la schema generată.
-- Generarea memoriului tehnic `.docx` în formatul folosit la avizare (capitolele I–VIII, tabele, breviar de calcul, fișe tehnice), din datele proiectului.
 - Export DXF pentru AutoCAD.

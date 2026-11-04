@@ -151,3 +151,11 @@
 .acc-row small { font-weight: 700; }
 .acc-row input { padding: 3px 5px; }
 .acc-row .x { padding: 2px; border: none; color: var(--muted); }
+
+/* Dialog memoriu */
+.memo { gap: 0; }
+.memo section { flex: 1; overflow-y: auto; padding: 12px 18px; display: flex; flex-direction: column; gap: 8px; }
+.memo section + section { border-left: 1px solid var(--line); }
+.memo h4 { margin: 8px 0 0; font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: .5px; }
+.memo h4:first-child { margin-top: 0; }
+.modal-foot .warn, .modal-foot .ok { font-size: 12.5px; }
