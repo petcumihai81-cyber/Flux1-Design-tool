@@ -121,10 +121,43 @@ export function polylineLength(points: number[]): number {
 }
 
 /** Lungimea cablului în metri (cu rezervă), sau null dacă scara nu e calibrată */
+/** Cel mai apropiat punct de pe o polilinie: distanța, punctul și lungimea de la începutul poliliniei până la el */
+export function nearestOnPolyline(points: number[], x: number, y: number) {
+  let best = { dist: Infinity, x: 0, y: 0, along: 0 }
+  let acc = 0
+  for (let i = 2; i < points.length; i += 2) {
+    const ax = points[i - 2]
+    const ay = points[i - 1]
+    const bx = points[i]
+    const by = points[i + 1]
+    const len = Math.hypot(bx - ax, by - ay)
+    const t = len ? Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (len * len))) : 0
+    const px = ax + (bx - ax) * t
+    const py = ay + (by - ay) * t
+    const dist = Math.hypot(x - px, y - py)
+    if (dist < best.dist) best = { dist, x: px, y: py, along: acc + len * t }
+    acc += len
+  }
+  return best
+}
+
+/** Lungimea în pixeli a cablului, inclusiv porțiunea comună cu cablul pe care se ramifică */
+export function cablePixels(c: Cable, p: Project): number {
+  let px = polylineLength(c.points)
+  const host = c.via ? p.cables.find((x) => x.id === c.via!.cableId && x.id !== c.id) : undefined
+  if (host && c.points.length >= 2) {
+    const n = c.points.length
+    const j = nearestOnPolyline(host.points, c.points[n - 2], c.points[n - 1])
+    const total = polylineLength(host.points)
+    px += c.via!.end === 'to' ? total - j.along : j.along
+  }
+  return px
+}
+
 export function cableMeters(c: Cable, p: Project): number | null {
   if (c.lengthOverride != null && !Number.isNaN(c.lengthOverride)) return c.lengthOverride
   if (!p.pxPerMeter) return null
-  const raw = polylineLength(c.points) / p.pxPerMeter
+  const raw = cablePixels(c, p) / p.pxPerMeter
   return Math.ceil(raw * (1 + p.cableReservePct / 100))
 }
 

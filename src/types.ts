@@ -34,6 +34,11 @@ export interface Cable {
   from?: string
   to?: string
   cableType: string
+  /**
+   * Ramificație: cablul se termină pe alt cablu și merge pe traseul acestuia până la capătul indicat
+   * (ex. două camere pe același jgheab până la switch)
+   */
+  via?: { cableId: string; end: 'from' | 'to' }
   /** Lungime introdusă manual (m); dacă lipsește, se calculează din scară */
   lengthOverride?: number | null
   notes: string

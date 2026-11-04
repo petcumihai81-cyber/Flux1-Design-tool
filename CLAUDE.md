@@ -47,6 +47,7 @@ Principii:
 - **Toată starea e în `Project`** (salvat ca `.plansa.json` și automat în `localStorage`). Orice câmp nou trebuie adăugat și în `emptyProject()` și în `normalizeProject()`, ca fișierele vechi să se deschidă în continuare.
 - **Modificările trec prin istoric**: `h.commit(p => ...)`, nu se modifică starea direct.
 - **Textul din PDF se desenează pe canvas** (nu cu fonturile jsPDF), ca diacriticele să apară corect.
+- **Ramificații de cablu** (`Cable.via`): un cablu terminat pe alt cablu merge pe traseul acestuia până la capătul cu echipament central; `to` = acel echipament, iar lungimea (`cablePixels`) include porțiunea comună.
 - În Konva nu se folosește `opacity` pe forme mari (conurile camerelor): la export apar tăiate. Se folosesc culori `rgba(...)`.
 
 ## Convenții de proiectare (din proiectele reale ale utilizatorului)

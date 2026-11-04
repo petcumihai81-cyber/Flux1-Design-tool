@@ -60,7 +60,10 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 | Rotița mouse-ului | zoom; tragere pe fundal = deplasare |
 
 La desenarea unui cablu: click pe echipamentul de start, apoi pe punctele de traseu, apoi click pe echipamentul final
-(sau dublu-click / `Enter`). `Backspace` șterge ultimul punct.
+(sau dublu-click / `Enter`). `Backspace` șterge ultimul punct. Dacă termini pe **alt cablu**, se creează o **ramificație**:
+cablul merge pe același traseu până la switch / NVR / centrală, iar lungimea include porțiunea comună.
+La un cablu selectat, capetele se pot trage pe alt echipament (sau cablu), dublu-click pe cablu adaugă un punct de traseu,
+iar „De la” / „La” se pot alege și din listă.
 
 ## Dezvoltare
 
