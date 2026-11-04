@@ -81,3 +81,29 @@
 
 .overlay { position: fixed; inset: 0; background: rgba(255,255,255,0.6); display: grid; place-items: center; font-size: 16px; font-weight: 600; z-index: 20; }
 .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1d2733; color: #fff; padding: 9px 16px; border-radius: 8px; z-index: 30; box-shadow: 0 4px 14px rgba(0,0,0,0.2); }
+
+/* Zona centrală + bara de planșe */
+.center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.sheet-bar {
+  display: flex; align-items: stretch; gap: 2px; padding: 0 6px; background: #f5f7fa;
+  border-top: 1px solid var(--line); overflow-x: auto; flex-shrink: 0; min-height: 38px;
+}
+.sheet-tab { display: flex; align-items: center; border: 1px solid transparent; border-top: none; border-radius: 0 0 6px 6px; }
+.sheet-tab.on { background: #fff; border-color: var(--line); box-shadow: inset 0 2px 0 var(--accent); }
+.sheet-tab > button:first-child {
+  border: none; background: transparent; white-space: nowrap; font-size: 12.5px; padding: 6px 10px;
+  display: flex; align-items: baseline; gap: 5px; max-width: 320px; overflow: hidden; text-overflow: ellipsis;
+}
+.sheet-tab small { color: var(--muted); font-size: 11px; }
+.sheet-kind { color: var(--muted); }
+.sheet-x { border: none; background: transparent; color: var(--muted); padding: 2px 8px; font-size: 16px; }
+.sheet-x:hover { color: var(--danger); }
+.sheet-add { position: relative; display: flex; align-items: center; margin-left: 4px; position: sticky; right: 0; background: #f5f7fa; padding-left: 4px; }
+.sheet-add > button { font-size: 12.5px; padding: 4px 10px; white-space: nowrap; }
+.menu {
+  position: fixed; z-index: 40; background: #fff; border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 6px; display: flex; flex-direction: column; min-width: 300px;
+}
+.menu button { border: none; text-align: left; display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
+.menu-sep { font-size: 11px; text-transform: uppercase; color: var(--muted); padding: 8px 10px 3px; border-top: 1px solid var(--line); margin-top: 4px; letter-spacing: .4px; }
+.field-label { font-size: 12px; color: var(--muted); margin-top: 2px; }

@@ -1,4 +1,4 @@
-export type SystemId = 'EFR' | 'CA' | 'CCTV' | 'INC'
+export type SystemId = 'EFR' | 'CA' | 'CCTV' | 'INC' | 'NET'
 
 export interface Device {
   id: string
@@ -31,14 +31,12 @@ export interface Cable {
   notes: string
 }
 
+/** Date comune tuturor planșelor (cartuș) */
 export interface TitleBlock {
   proiectant: string
   beneficiar: string
   obiectiv: string
   nrProiect: string
-  titluPlansa: string
-  nrPlansa: string
-  scara: string
   data: string
   intocmit: string
   verificat: string
@@ -51,20 +49,37 @@ export interface Background {
   name: string
 }
 
-export type PageFormat = 'A4' | 'A3' | 'A2'
+export type PageFormat = 'A0' | 'A1' | 'A2' | 'A3' | 'A4' | 'CUSTOM'
+export type Orientation = 'landscape' | 'portrait'
+
+export interface Sheet {
+  id: string
+  /** plan = plan de amplasare; bloc = schemă bloc generată automat */
+  kind: 'plan' | 'bloc'
+  titlu: string
+  nr: string
+  scara: string
+  format: PageFormat
+  orientation: Orientation
+  /** Dimensiuni (mm) pentru format personalizat */
+  customW: number
+  customH: number
+  /** Sistemele afișate (pentru schemă bloc: un singur sistem) */
+  systems: SystemId[]
+  /** Afișează conurile de vizualizare ale camerelor */
+  showCones: boolean
+}
 
 export interface Project {
-  version: 1
+  version: 2
   title: TitleBlock
   background: Background | null
   /** Pixeli de plan per metru, din calibrarea scării */
   pxPerMeter: number | null
   symbolSize: number
   cableReservePct: number
-  /** Afișează conurile de vizualizare ale camerelor */
-  showCones: boolean
-  pageFormat: PageFormat
-  hidden: SystemId[]
+  sheets: Sheet[]
+  activeSheetId: string
   devices: Device[]
   cables: Cable[]
 }

@@ -1,8 +1,8 @@
 # Planșe Securitate (Flux1 Design Tool)
 
-Aplicație web pentru desenarea planșelor de amplasare la sistemele de securitate:
-**alarmare la efracție**, **control acces**, **supraveghere video (CCTV)** și
-**detecție și semnalizare incendiu**.
+Aplicație web pentru desenarea planșelor de amplasare și a schemelor bloc la sistemele de securitate:
+**alarmare la efracție**, **control acces**, **supraveghere video (CCTV)**,
+**detecție și semnalizare incendiu** și **rețea de date (cablare structurată)**.
 
 Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 
@@ -14,8 +14,12 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Camere video** cu con de vizualizare reglabil (unghi + distanță în metri, la scară reală) și rotire din mâner sau tasta `R`.
 - **Trasee de cablu** între echipamente, cu lungime calculată din scară, rezervă configurabilă și tip de cablu propus automat după echipament.
 - **Proprietăți per echipament**: cod, model, zonă protejată, partiție sau buclă, observații.
-- **Afișare pe subsisteme**: poți ascunde subsisteme ca să scoți câte o planșă separată pentru fiecare.
-- **Export PDF** (A4, A3 sau A2 orizontal), cu chenar, legendă generată automat (simboluri folosite + cantități) și cartuș.
+- **Mai multe planșe în același proiect** (bara de jos): o planșă cu toate sistemele sau, automat, câte o planșă pentru fiecare sistem.
+  Fiecare planșă are titlul, numărul, scara, formatul (A0–A4 sau dimensiune personalizată în mm), orientarea (peisaj sau portret) și sistemele afișate proprii.
+- **Scheme bloc generate automat** din echipamentele și cablurile de pe plan (centrală → module → detectoare, NVR → switch → camere, rack → switch → prize).
+  Echipamentele fără cablu desenat apar legate punctat de centrală.
+- **Export draw.io**: schemele bloc ca fișier `.drawio` editabil, cu câte o pagină pe sistem.
+- **Export PDF** pentru planșa curentă sau pentru toate planșele într-un singur PDF (formate diferite pe pagini diferite), cu chenar, legendă automată (simboluri folosite + cantități) și cartuș.
 - **Export Excel** cu trei foi:
   - *Echipamente*: listă de cantități pe tip și model
   - *Zone protejate*: simbol, denumire, zonă, partiție, tip detecție

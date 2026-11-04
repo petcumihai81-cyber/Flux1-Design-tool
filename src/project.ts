@@ -1,19 +1,36 @@
-import type { Cable, Device, Project, SystemId } from './types'
+import type { Cable, Device, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
 import { SYSTEMS, symbolByType } from './symbols'
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4)
 
-export function emptyProject(): Project {
+export const ALL_SYSTEMS: SystemId[] = SYSTEMS.map((s) => s.id)
+
+export function newSheet(over: Partial<Sheet> = {}): Sheet {
   return {
-    version: 1,
+    id: uid(),
+    kind: 'plan',
+    titlu: 'Plan amplasare echipamente',
+    nr: 'P01',
+    scara: '1:100',
+    format: 'A3',
+    orientation: 'landscape',
+    customW: 841,
+    customH: 594,
+    systems: [...ALL_SYSTEMS],
+    showCones: true,
+    ...over,
+  }
+}
+
+export function emptyProject(): Project {
+  const sheet = newSheet()
+  return {
+    version: 2,
     title: {
       proiectant: 'ASL Security Solutions SRL',
       beneficiar: '',
       obiectiv: '',
       nrProiect: '',
-      titluPlansa: 'Plan amplasare echipamente',
-      nrPlansa: 'P01',
-      scara: '1:100',
       data: new Date().toLocaleDateString('ro-RO'),
       intocmit: '',
       verificat: '',
@@ -22,13 +39,38 @@ export function emptyProject(): Project {
     pxPerMeter: null,
     symbolSize: 32,
     cableReservePct: 10,
-    showCones: true,
-    pageFormat: 'A3',
-    hidden: [],
+    sheets: [sheet],
+    activeSheetId: sheet.id,
     devices: [],
     cables: [],
   }
 }
+
+export const activeSheet = (p: Project): Sheet => p.sheets.find((s) => s.id === p.activeSheetId) ?? p.sheets[0]
+
+const PAPER: Record<Exclude<PageFormat, 'CUSTOM'>, [number, number]> = {
+  A0: [1189, 841],
+  A1: [841, 594],
+  A2: [594, 420],
+  A3: [420, 297],
+  A4: [297, 210],
+}
+
+/** Dimensiunea paginii în mm [lățime, înălțime], ținând cont de orientare */
+export function pageSizeMm(sh: Sheet): [number, number] {
+  if (sh.format === 'CUSTOM') return [Math.max(50, sh.customW), Math.max(50, sh.customH)]
+  const [a, b] = PAPER[sh.format]
+  return sh.orientation === 'landscape' ? [a, b] : [b, a]
+}
+
+export function formatLabel(sh: Sheet): string {
+  if (sh.format === 'CUSTOM') return `${sh.customW}×${sh.customH} mm`
+  const o: Record<Orientation, string> = { landscape: 'peisaj', portrait: 'portret' }
+  return `${sh.format} ${o[sh.orientation]}`
+}
+
+/** Următorul număr de planșă liber (P01, P02...) */
+export const nextSheetNr = (p: Project) => nextLabel('P', p.sheets.map((s) => s.nr))
 
 /** Următorul cod liber pentru un prefix: PIR01, PIR02... */
 export function nextLabel(prefix: string, labels: string[]): string {
@@ -66,9 +108,9 @@ export function nextCableCode(system: SystemId, cables: Cable[]): string {
   return nextLabel(prefix, cables.map((c) => c.code))
 }
 
-export function contentBounds(p: Project, visibleOnly = true) {
+export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS) {
   if (p.background) return { x: 0, y: 0, width: p.background.width, height: p.background.height }
-  const hidden = new Set(visibleOnly ? p.hidden : [])
+  const hidden = new Set(ALL_SYSTEMS.filter((s) => !systems.includes(s)))
   const xs: number[] = []
   const ys: number[] = []
   for (const d of p.devices) {
@@ -92,11 +134,41 @@ export function contentBounds(p: Project, visibleOnly = true) {
 }
 
 export function isProject(v: unknown): v is Project {
-  return !!v && typeof v === 'object' && (v as Project).version === 1 && Array.isArray((v as Project).devices)
+  const p = v as Project
+  return !!p && typeof p === 'object' && ((p.version as number) === 1 || p.version === 2) && Array.isArray(p.devices)
 }
 
-/** Completează câmpurile lipsă (fișiere salvate cu versiuni mai vechi) */
+/** Completează câmpurile lipsă și migrează fișierele din versiunea 1 (o singură planșă) */
 export function normalizeProject(v: Project): Project {
   const base = emptyProject()
-  return { ...base, ...v, title: { ...base.title, ...v.title }, cables: v.cables ?? [], hidden: v.hidden ?? [] }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const old = v as any
+  let sheets: Sheet[] = Array.isArray(v.sheets) && v.sheets.length ? v.sheets.map((s) => ({ ...newSheet(), ...s })) : []
+  if (!sheets.length) {
+    const hidden: SystemId[] = old.hidden ?? []
+    sheets = [
+      newSheet({
+        titlu: old.title?.titluPlansa ?? 'Plan amplasare echipamente',
+        nr: old.title?.nrPlansa ?? 'P01',
+        scara: old.title?.scara ?? '1:100',
+        format: old.pageFormat ?? 'A3',
+        systems: ALL_SYSTEMS.filter((s) => !hidden.includes(s)),
+        showCones: old.showCones ?? true,
+      }),
+    ]
+  }
+  const activeSheetId = sheets.some((s) => s.id === v.activeSheetId) ? v.activeSheetId : sheets[0].id
+  return {
+    ...base,
+    background: v.background ?? null,
+    pxPerMeter: v.pxPerMeter ?? null,
+    symbolSize: v.symbolSize ?? base.symbolSize,
+    cableReservePct: v.cableReservePct ?? base.cableReservePct,
+    title: { ...base.title, ...v.title },
+    devices: v.devices,
+    cables: v.cables ?? [],
+    sheets,
+    activeSheetId,
+    version: 2,
+  }
 }

@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type Konva from 'konva'
 import './App.css'
-import type { Cable, Device, Project, Selection, Tool } from './types'
+import type { Cable, Device, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { useHistory } from './history'
-import { emptyProject, isProject, nextCableCode, nextLabel, normalizeProject, uid } from './project'
-import { defaultCableType, symbolByType } from './symbols'
+import { activeSheet, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
-import { CableProps, DeviceProps, ListsPanel, Palette, ProjectPanel } from './Panels'
+import BlockCanvas from './BlockCanvas'
+import { CableProps, DeviceProps, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
-import { exportExcel, exportPdf } from './exporters'
+import { exportExcel, renderSheetPage, savePdf } from './exporters'
+import type { RenderedPage } from './exporters'
+import { exportDrawio } from './drawio'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
 
@@ -30,6 +34,8 @@ type Tab = 'element' | 'proiect' | 'liste'
 export default function App() {
   const h = useHistory<Project>(loadStored)
   const project = h.value
+  const sheet = activeSheet(project)
+  const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
   const [tab, setTab] = useState<Tab>('proiect')
@@ -96,7 +102,12 @@ export default function App() {
           notes: '',
           ...(def.camera ? { fov: def.camera.fov, range: def.camera.range } : {}),
         }
-        return { ...p, hidden: p.hidden.filter((s) => s !== def.system), devices: [...p.devices, d] }
+        const sheets = p.sheets.map((sh) =>
+          sh.id === p.activeSheetId && sh.kind === 'plan' && !sh.systems.includes(def.system)
+            ? { ...sh, systems: SYSTEMS.map((x) => x.id).filter((x) => x === def.system || sh.systems.includes(x)) }
+            : sh,
+        )
+        return { ...p, sheets, devices: [...p.devices, d] }
       })
       setSelection({ kind: 'device', id })
     },
@@ -218,7 +229,7 @@ export default function App() {
     const blob = new Blob([JSON.stringify(project)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `${(project.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')} - ${project.title.nrPlansa || 'plansa'}.plansa.json`
+    a.download = `${(project.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')}.plansa.json`
     a.click()
     URL.revokeObjectURL(a.href)
   }
@@ -245,6 +256,65 @@ export default function App() {
     setFitSignal((n) => n + 1)
   }
 
+  // ---------------------------------------------------------------- planșe
+
+  const setActiveSheet = (id: string) => {
+    setSelection(null)
+    setTool({ kind: 'select' })
+    h.update((p) => ({ ...p, activeSheetId: id }))
+    setFitSignal((n) => n + 1)
+  }
+
+  const patchSheet = (id: string, patch: Partial<Sheet>) =>
+    h.commit((p) => ({ ...p, sheets: p.sheets.map((sh) => (sh.id === id ? { ...sh, ...patch } : sh)) }))
+
+  const addSheets = (make: (p: Project) => Sheet[]) => {
+    let firstId: string | undefined
+    h.commit((p) => {
+      const added: Sheet[] = []
+      for (const sh of make(p)) {
+        const nr = nextSheetNr({ ...p, sheets: [...p.sheets, ...added] })
+        added.push({ ...sh, nr, format: sheet.format, orientation: sheet.orientation })
+      }
+      if (!added.length) return p
+      firstId = added[0].id
+      return { ...p, sheets: [...p.sheets, ...added], activeSheetId: added[0].id }
+    })
+    setSheetMenu(null)
+    setSelection(null)
+    setTool({ kind: 'select' })
+    setFitSignal((n) => n + 1)
+    window.setTimeout(() => !firstId && notify('Nu există echipamente pentru planșele cerute.'), 0)
+  }
+
+  const systemsWithDevices = (p: Project): SystemId[] =>
+    SYSTEMS.map((s) => s.id).filter((id) => p.devices.some((d) => deviceSystem(d) === id))
+
+  const addPlanPerSystem = () =>
+    addSheets((p) =>
+      systemsWithDevices(p)
+        .filter((id) => !p.sheets.some((sh) => sh.kind === 'plan' && sh.systems.length === 1 && sh.systems[0] === id))
+        .map((id) => newSheet({ titlu: `Plan amplasare – ${systemById(id).name}`, systems: [id], showCones: id === 'CCTV' })),
+    )
+
+  const addBlocSheet = (id: SystemId) =>
+    addSheets(() => [newSheet({ kind: 'bloc', titlu: `Schemă bloc – ${systemById(id).name}`, systems: [id] })])
+
+  const deleteSheet = (id: string) => {
+    if (project.sheets.length < 2) return
+    const sh = project.sheets.find((x) => x.id === id)
+    if (!sh || !window.confirm(`Ștergi planșa „${sh.nr} ${sh.titlu}”? Echipamentele de pe plan rămân.`)) return
+    h.commit((p) => {
+      const sheets = p.sheets.filter((x) => x.id !== id)
+      return { ...p, sheets, activeSheetId: p.activeSheetId === id ? sheets[0].id : p.activeSheetId }
+    })
+    setFitSignal((n) => n + 1)
+  }
+
+  // ---------------------------------------------------------------- export
+
+  const fileBase = () => `${project.title.nrProiect || 'proiect'}`
+
   const doExportPdf = async () => {
     const stage = stageRef.current
     if (!stage) return
@@ -252,12 +322,51 @@ export default function App() {
     setBusy('Se generează PDF-ul…')
     try {
       await new Promise((r) => setTimeout(r, 50))
-      await exportPdf(stage, project)
+      const page = await renderSheetPage(stage, project, sheet)
+      savePdf([page], `${fileBase()} - ${sheet.nr} ${sheet.titlu}`)
     } catch (err) {
       notify((err as Error).message)
     } finally {
       setBusy(null)
     }
+  }
+
+  const doExportAllPdf = async () => {
+    const original = project.activeSheetId
+    setBusy('Se generează toate planșele…')
+    const pages: RenderedPage[] = []
+    const skipped: string[] = []
+    try {
+      for (const sh of project.sheets) {
+        // afișează planșa ca să poată fi randată, apoi o capturează
+        flushSync(() => {
+          setSelection(null)
+          h.update((p) => ({ ...p, activeSheetId: sh.id }))
+        })
+        await new Promise((r) => setTimeout(r, 30))
+        const stage = stageRef.current
+        if (!stage) continue
+        try {
+          pages.push(await renderSheetPage(stage, project, sh))
+        } catch {
+          skipped.push(sh.nr)
+        }
+      }
+      if (pages.length) savePdf(pages, `${fileBase()} - planse`)
+      notify(`${pages.length} planșe exportate${skipped.length ? `; goale, sărite: ${skipped.join(', ')}` : ''}.`)
+    } finally {
+      h.update((p) => ({ ...p, activeSheetId: original }))
+      setFitSignal((n) => n + 1)
+      setBusy(null)
+    }
+  }
+
+  const doExportDrawio = () => {
+    const blocs = project.sheets.filter((sh) => sh.kind === 'bloc').map((sh) => sh.systems[0])
+    const systems = [...new Set(blocs.length ? blocs : systemsWithDevices(project))]
+    if (!systems.length) return notify('Nu există echipamente pentru schemele bloc.')
+    exportDrawio(project, systems)
+    notify(`Exportat ${systems.length} ${systems.length === 1 ? 'schemă bloc' : 'scheme bloc'} în draw.io.`)
   }
 
   // ---------------------------------------------------------------- taste
@@ -339,8 +448,10 @@ export default function App() {
           <button onClick={() => setFitSignal((n) => n + 1)} title="Încadrează în ecran (F)">Încadrare</button>
         </div>
         <div className="group right">
-          <button className="primary" onClick={doExportPdf}>Export PDF</button>
-          <button className="primary" onClick={() => exportExcel(project)}>Export Excel</button>
+          <button className="primary" onClick={doExportPdf} title="Exportă planșa curentă">PDF planșă</button>
+          <button className="primary" onClick={doExportAllPdf} title="Toate planșele într-un singur PDF">PDF toate</button>
+          <button className="primary" onClick={() => exportExcel(project)} title="Liste echipamente, zone, jurnal cablu">Excel</button>
+          <button className="primary" onClick={doExportDrawio} title="Schemele bloc ca fișier draw.io editabil">draw.io</button>
         </div>
         <input
           ref={bgInput}
@@ -370,23 +481,89 @@ export default function App() {
         <Palette
           tool={tool}
           onPick={(type) => {
+            if (sheet.kind === 'bloc') {
+              const sys = symbolByType(type)?.system
+              const target =
+                project.sheets.find((sh) => sh.kind === 'plan' && sys && sh.systems.includes(sys)) ??
+                project.sheets.find((sh) => sh.kind === 'plan')
+              if (!target) return notify('Adaugă întâi o planșă de tip plan.')
+              setActiveSheet(target.id)
+              setTool({ kind: 'place', type })
+              return
+            }
             setTool(tool.kind === 'place' && tool.type === type ? { kind: 'select' } : { kind: 'place', type })
           }}
         />
 
-        <PlanCanvas
-          project={project}
-          tool={tool}
-          selection={selection}
-          stageRef={stageRef}
-          fitSignal={fitSignal}
-          onSelect={select}
-          onAddDevice={addDevice}
-          onAddCable={addCable}
-          onScaleMeasured={onScaleMeasured}
-          checkpoint={h.checkpoint}
-          update={h.update}
-        />
+        <div className="center">
+          {sheet.kind === 'plan' ? (
+            <PlanCanvas
+              project={project}
+              sheet={sheet}
+              tool={tool}
+              selection={selection}
+              stageRef={stageRef}
+              fitSignal={fitSignal}
+              onSelect={select}
+              onAddDevice={addDevice}
+              onAddCable={addCable}
+              onScaleMeasured={onScaleMeasured}
+              checkpoint={h.checkpoint}
+              update={h.update}
+            />
+          ) : (
+            <BlockCanvas
+              project={project}
+              system={sheet.systems[0]}
+              selection={selection}
+              stageRef={stageRef}
+              fitSignal={fitSignal}
+              onSelect={select}
+            />
+          )}
+          <nav className="sheet-bar">
+            {project.sheets.map((sh) => (
+              <div key={sh.id} className={'sheet-tab' + (sh.id === sheet.id ? ' on' : '')}>
+                <button
+                  onClick={() => sh.id !== sheet.id && setActiveSheet(sh.id)}
+                  title={`${sh.titlu} · ${formatLabel(sh)}`}
+                >
+                  <span className="sheet-kind">{sh.kind === 'bloc' ? '⊞' : '▭'}</span>
+                  <b>{sh.nr}</b> {sh.titlu}
+                  <small>{formatLabel(sh)}</small>
+                </button>
+                {sh.id === sheet.id && project.sheets.length > 1 && (
+                  <button className="sheet-x" title="Șterge planșa" onClick={() => deleteSheet(sh.id)}>
+                    ×
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="sheet-add">
+              <button
+                onClick={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  setSheetMenu((v) => (v ? null : { left: Math.max(8, Math.min(r.left, window.innerWidth - 330)), bottom: window.innerHeight - r.top + 6 }))
+                }}
+                title="Adaugă planșă"
+              >
+                + Planșă
+              </button>
+              {sheetMenu && (
+                <div className="menu" style={sheetMenu} onMouseLeave={() => setSheetMenu(null)}>
+                  <button onClick={() => addSheets(() => [newSheet()])}>Plan nou (toate sistemele)</button>
+                  <button onClick={addPlanPerSystem}>Câte un plan pentru fiecare sistem folosit</button>
+                  <div className="menu-sep">Schemă bloc</div>
+                  {SYSTEMS.map((s) => (
+                    <button key={s.id} onClick={() => addBlocSheet(s.id)}>
+                      <span className="dot" style={{ background: s.color }} /> {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </nav>
+        </div>
 
         <aside className="side">
           <nav className="tabs">
@@ -413,6 +590,7 @@ export default function App() {
                   </ul>
                 </div>
               ))}
+            {tab === 'proiect' && <SheetPanel sheet={sheet} onChange={(patch) => patchSheet(sheet.id, patch)} />}
             {tab === 'proiect' && (
               <ProjectPanel
                 project={project}

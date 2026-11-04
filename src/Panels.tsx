@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { Cable, Device, PageFormat, Project, SystemId, TitleBlock, Tool } from './types'
+import type { Cable, Device, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableMeters, deviceSystem, polylineLength } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
@@ -204,20 +204,98 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
   )
 }
 
-// ------------------------------------------------------------------ Proiect / cartuș
+// ------------------------------------------------------------------ Proiect / planșă
 
 const TITLE_FIELDS: [keyof TitleBlock, string][] = [
   ['proiectant', 'Proiectant'],
   ['beneficiar', 'Beneficiar'],
   ['obiectiv', 'Obiectiv / adresă'],
   ['nrProiect', 'Nr. proiect'],
-  ['titluPlansa', 'Titlu planșă'],
-  ['nrPlansa', 'Nr. planșă'],
-  ['scara', 'Scara (text cartuș)'],
   ['data', 'Data'],
   ['intocmit', 'Întocmit'],
   ['verificat', 'Verificat'],
 ]
+
+export function SheetPanel({ sheet, onChange }: { sheet: Sheet; onChange: (patch: Partial<Sheet>) => void }) {
+  const toggle = (id: SystemId, on: boolean) =>
+    onChange({ systems: on ? SYSTEMS.map((s) => s.id).filter((s) => s === id || sheet.systems.includes(s)) : sheet.systems.filter((s) => s !== id) })
+  return (
+    <div className="props">
+      <h4>Planșa curentă {sheet.kind === 'bloc' ? '(schemă bloc)' : '(plan)'}</h4>
+      <Field label="Titlu planșă">
+        <input value={sheet.titlu} onChange={(e) => onChange({ titlu: e.target.value })} />
+      </Field>
+      <div className="row2">
+        <Field label="Nr. planșă">
+          <input value={sheet.nr} onChange={(e) => onChange({ nr: e.target.value })} />
+        </Field>
+        {sheet.kind === 'plan' && (
+          <Field label="Scara (cartuș)">
+            <input value={sheet.scara} onChange={(e) => onChange({ scara: e.target.value })} />
+          </Field>
+        )}
+      </div>
+      <div className="row2">
+        <Field label="Format">
+          <select value={sheet.format} onChange={(e) => onChange({ format: e.target.value as PageFormat })}>
+            {(['A0', 'A1', 'A2', 'A3', 'A4'] as const).map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+            <option value="CUSTOM">Personalizat</option>
+          </select>
+        </Field>
+        {sheet.format !== 'CUSTOM' ? (
+          <Field label="Orientare">
+            <select value={sheet.orientation} onChange={(e) => onChange({ orientation: e.target.value as Orientation })}>
+              <option value="landscape">Peisaj</option>
+              <option value="portrait">Portret</option>
+            </select>
+          </Field>
+        ) : (
+          <div />
+        )}
+      </div>
+      {sheet.format === 'CUSTOM' && (
+        <div className="row2">
+          <Field label="Lățime (mm)">
+            <Num value={sheet.customW} min={50} max={5000} onChange={(v) => onChange({ customW: v })} />
+          </Field>
+          <Field label="Înălțime (mm)">
+            <Num value={sheet.customH} min={50} max={5000} onChange={(v) => onChange({ customH: v })} />
+          </Field>
+        </div>
+      )}
+      {sheet.kind === 'plan' ? (
+        <>
+          <span className="field-label">Sisteme afișate pe planșă</span>
+          {SYSTEMS.map((s) => (
+            <label key={s.id} className="check">
+              <input type="checkbox" checked={sheet.systems.includes(s.id)} onChange={(e) => toggle(s.id, e.target.checked)} />
+              <span className="dot" style={{ background: s.color }} />
+              {s.name}
+            </label>
+          ))}
+          <label className="check">
+            <input type="checkbox" checked={sheet.showCones} onChange={(e) => onChange({ showCones: e.target.checked })} />
+            Conuri de vizualizare camere
+          </label>
+        </>
+      ) : (
+        <Field label="Sistem">
+          <select value={sheet.systems[0]} onChange={(e) => onChange({ systems: [e.target.value as SystemId] })}>
+            {SYSTEMS.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+    </div>
+  )
+}
 
 export function ProjectPanel({
   project,
@@ -228,24 +306,16 @@ export function ProjectPanel({
   onChange: (patch: Partial<Project>) => void
   onCalibrate: () => void
 }) {
-  const hidden = new Set(project.hidden)
   return (
     <div className="props">
-      <h4>Cartuș</h4>
+      <h4>Date proiect (cartuș)</h4>
       {TITLE_FIELDS.map(([key, label]) => (
         <Field key={key} label={label}>
           <input value={project.title[key]} onChange={(e) => onChange({ title: { ...project.title, [key]: e.target.value } })} />
         </Field>
       ))}
 
-      <h4>Planșă</h4>
-      <Field label="Format pagină PDF">
-        <select value={project.pageFormat} onChange={(e) => onChange({ pageFormat: e.target.value as PageFormat })}>
-          <option value="A4">A4 orizontal</option>
-          <option value="A3">A3 orizontal</option>
-          <option value="A2">A2 orizontal</option>
-        </select>
-      </Field>
+      <h4>Plan</h4>
       <Field label={`Mărime simboluri (${project.symbolSize})`}>
         <input
           type="range"
@@ -266,27 +336,6 @@ export function ProjectPanel({
       <Field label="Rezervă cablu (%)">
         <Num value={project.cableReservePct} min={0} max={100} onChange={(v) => onChange({ cableReservePct: Math.max(0, v) })} />
       </Field>
-
-      <label className="check">
-        <input type="checkbox" checked={project.showCones} onChange={(e) => onChange({ showCones: e.target.checked })} />
-        Afișează conurile de vizualizare ale camerelor
-      </label>
-
-      <h4>Subsisteme afișate</h4>
-      <p className="hint">Ascunde subsistemele pe care nu le vrei pe planșă — exportul PDF și Excel include doar ce e afișat.</p>
-      {SYSTEMS.map((s) => (
-        <label key={s.id} className="check">
-          <input
-            type="checkbox"
-            checked={!hidden.has(s.id)}
-            onChange={(e) =>
-              onChange({ hidden: e.target.checked ? project.hidden.filter((h) => h !== s.id) : [...project.hidden, s.id] })
-            }
-          />
-          <span className="dot" style={{ background: s.color }} />
-          {s.name}
-        </label>
-      ))}
     </div>
   )
 }
