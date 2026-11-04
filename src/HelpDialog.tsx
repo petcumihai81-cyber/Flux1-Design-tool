@@ -312,6 +312,15 @@ const SECTIONS: Section[] = [
       </>,
       <>Selectezi o legătură sau un text și îi schimbi eticheta, culoarea, linia punctată; <K>Del</K> șterge.</>,
       <>
+        <B>Traseul unei legături</B>: click pe ea, apoi trage pătratele albe de pe segmente — segmentul se mută paralel, traseul rămâne în unghi
+        drept, iar capătul alunecă pe latura blocului. <B>Traseu automat</B> revine la traseul calculat.
+      </>,
+      <>
+        <B>Selecție multiplă</B>: <K>Shift</K>+click pe blocuri sau <K>Shift</K>+tragere pe fundal (dreptunghi). Blocurile selectate se mută
+        împreună și se aliniază (stânga, centru, dreapta, sus, mijloc, jos) sau se distribuie cu spații egale (minim 3). <K>Esc</K> anulează
+        selecția.
+      </>,
+      <>
         <B>+ Neplasate</B> adaugă echipamentele puse pe plan după editare; <B>Regenerează</B> refă schema din plan.
       </>,
     ],

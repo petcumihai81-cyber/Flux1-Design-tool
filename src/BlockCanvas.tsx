@@ -6,7 +6,8 @@ import type { Diagram, DiagramEdge, DiagramNode, Project, Selection, Sheet } fro
 import { SYSTEMS, symbolImage, systemById } from './symbols'
 import { NODE_H, NODE_W, blockLayout, nodeTexts } from './blockLayout'
 import { cableEnds, deviceInfo, uid } from './project'
-import { GRID, diagramBounds, materialize, nodeAt, pruneDiagram, route, snap, unplacedDevices } from './diagram'
+import { GRID, alignNodes, diagramBounds, distributeNodes, edgePath, materialize, moveSegment, nodeAt, pruneDiagram, snap, unplacedDevices } from './diagram'
+import type { AlignMode } from './diagram'
 
 interface Props {
   project: Project
@@ -39,6 +40,13 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   const [mode, setMode] = useState<Mode>('select')
   const [sel, setSel] = useState<LocalSel>(null)
   const [conn, setConn] = useState<{ from: string; x: number; y: number } | null>(null)
+  /** Selecție multiplă de blocuri (Shift+click sau Shift+tragere pe fundal) */
+  const [multi, setMulti] = useState<string[]>([])
+  const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
+  /** Mutarea în grup: pozițiile de pornire ale blocurilor selectate */
+  const groupDrag = useRef<Map<string, { x: number; y: number }> | null>(null)
+  /** Tragerea unui segment de legătură: traseul de pornire și segmentul */
+  const segDrag = useRef<{ path: number[]; seg: number; x: number; y: number } | null>(null)
 
   const layout = useMemo(() => blockLayout(project, system), [project, system])
   const diagram = useMemo(() => (sheet.diagram ? pruneDiagram(project, sheet.diagram) : null), [project, sheet.diagram])
@@ -75,6 +83,13 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   const patchEdge = (id: string, patch: Partial<DiagramEdge>) => change((d) => ({ ...d, edges: d.edges.map((e) => (e.id === id ? { ...e, ...patch } : e)) }))
 
   const removeSel = () => {
+    if (multi.length) {
+      const ids = new Set(multi)
+      change((d) => ({ nodes: d.nodes.filter((n) => !ids.has(n.id)), edges: d.edges.filter((e) => !ids.has(e.from) && !ids.has(e.to)) }))
+      setMulti([])
+      onSelect(null)
+      return
+    }
     if (!sel) return
     if (sel.kind === 'edge') change((d) => ({ ...d, edges: d.edges.filter((e) => e.id !== sel.id) }))
     else change((d) => ({ nodes: d.nodes.filter((n) => n.id !== sel.id), edges: d.edges.filter((e) => e.from !== sel.id && e.to !== sel.id) }))
@@ -116,13 +131,14 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea, select') || document.querySelector('.modal-back')) return
-      if ((e.key === 'Delete' || e.key === 'Backspace') && sel && diagram) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && (sel || multi.length) && diagram) {
         e.preventDefault()
         removeSel()
       }
       if (e.key === 'Escape') {
         setMode('select')
         setConn(null)
+        setMulti([])
       }
     }
     window.addEventListener('keydown', onKey)
@@ -142,6 +158,14 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   }
 
   const onStageMouseDown = (e: KonvaEventObject<MouseEvent>) => {
+    // Shift + tragere pe fundal = dreptunghi de selecție
+    if (diagram && mode === 'select' && e.evt.shiftKey && e.evt.button === 0 && (e.target === stageRef.current || e.target.name() === 'bg')) {
+      const pt = pointer()
+      if (!pt) return
+      stageRef.current?.draggable(false)
+      setMarquee({ x0: pt.x, y0: pt.y, x1: pt.x, y1: pt.y })
+      return
+    }
     if (!diagram || mode !== 'conn' || e.evt.button !== 0) return
     const pt = pointer()
     const n = pt && nodeAt(diagram, pt.x, pt.y)
@@ -149,6 +173,29 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   }
 
   const onStageMouseUp = () => {
+    if (marquee && diagram) {
+      stageRef.current?.draggable(true)
+      const r = { x1: Math.min(marquee.x0, marquee.x1), y1: Math.min(marquee.y0, marquee.y1), x2: Math.max(marquee.x0, marquee.x1), y2: Math.max(marquee.y0, marquee.y1) }
+      setMarquee(null)
+      if (r.x2 - r.x1 < 3 && r.y2 - r.y1 < 3) return
+      // blocurile atinse de dreptunghi; chenarele doar dacă sunt cuprinse complet
+      const hit = diagram.nodes.filter((n) =>
+        n.kind === 'rect'
+          ? n.x >= r.x1 && n.y >= r.y1 && n.x + n.w <= r.x2 && n.y + n.h <= r.y2
+          : n.x < r.x2 && n.x + n.w > r.x1 && n.y < r.y2 && n.y + n.h > r.y1,
+      )
+      const base = multi.length ? multi : sel?.kind === 'node' ? [sel.id] : []
+      const next = [...new Set([...base, ...hit.map((n) => n.id)])]
+      if (next.length > 1) {
+        setMulti(next)
+        setSel(null)
+        onSelect(null)
+      } else if (next.length === 1) {
+        setMulti([])
+        setSel({ kind: 'node', id: next[0] })
+      }
+      return
+    }
     if (!diagram || !conn) return
     const pt = pointer()
     const target = pt && nodeAt(diagram, pt.x, pt.y)
@@ -163,6 +210,8 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
 
   const onStageClick = (e: KonvaEventObject<MouseEvent>) => {
     if (e.target !== stageRef.current && e.target.name() !== 'bg') return
+    // Shift = selecție multiplă (dreptunghiul tocmai s-a terminat): nu golim selecția
+    if (e.evt.shiftKey && mode === 'select') return
     if (diagram && (mode === 'text' || mode === 'rect')) {
       const pt = pointer()
       if (!pt) return
@@ -177,10 +226,14 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
       return
     }
     setSel(null)
+    setMulti([])
     onSelect(null)
   }
 
   const k = 1 / view.scale
+  const selectedIds = new Set(multi.length ? multi : sel?.kind === 'node' ? [sel.id] : [])
+  const alignSel = (m: AlignMode) => change((d) => ({ ...d, nodes: alignNodes(d.nodes, new Set(multi), m) }))
+  const distributeSel = (axis: 'h' | 'v') => change((d) => ({ ...d, nodes: distributeNodes(d.nodes, new Set(multi), axis) }))
   const nodesById = new Map((diagram?.nodes ?? []).map((n) => [n.id, n]))
   const selNode = sel?.kind === 'node' ? nodesById.get(sel.id) : undefined
   const selEdge = sel?.kind === 'edge' ? diagram?.edges.find((e) => e.id === sel.id) : undefined
@@ -222,23 +275,51 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
           onClick={(e) => {
             if (mode !== 'select') return
             e.cancelBubble = true
+            if (e.evt.shiftKey) {
+              // Shift+click: adaugă / scoate blocul din selecția multiplă
+              const base = multi.length ? multi : sel?.kind === 'node' ? [sel.id] : []
+              const next = base.includes(n.id) ? base.filter((x) => x !== n.id) : [...base, n.id]
+              if (next.length > 1) {
+                setMulti(next)
+                setSel(null)
+                onSelect(null)
+              } else {
+                setMulti([])
+                setSel(next.length ? { kind: 'node', id: next[0] } : null)
+              }
+              return
+            }
+            setMulti([])
             setSel({ kind: 'node', id: n.id })
             onSelect(n.deviceId ? { kind: 'device', id: n.deviceId } : null)
           }}
           onDragStart={(e) => {
             e.cancelBubble = true
             checkpoint()
-            setSel({ kind: 'node', id: n.id })
+            if (multi.includes(n.id)) {
+              groupDrag.current = new Map(d.nodes.filter((x) => multi.includes(x.id)).map((x) => [x.id, { x: x.x, y: x.y }]))
+            } else {
+              groupDrag.current = null
+              setMulti([])
+              setSel({ kind: 'node', id: n.id })
+            }
           }}
           onDragMove={(e) => {
             e.cancelBubble = true
             const x = snap(e.target.x())
             const y = snap(e.target.y())
             e.target.position({ x, y })
-            patchNode(n.id, { x, y }, false)
+            const g = groupDrag.current
+            if (g) {
+              const s0 = g.get(n.id)!
+              const dx = x - s0.x
+              const dy = y - s0.y
+              change((dd) => ({ ...dd, nodes: dd.nodes.map((m) => (g.has(m.id) ? { ...m, x: g.get(m.id)!.x + dx, y: g.get(m.id)!.y + dy } : m)) }), false)
+            } else patchNode(n.id, { x, y }, false)
           }}
           onDragEnd={(e) => {
             e.cancelBubble = true
+            groupDrag.current = null
           }}
         >
           {n.kind === 'device' && deviceBlock(n.deviceId, n.w, n.h, c)}
@@ -264,7 +345,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
           const a = nodesById.get(e.from)
           const b = nodesById.get(e.to)
           if (!a || !b) return null
-          const r = route(a, b)
+          const r = edgePath(e, a, b)
           const c = e.color ?? color
           const selected = sel?.kind === 'edge' && sel.id === e.id
           return (
@@ -279,6 +360,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
                   if (mode !== 'select') return
                   ev.cancelBubble = true
                   setSel({ kind: 'edge', id: e.id })
+                  setMulti([])
                   onSelect(null)
                 }}
               />
@@ -309,6 +391,10 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
         onWheel={onWheel}
         onMouseDown={onStageMouseDown}
         onMouseMove={() => {
+          if (marquee) {
+            const pt = pointer()
+            if (pt) setMarquee({ ...marquee, x1: pt.x, y1: pt.y })
+          }
           if (conn) {
             const pt = pointer()
             if (pt) setConn({ ...conn, x: pt.x, y: pt.y })
@@ -357,6 +443,74 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
 
         <Layer name="ui">
           {/* selecție și mâner de redimensionare */}
+          {multi.length > 0 &&
+            diagram?.nodes
+              .filter((n) => selectedIds.has(n.id))
+              .map((n) => (
+                <Rect key={'m' + n.id} x={n.x - 4 * k} y={n.y - 4 * k} width={n.w + 8 * k} height={n.h + 8 * k} stroke="#1e88e5" strokeWidth={2 * k} dash={[6 * k, 4 * k]} listening={false} />
+              ))}
+          {marquee && (
+            <Rect
+              x={Math.min(marquee.x0, marquee.x1)}
+              y={Math.min(marquee.y0, marquee.y1)}
+              width={Math.abs(marquee.x1 - marquee.x0)}
+              height={Math.abs(marquee.y1 - marquee.y0)}
+              fill="rgba(30,136,229,0.08)"
+              stroke="#1e88e5"
+              strokeWidth={1 * k}
+              dash={[5 * k, 4 * k]}
+              listening={false}
+            />
+          )}
+          {/* legătura selectată: mânere pe segmente (se trag perpendicular pe segment) */}
+          {selEdge &&
+            mode === 'select' &&
+            (() => {
+              const a = nodesById.get(selEdge.from)
+              const b = nodesById.get(selEdge.to)
+              if (!a || !b) return null
+              const path = edgePath(selEdge, a, b).points
+              const handles = []
+              for (let i = 0; i + 3 < path.length; i += 2) {
+                const [x1, y1, x2, y2] = path.slice(i, i + 4)
+                if (Math.abs(x2 - x1) + Math.abs(y2 - y1) < 12) continue
+                const horiz = Math.abs(y1 - y2) < 0.5
+                const seg = i / 2
+                handles.push(
+                  <Rect
+                    key={'h' + seg}
+                    x={(x1 + x2) / 2 - 5 * k}
+                    y={(y1 + y2) / 2 - 5 * k}
+                    width={10 * k}
+                    height={10 * k}
+                    fill="#fff"
+                    stroke="#1e88e5"
+                    strokeWidth={2 * k}
+                    draggable
+                    onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = horiz ? 'ns-resize' : 'ew-resize')}
+                    onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+                    onDragStart={(e) => {
+                      e.cancelBubble = true
+                      checkpoint()
+                      segDrag.current = { path, seg, x: e.target.x(), y: e.target.y() }
+                    }}
+                    onDragMove={(e) => {
+                      e.cancelBubble = true
+                      const sd = segDrag.current
+                      if (!sd) return
+                      const delta = snap(horiz ? e.target.y() - sd.y : e.target.x() - sd.x)
+                      const pts = moveSegment(sd.path, sd.seg, delta)
+                      change((dd) => ({ ...dd, edges: dd.edges.map((x) => (x.id === selEdge.id ? { ...x, points: pts } : x)) }), false)
+                    }}
+                    onDragEnd={(e) => {
+                      e.cancelBubble = true
+                      segDrag.current = null
+                    }}
+                  />,
+                )
+              }
+              return handles
+            })()}
           {selNode && (
             <>
               <Rect x={selNode.x - 4 * k} y={selNode.y - 4 * k} width={selNode.w + 8 * k} height={selNode.h + 8 * k} stroke="#1e88e5" strokeWidth={2 * k} dash={[6 * k, 4 * k]} listening={false} />
@@ -454,7 +608,34 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
       </div>
 
       {/* proprietăți element selectat */}
-      {diagram && (selEdge || (selNode && selNode.kind !== 'device') || (selNode?.kind === 'device')) && (
+      {diagram && multi.length > 1 && (
+        <div className="diagram-props">
+          <b>{multi.length} blocuri selectate</b>
+          <span className="hint">Trage unul dintre ele ca să le muți împreună. Shift+click adaugă / scoate un bloc.</span>
+          <span className="field-label">Aliniere</span>
+          <div className="align-grid">
+            <button onClick={() => alignSel('left')} title="Aliniază la stânga">⇤ Stânga</button>
+            <button onClick={() => alignSel('hcenter')} title="Centrează pe verticală (același centru orizontal)">↔ Centru</button>
+            <button onClick={() => alignSel('right')} title="Aliniază la dreapta">⇥ Dreapta</button>
+            <button onClick={() => alignSel('top')} title="Aliniază sus">⤒ Sus</button>
+            <button onClick={() => alignSel('vmiddle')} title="Aliniază pe mijloc (același centru vertical)">↕ Mijloc</button>
+            <button onClick={() => alignSel('bottom')} title="Aliniază jos">⤓ Jos</button>
+          </div>
+          <span className="field-label">Distribuire (spații egale)</span>
+          <div className="align-grid two">
+            <button onClick={() => distributeSel('h')} disabled={multi.length < 3} title="Spații egale pe orizontală (minim 3 blocuri)">
+              Orizontal
+            </button>
+            <button onClick={() => distributeSel('v')} disabled={multi.length < 3} title="Spații egale pe verticală (minim 3 blocuri)">
+              Vertical
+            </button>
+          </div>
+          <button className="danger" onClick={removeSel}>
+            Elimină din schemă (Del)
+          </button>
+        </div>
+      )}
+      {diagram && !multi.length && (selEdge || (selNode && selNode.kind !== 'device') || (selNode?.kind === 'device')) && (
         <div className="diagram-props">
           {selEdge && (
             <>
@@ -468,6 +649,12 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
                 <input type="checkbox" checked={selEdge.dashed} onChange={(e) => patchEdge(selEdge.id, { dashed: e.target.checked })} />
                 Linie punctată
               </label>
+              <span className="hint">Trage pătratele de pe segmente ca să muți traseul.</span>
+              {selEdge.points && (
+                <button onClick={() => patchEdge(selEdge.id, { points: undefined })} title="Renunță la traseul manual">
+                  Traseu automat
+                </button>
+              )}
             </>
           )}
           {selNode && selNode.kind !== 'device' && (
@@ -516,7 +703,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
             ? 'Trage de la un bloc la altul pentru a crea o legătură. Esc = gata.'
             : mode === 'text' || mode === 'rect'
               ? 'Click pe schemă pentru a plasa elementul.'
-              : 'Trage blocurile pentru a le muta (aliniere pe grilă). Del șterge elementul selectat; Ctrl+Z anulează.'}
+              : 'Trage blocurile pentru a le muta (pe grilă). Shift+click sau Shift+tragere = selecție multiplă (aliniere, distribuire). Click pe o legătură = mânere pentru traseu. Del șterge; Ctrl+Z anulează.'}
       </div>
     </div>
   )

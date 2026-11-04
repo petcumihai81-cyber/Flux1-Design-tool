@@ -218,6 +218,11 @@ export interface DiagramEdge {
   label: string
   dashed: boolean
   color?: string
+  /**
+   * Traseu manual: colțurile intermediare [x1, y1, x2, y2, ...]; capetele se calculează pe laturile blocurilor
+   * (alunecă pe latură după primul / ultimul colț). Lipsă = traseu automat.
+   */
+  points?: number[]
 }
 
 export interface Diagram {

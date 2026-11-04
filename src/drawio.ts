@@ -64,9 +64,11 @@ function diagramXml(p: Project, item: DrawioItem, idx: number): string {
     ]
       .filter(Boolean)
       .join(';')
-    cells.push(
-      `<mxCell id="${extra()}" value="${esc(e.label)}" style="${style};" edge="1" parent="1" source="${cid(e.from)}" target="${cid(e.to)}"><mxGeometry relative="1" as="geometry"/></mxCell>`,
-    )
+    // traseu manual: colțurile ca puncte de control draw.io
+    const pts: string[] = []
+    for (let i = 0; i + 1 < (e.points?.length ?? 0); i += 2) pts.push(`<mxPoint x="${e.points![i]}" y="${e.points![i + 1]}"/>`)
+    const geom = pts.length ? `<mxGeometry relative="1" as="geometry"><Array as="points">${pts.join('')}</Array></mxGeometry>` : '<mxGeometry relative="1" as="geometry"/>'
+    cells.push(`<mxCell id="${extra()}" value="${esc(e.label)}" style="${style};" edge="1" parent="1" source="${cid(e.from)}" target="${cid(e.to)}">${geom}</mxCell>`)
   }
 
   return `<diagram id="d${idx}" name="${esc(item.name)}"><mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0"><root>${cells.join('')}</root></mxGraphModel></diagram>`

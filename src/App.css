@@ -295,3 +295,9 @@ button.unsaved { border-color: #f9a825; }
 .verify-ok .big { font-size: 56px; color: #2e7d32; }
 .verify-btn { position: relative; }
 .verify-btn .badge { position: absolute; top: -6px; right: -6px; background: #c62828; color: #fff; border-radius: 10px; font-size: 11px; min-width: 18px; height: 18px; padding: 0 5px; display: grid; place-items: center; font-weight: 700; }
+
+/* Schema bloc: aliniere / distribuire */
+.diagram-props .field-label { font-size: 12px; color: #666; margin-top: 4px; }
+.align-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.align-grid.two { grid-template-columns: repeat(2, 1fr); }
+.align-grid button { padding: 5px 2px; font-size: 12px; white-space: nowrap; }

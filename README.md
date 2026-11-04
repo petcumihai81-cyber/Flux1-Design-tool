@@ -24,6 +24,8 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Editor de schemă** în stilul draw.io: „Editează schema” transformă schema generată într-una editabilă. Blocurile se mută liber (cu aliniere pe grilă),
   legăturile le urmăresc, se pot trage legături noi (eticheta se completează din cablul de pe plan), se adaugă texte și chenare de grupare,
   cu culori și linii punctate. Echipamentele rămân legate de plan; cele adăugate ulterior apar ca „neplasate”. „Regenerează” refă schema automat.
+  Traseele legăturilor se ajustează manual (segmente trase cu mouse-ul, capete care alunecă pe laturile blocurilor); selecție multiplă
+  (Shift+click / Shift+dreptunghi), mutare în grup, aliniere și distribuire.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
 - **Verificare înainte de predare**: erori (scară necalibrată, cabluri nelegate, zone lipsă, consumuri lipsă, UPS / HDD / PoE insuficiente, numerotare dublă) și atenționări (modele, fișe tehnice, cartuș, memoriu), fiecare cu buton care duce la locul problemei.
 - **Import DXF** ca plan de fundal: alegi straturile și unitatea (mm / cm / m, ghicită dacă lipsește din fișier), iar planul vine deja calibrat la scara reală. DWG-ul se salvează întâi ca DXF.
