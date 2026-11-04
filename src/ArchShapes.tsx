@@ -165,6 +165,31 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
             />
           )
         }
+        if (a.kind === 'riser') {
+          // trecere între niveluri: cerc cu săgeți sus / jos și numele ghenei
+          const r = symbolSize * 0.45
+          const color = sel(a) ? '#1565c0' : '#455a64'
+          const sw = Math.max(symbolSize * 0.06, 1.5 * k)
+          return (
+            <Group key={a.id} {...common(a)} {...moveProps(a)} x={a.x} y={a.y}>
+              <Circle name={'arch:' + a.id} radius={r} fill="#fff" stroke={color} strokeWidth={sw} />
+              <Line name={'arch:' + a.id} points={[-r * 0.38, -r * 0.18, 0, -r * 0.62, r * 0.38, -r * 0.18]} stroke={color} strokeWidth={sw} lineJoin="round" />
+              <Line name={'arch:' + a.id} points={[-r * 0.38, r * 0.18, 0, r * 0.62, r * 0.38, r * 0.18]} stroke={color} strokeWidth={sw} lineJoin="round" />
+              <Text
+                name={'arch:' + a.id}
+                text={a.text ?? 'G'}
+                y={r + symbolSize * 0.08}
+                width={symbolSize * 3}
+                offsetX={symbolSize * 1.5}
+                align="center"
+                fontSize={symbolSize * 0.36}
+                fontStyle="bold"
+                fontFamily="Arial"
+                fill={color}
+              />
+            </Group>
+          )
+        }
         if (a.kind === 'dim' && a.points) {
           const [x1, y1, x2, y2] = a.points
           const ang = Math.atan2(y2 - y1, x2 - x1)

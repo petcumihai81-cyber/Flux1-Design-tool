@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf'
 import * as XLSX from 'xlsx'
 import type { Project, Sheet, SystemId } from './types'
 import { SYSTEMS, loadSymbolImage, symbolByType, systemById } from './symbols'
-import { cableMeters, catalogItem, contentBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel } from './project'
+import { cableMeters, catalogItem, contentBounds, deviceInfo, devicePrefix, deviceSystem, pageSizeMm, sheetLevel, cableEnds, isRiserRoute, levelOf, riserHost } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
 import { diagramBounds, pruneDiagram } from './diagram'
@@ -370,20 +370,48 @@ export function exportExcel(p: Project) {
   }
   XLSX.utils.book_append_sheet(wb, sheetOf(eq, [8, 60, 28, 10, 18]), 'Echipamente')
 
-  // 2. Zone protejate — efracție și incendiu (tabelul din memoriu)
+  // 2. Zone protejate — efracție și incendiu (tabelul din memoriu); la mai multe niveluri, coloană „Nivel”
+  const multiLevel = p.levels.length > 1
+  const lvlName = (id: string) => levelOf(p, id).name
+  const lvlOrder = (id: string) => p.levels.findIndex((l) => l.id === id)
   const zones: Row[] = []
   for (const sysId of ['EFR', 'INC'] as SystemId[]) {
     const list = p.devices
       .filter((d) => deviceSystem(d) === sysId)
-      .sort((a, b) => (a.zoneNr ?? '').localeCompare(b.zoneNr ?? '', 'ro', { numeric: true }) || a.label.localeCompare(b.label, 'ro', { numeric: true }))
+      .sort(
+        (a, b) =>
+          (multiLevel ? lvlOrder(a.levelId) - lvlOrder(b.levelId) : 0) ||
+          (a.zoneNr ?? '').localeCompare(b.zoneNr ?? '', 'ro', { numeric: true }) ||
+          a.label.localeCompare(b.label, 'ro', { numeric: true }),
+      )
     if (!list.length) continue
     if (zones.length) zones.push([])
     zones.push([`Zone protejate: ${systemById(sysId).name}`])
-    zones.push(['Nr. crt.', 'Modul', sysId === 'INC' ? 'Buclă' : 'Zona modul', sysId === 'INC' ? 'Zonă' : 'Partiție', 'Zona protejată', 'Denumire echipament', 'Simbol echipament', 'Tip detecție'])
+    zones.push([
+      'Nr. crt.',
+      ...(multiLevel ? ['Nivel'] : []),
+      'Modul',
+      sysId === 'INC' ? 'Buclă' : 'Zona modul',
+      sysId === 'INC' ? 'Zonă' : 'Partiție',
+      'Zona protejată',
+      'Denumire echipament',
+      'Simbol echipament',
+      'Tip detecție',
+    ])
     let n = 1
     for (const d of list) {
       const def = symbolByType(d.type)!
-      zones.push([`${n++}.`, d.module ?? '', d.zoneNr ?? '', d.partition, d.zone, deviceInfo(p, d).denumire, d.label, d.zoneType || def.detection || ''])
+      zones.push([
+        `${n++}.`,
+        ...(multiLevel ? [lvlName(d.levelId)] : []),
+        d.module ?? '',
+        d.zoneNr ?? '',
+        d.partition,
+        d.zone,
+        deviceInfo(p, d).denumire,
+        d.label,
+        d.zoneType || def.detection || '',
+      ])
     }
   }
   // camere pe zone
@@ -391,7 +419,7 @@ export function exportExcel(p: Project) {
   if (cams.length) {
     const byZone = new Map<string, string[]>()
     for (const d of cams.sort((a, b) => a.label.localeCompare(b.label, 'ro', { numeric: true }))) {
-      const z = d.zone || '(nespecificată)'
+      const z = (multiLevel ? lvlName(d.levelId) + ' – ' : '') + (d.zone || '(nespecificată)')
       byZone.set(z, [...(byZone.get(z) ?? []), d.label])
     }
     if (zones.length) zones.push([])
@@ -400,26 +428,36 @@ export function exportExcel(p: Project) {
     let n = 1
     for (const [z, labels] of byZone) zones.push([`${n++}.`, z, labels.join(', ')])
   }
-  XLSX.utils.book_append_sheet(wb, sheetOf(zones, [8, 30, 12, 10, 26, 40, 14, 16]), 'Zone protejate')
+  XLSX.utils.book_append_sheet(wb, sheetOf(zones, multiLevel ? [8, 14, 30, 12, 10, 26, 40, 14, 16] : [8, 30, 12, 10, 26, 40, 14, 16]), 'Zone protejate')
 
   // 3. Jurnal de cablu
   const byId = new Map(p.devices.map((d) => [d.id, d]))
-  const cab: Row[] = [['Nr. crt.', 'Cod cablu', 'Subsistem', 'De la', 'La', 'Tip cablu', 'Lungime [m]', 'Traseu / Observații']]
+  const cab: Row[] = [['Nr. crt.', 'Cod cablu', 'Subsistem', ...(multiLevel ? ['Nivel'] : []), 'De la', 'La', 'Tip cablu', 'Lungime [m]', 'Traseu / Observații']]
   let n = 1
   const cables = [...p.cables].sort((a, b) => a.code.localeCompare(b.code, 'ro', { numeric: true }))
   for (const c of cables) {
-    cab.push([n++, c.code, systemById(c.system).short, (c.from && byId.get(c.from)?.label) || '—', (c.to && byId.get(c.to)?.label) || '—', c.cableType, cableMeters(c, p) ?? '', c.notes])
+    // cablurile prin ghene: capătul de pe celălalt nivel; traseele comune de la ghenă nu se numără separat
+    const ends = cableEnds(p, c)
+    const host = riserHost(p, c)
+    const route = isRiserRoute(p, c)
+    const nivel = host ? `${lvlName(c.levelId)} → ${lvlName(host.levelId)}` : lvlName(c.levelId)
+    const label = (id?: string) => (id && byId.get(id)?.label) || (c.riser ? `ghenă ${c.riser}` : '—')
+    const notes = [c.notes, host ? `prin ghena ${c.riser} și traseul ${host.code}` : '', route ? `traseu comun de la ghena ${c.riser} (inclus în cablurile care trec prin ghenă)` : '']
+      .filter(Boolean)
+      .join('; ')
+    cab.push([n++, c.code, systemById(c.system).short, ...(multiLevel ? [nivel] : []), label(ends.from), label(ends.to), c.cableType, route ? '' : cableMeters(c, p) ?? '', notes])
   }
   if (cables.length) {
     const totals = new Map<string, number>()
     for (const c of cables) {
+      if (isRiserRoute(p, c)) continue
       const m = cableMeters(c, p)
       if (m != null) totals.set(c.cableType, (totals.get(c.cableType) ?? 0) + m)
     }
     cab.push([], ['', 'TOTAL pe tip de cablu'])
-    for (const [type, m] of totals) cab.push(['', '', '', '', '', type, m, ''])
+    for (const [type, m] of totals) cab.push(['', '', '', ...(multiLevel ? [''] : []), '', '', type, m, ''])
   }
-  XLSX.utils.book_append_sheet(wb, sheetOf(cab, [8, 11, 14, 10, 10, 28, 12, 34]), 'Jurnal cablu')
+  XLSX.utils.book_append_sheet(wb, sheetOf(cab, multiLevel ? [8, 11, 14, 18, 12, 12, 28, 12, 40] : [8, 11, 14, 12, 12, 28, 12, 40]), 'Jurnal cablu')
 
   // 4. Breviar de calcul
   const c = p.calc

@@ -14,7 +14,7 @@ import {
 } from 'docx'
 import type { CatalogItem, Project, SystemId } from './types'
 import { SYSTEMS, symbolByType } from './symbols'
-import { catalogItem, deviceInfo, deviceSystem } from './project'
+import { catalogItem, deviceInfo, deviceSystem, levelOf } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { isAccessory, kindName } from './catalog'
 import { ZONE_FUNCTIONALE } from './memoriuDefaults'
@@ -246,6 +246,7 @@ function fisaTable(it: CatalogItem) {
 export async function exportMemoriu(p: Project) {
   const m = p.memoriu
   const t = p.title
+  const multiLevel = p.levels.length > 1
   const used = SYSTEMS.filter((s) => p.devices.some((d) => deviceSystem(d) === s.id)).map((s) => s.id)
   const benef = v(t.beneficiar)
   const children: (Paragraph | Table)[] = []
@@ -749,7 +750,7 @@ export async function exportMemoriu(p: Project) {
           d.module || (sys === 'EFR' ? 'CAE' : 'CDI'),
           d.zoneNr ?? '',
           d.partition,
-          v(d.zone),
+          multiLevel && has(d.zone) ? `${levelOf(p, d.levelId).name} – ${d.zone.trim()}` : v(d.zone),
           deviceInfo(p, d).denumire,
           d.label,
           d.zoneType || symbolByType(d.type)?.detection || '',
@@ -762,7 +763,10 @@ export async function exportMemoriu(p: Project) {
   const cams = p.devices.filter((d) => symbolByType(d.type)?.camera).sort((a, b) => a.label.localeCompare(b.label, 'ro', { numeric: true }))
   if (cams.length) {
     const byZone = new Map<string, string[]>()
-    for (const d of cams) byZone.set(d.zone.trim(), [...(byZone.get(d.zone.trim()) ?? []), d.label])
+    for (const d of cams) {
+      const z = d.zone.trim() ? (multiLevel ? `${levelOf(p, d.levelId).name} – ${d.zone.trim()}` : d.zone.trim()) : ''
+      byZone.set(z, [...(byZone.get(z) ?? []), d.label])
+    }
     add(
       P('Subsistemele TVCI implementate supraveghează următoarele zone:'),
       table(

@@ -31,7 +31,8 @@ export interface Device {
 }
 
 /** Element de arhitectură desenat manual (schiță): perete, ușă, fereastră, text încăpere, cotă */
-export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim'
+/** riser = trecere verticală între niveluri (ghenă); același nume pe niveluri diferite = aceeași ghenă */
+export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim' | 'riser'
 
 export interface ArchElement {
   id: string
@@ -70,6 +71,8 @@ export interface Cable {
    * (ex. două camere pe același jgheab până la switch)
    */
   via?: { cableId: string; end: 'from' | 'to' }
+  /** Capătul fără echipament se află la trecerea verticală (ghena) cu acest nume */
+  riser?: string
   /** Lungime introdusă manual (m); dacă lipsește, se calculează din scară */
   lengthOverride?: number | null
   notes: string
@@ -226,6 +229,8 @@ export interface Level {
   /** Pixeli de plan per metru, din calibrarea scării */
   pxPerMeter: number | null
   symbolSize: number
+  /** Înălțimea nivelului (m), pentru lungimea cablurilor care trec prin ghene între niveluri */
+  heightM?: number
 }
 
 export interface Sheet {
@@ -275,7 +280,7 @@ export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
 /** Element de arhitectură nou (id-ul și nivelul se completează la adăugare) */
 export type NewArch = Omit<ArchElement, 'id' | 'levelId'>
 
-export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim'
+export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim' | 'riser'
 
 export type Tool =
   | { kind: 'select' }

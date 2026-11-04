@@ -1,6 +1,6 @@
 import type { Cable, Device, Project, SystemId } from './types'
 import { symbolByType } from './symbols'
-import { deviceSystem } from './project'
+import { deviceSystem, cableEnds } from './project'
 
 /**
  * Schema bloc a unui sistem, generată automat din echipamente și cabluri:
@@ -64,9 +64,11 @@ function buildForest(p: Project, system: SystemId): BNode[] {
   const byId = new Map(devs.map((d) => [d.id, d]))
   const adj = new Map<string, { other: string; cable: Cable }[]>()
   for (const c of p.cables) {
-    if (!c.from || !c.to || !ids.has(c.from) || !ids.has(c.to)) continue
-    adj.set(c.from, [...(adj.get(c.from) ?? []), { other: c.to, cable: c }])
-    adj.set(c.to, [...(adj.get(c.to) ?? []), { other: c.from, cable: c }])
+    // capetele logice: cablurile prin ghene se leagă de echipamentul de pe celălalt nivel
+    const { from, to } = cableEnds(p, c)
+    if (!from || !to || !ids.has(from) || !ids.has(to)) continue
+    adj.set(from, [...(adj.get(from) ?? []), { other: to, cable: c }])
+    adj.set(to, [...(adj.get(to) ?? []), { other: from, cable: c }])
   }
   const visited = new Set<string>()
 

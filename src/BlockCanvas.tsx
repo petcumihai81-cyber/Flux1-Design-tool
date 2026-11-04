@@ -5,7 +5,7 @@ import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Diagram, DiagramEdge, DiagramNode, Project, Selection, Sheet } from './types'
 import { SYSTEMS, symbolImage, systemById } from './symbols'
 import { NODE_H, NODE_W, blockLayout, nodeTexts } from './blockLayout'
-import { deviceInfo, uid } from './project'
+import { cableEnds, deviceInfo, uid } from './project'
 import { GRID, diagramBounds, materialize, nodeAt, pruneDiagram, route, snap, unplacedDevices } from './diagram'
 
 interface Props {
@@ -105,7 +105,10 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   /** Eticheta implicită a unei legături: cablul desenat pe plan între cele două echipamente */
   const cableLabel = (a?: DiagramNode, b?: DiagramNode) => {
     if (!a?.deviceId || !b?.deviceId) return ''
-    const c = project.cables.find((x) => (x.from === a.deviceId && x.to === b.deviceId) || (x.from === b.deviceId && x.to === a.deviceId))
+    const c = project.cables.find((x) => {
+      const e = cableEnds(project, x)
+      return (e.from === a.deviceId && e.to === b.deviceId) || (e.from === b.deviceId && e.to === a.deviceId)
+    })
     return c ? `${c.code} · ${c.cableType}` : ''
   }
 

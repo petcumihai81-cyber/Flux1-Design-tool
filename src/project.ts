@@ -198,11 +198,68 @@ export function cablePixels(c: Cable, p: Project): number {
   return px
 }
 
+// ---------------------------------------------------------------- treceri între niveluri (ghene)
+
+/** Distanța pe verticală între două niveluri (m): suma înălțimilor nivelurilor dintre ele (implicit 3 m) */
+export function verticalMeters(p: Project, a: string, b: string): number {
+  const ia = p.levels.findIndex((l) => l.id === a)
+  const ib = p.levels.findIndex((l) => l.id === b)
+  if (ia < 0 || ib < 0 || ia === ib) return 0
+  let m = 0
+  for (let i = Math.min(ia, ib); i < Math.max(ia, ib); i++) m += p.levels[i].heightM ?? 3
+  return m
+}
+
+/** Echipamentul de la capătul unui cablu care se termină la o ghenă (celălalt capăt) */
+function riserDevice(p: Project, c: Cable): Device | undefined {
+  return p.devices.find((d) => d.id === c.from) ?? p.devices.find((d) => d.id === c.to)
+}
+
+const isHubDevice = (d?: Device) => !!d && !!symbolByType(d.type)?.hub
+
+/**
+ * Pentru un cablu terminat la o ghenă, cablul „de continuare” de pe alt nivel: același sistem, aceeași ghenă,
+ * cu un echipament central (switch, NVR, centrală...) la celălalt capăt. Cablul de continuare e traseul comun.
+ */
+export function riserHost(p: Project, c: Cable): Cable | undefined {
+  if (!c.riser) return undefined
+  const own = riserDevice(p, c)
+  if (!own) return undefined
+  const ownIdx = p.levels.findIndex((l) => l.id === c.levelId)
+  return p.cables.find((h) => {
+    if (h.id === c.id || h.riser !== c.riser || h.system !== c.system || h.levelId === c.levelId) return false
+    const other = riserDevice(p, h)
+    if (!other) return false
+    // ramura e echipamentul obișnuit; traseul comun duce la echipamentul central (la două centrale: cel de pe nivelul inferior)
+    if (isHubDevice(own) && !isHubDevice(other)) return false
+    if (isHubDevice(own) && isHubDevice(other)) return p.levels.findIndex((l) => l.id === h.levelId) < ownIdx
+    return isHubDevice(other) || p.levels.findIndex((l) => l.id === h.levelId) < ownIdx
+  })
+}
+
+/** Cablul e doar traseul comun (ghenă → echipament central) al altor cabluri: nu se numără separat în jurnal */
+export const isRiserRoute = (p: Project, c: Cable) => !!c.riser && p.cables.some((x) => x.id !== c.id && riserHost(p, x)?.id === c.id)
+
+/** Capetele „logice” ale unui cablu: la cablurile care trec printr-o ghenă, capătul de la ghenă devine echipamentul de pe celălalt nivel */
+export function cableEnds(p: Project, c: Cable): { from?: string; to?: string } {
+  const host = riserHost(p, c)
+  if (!host) return { from: c.from, to: c.to }
+  const far = riserDevice(p, host)?.id
+  return p.devices.some((d) => d.id === c.from) ? { from: c.from, to: far } : { from: far, to: c.to }
+}
+
 export function cableMeters(c: Cable, p: Project): number | null {
   if (c.lengthOverride != null && !Number.isNaN(c.lengthOverride)) return c.lengthOverride
   const ppm = levelOf(p, c.levelId).pxPerMeter
   if (!ppm) return null
-  const raw = cablePixels(c, p) / ppm
+  let raw = cablePixels(c, p) / ppm
+  // trecere prin ghenă: + coborârea / urcarea între niveluri + traseul comun de pe celălalt nivel
+  const host = riserHost(p, c)
+  if (host) {
+    const hppm = levelOf(p, host.levelId).pxPerMeter
+    if (!hppm) return null
+    raw += verticalMeters(p, c.levelId, host.levelId) + cablePixels(host, p) / hppm
+  }
   return Math.ceil(raw * (1 + p.cableReservePct / 100))
 }
 

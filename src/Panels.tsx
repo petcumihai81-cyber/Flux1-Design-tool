@@ -4,7 +4,7 @@ import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
-import { cableMeters, cablePixels, catalogItem, deviceSystem, levelOf } from './project'
+import { cableEnds, cableMeters, cablePixels, catalogItem, deviceSystem, isRiserRoute, levelOf, riserHost, verticalMeters } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 // ------------------------------------------------------------------ Paleta de simboluri
@@ -434,6 +434,18 @@ export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; 
         </>
       )}
       {a.kind === 'dim' && <p className="hint">Lungime: {fmtM(len)}. Trage de capete pentru a o modifica.</p>}
+      {a.kind === 'riser' && (
+        <>
+          <Field label="Nume ghenă">
+            <input value={a.text ?? ''} onChange={(e) => onChange({ text: e.target.value })} />
+          </Field>
+          <p className="hint">
+            Pune o trecere cu același nume pe fiecare nivel prin care trec cablurile. Un cablu terminat la ghenă continuă pe celălalt nivel, pe
+            traseul desenat acolo de la ghenă până la echipamentul central (switch, NVR, centrală). Lungimea include și înălțimea dintre niveluri
+            (tab-ul Proiect → Nivel).
+          </p>
+        </>
+      )}
       <button className="danger" onClick={onDelete}>
         Șterge (Del)
       </button>
@@ -466,6 +478,10 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
   const cppm = levelOf(project, c.levelId).pxPerMeter
   const raw = cppm ? cablePixels(c, project) / cppm : null
   const via = c.via ? project.cables.find((x) => x.id === c.via!.cableId) : undefined
+  const host = riserHost(project, c)
+  const route = isRiserRoute(project, c)
+  const hostLevel = host ? levelOf(project, host.levelId) : undefined
+  const hostEnd = host ? cableEnds(project, c) : undefined
   const devOptions = [...project.devices]
     .sort((a, b) => Number(deviceSystem(b) === c.system) - Number(deviceSystem(a) === c.system) || a.label.localeCompare(b.label, 'ro', { numeric: true }))
     .map((d) => (
@@ -499,6 +515,26 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
           </select>
         </Field>
       </div>
+      {c.riser && (
+        <p className={host || route ? 'hint' : 'warn'}>
+          {host ? (
+            <>
+              Trece prin ghena <b>{c.riser}</b> pe nivelul <b>{hostLevel?.name}</b> și continuă pe traseul <b>{host.code}</b> până la{' '}
+              <b>{byId.get(c.from === hostEnd?.from ? hostEnd?.to ?? '' : hostEnd?.from ?? '')?.label}</b>; lungimea include coborârea / urcarea
+              între niveluri ({fmtM(verticalMeters(project, c.levelId, host.levelId))}) și traseul comun.
+            </>
+          ) : route ? (
+            <>
+              Traseu comun de la ghena <b>{c.riser}</b>: e inclus în lungimea cablurilor care vin prin ghenă (nu se numără separat în jurnal).
+            </>
+          ) : (
+            <>
+              Capăt la ghena <b>{c.riser}</b>, dar pe alt nivel nu există încă traseul de la aceeași ghenă până la un echipament central (switch,
+              NVR, centrală). Desenează-l pe nivelul unde se află echipamentul.
+            </>
+          )}
+        </p>
+      )}
       {via && (
         <p className="hint">
           Ramificație pe cablul <b>{via.code}</b>: merge pe același traseu până la {(c.to && byId.get(c.to)?.label) || 'capătul lui'}; lungimea include porțiunea
@@ -535,9 +571,18 @@ export function CableProps({ c, project, onChange, onDelete }: { c: Cable; proje
         </div>
       </Field>
       <p className="hint">
-        {raw != null
-          ? `Măsurat pe plan: ${raw.toFixed(1)} m + ${project.cableReservePct}% rezervă = ${Math.ceil(raw * (1 + project.cableReservePct / 100))} m. Completează doar pentru a suprascrie.`
-          : 'Calibrează scara pentru calcul automat al lungimii.'}
+        {raw == null
+          ? 'Calibrează scara pentru calcul automat al lungimii.'
+          : (() => {
+              const r = project.cableReservePct
+              if (!host) return `Măsurat pe plan: ${raw.toFixed(1)} m + ${r}% rezervă = ${Math.ceil(raw * (1 + r / 100))} m. Completează doar pentru a suprascrie.`
+              const hppm = levelOf(project, host.levelId).pxPerMeter
+              if (!hppm) return `Calibrează scara nivelului ${levelOf(project, host.levelId).name} pentru lungimea totală.`
+              const vert = verticalMeters(project, c.levelId, host.levelId)
+              const common = cablePixels(host, project) / hppm
+              const total = raw + vert + common
+              return `Măsurat: ${raw.toFixed(1)} m pe ${levelOf(project, c.levelId).name} + ${vert.toFixed(1)} m pe verticală + ${common.toFixed(1)} m traseu comun = ${total.toFixed(1)} m + ${r}% rezervă = ${Math.ceil(total * (1 + r / 100))} m.`
+            })()}
       </p>
       <Field label="Traseu / observații">
         <textarea rows={2} value={c.notes} placeholder="ex. Tavan fals, tub flexibil Ø20" onChange={(e) => onChange({ notes: e.target.value })} />
@@ -696,6 +741,9 @@ export function LevelPanel({
           Scoate fundalul (pagină albă)
         </button>
       )}
+      <Field label="Înălțime nivel (m) — pentru cablurile prin ghene">
+        <Num value={level.heightM ?? 3} min={0} max={50} step={0.1} onChange={(v) => onChange({ heightM: Math.max(0, v) })} />
+      </Field>
       <Field label="Scară">
         <div className="inline">
           <span className={level.pxPerMeter ? 'ok' : 'warn'}>{level.pxPerMeter ? `${level.pxPerMeter.toFixed(2)} px/m` : 'necalibrată'}</span>

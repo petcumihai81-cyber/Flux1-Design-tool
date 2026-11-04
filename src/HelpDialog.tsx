@@ -99,7 +99,15 @@ const SECTIONS: Section[] = [
       </>,
       <>În dreapta: cod, „De la” / „La” (din listă), tip cablu (propus automat după echipament), lungime calculată cu rezervă, traseu / observații.</>,
     ],
-    tips: [<>În timpul desenării: <K>Backspace</K> șterge ultimul punct, <K>Enter</K> sau dublu-click termină cablul liber, <K>Esc</K> anulează.</>],
+    tips: [
+      <>În timpul desenării: <K>Backspace</K> șterge ultimul punct, <K>Enter</K> sau dublu-click termină cablul liber, <K>Esc</K> anulează.</>,
+      <>
+        <B>Cabluri între etaje</B>: pune pe fiecare nivel o <B>Trecere între niveluri</B> (din Arhitectură) cu același nume, de ex. G1. La etaj
+        tragi cablurile de la echipamente până la G1; la nivelul cu switch-ul / NVR-ul / centrala tragi o singură dată traseul de la G1 până la
+        echipament. Aplicația le leagă: schema bloc arată legătura, iar lungimea din jurnal include bucata de la etaj, înălțimea nivelului
+        (tab-ul Proiect → Nivel, implicit 3 m) și traseul comun.
+      </>,
+    ],
   },
   {
     id: 'arhitectura',

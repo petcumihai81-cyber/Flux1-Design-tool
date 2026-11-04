@@ -24,7 +24,7 @@ interface Props {
   fitSignal: number
   onSelect: (s: Selection) => void
   onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
-  onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
+  onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }, riser?: string) => void
   onScaleMeasured: (pixels: number) => void
   onAddArch: (el: NewArch) => void
   /** Selecția multiplă */
@@ -90,7 +90,7 @@ export default function PlanCanvas(props: Props) {
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
   const [cursor, setCursor] = useState<Pt | null>(null)
-  const [draft, setDraft] = useState<{ points: number[]; from?: string }>({ points: [] })
+  const [draft, setDraft] = useState<{ points: number[]; from?: string; riser?: string }>({ points: [] })
   const [scalePts, setScalePts] = useState<Pt[]>([])
   /** Peretele sau cota în curs de desenare */
   const [archDraft, setArchDraft] = useState<number[]>([])
@@ -228,7 +228,22 @@ export default function PlanCanvas(props: Props) {
     return c.to ? 'to' : 'from'
   }
 
-  function finishDraft(to?: string, extra?: number[], via?: { cableId: string; end: 'from' | 'to' }) {
+  /** Ghena (trecerea între niveluri) de lângă punct, pe nivelul curent */
+  const riserAt = (pt: Pt) => {
+    let best: (typeof levelArch)[number] | undefined
+    let bestD = S * 0.6
+    for (const a of levelArch) {
+      if (a.kind !== 'riser' || a.x == null || a.y == null) continue
+      const dd = Math.hypot(a.x - pt.x, a.y - pt.y)
+      if (dd < bestD) {
+        best = a
+        bestD = dd
+      }
+    }
+    return best
+  }
+
+  function finishDraft(to?: string, extra?: number[], via?: { cableId: string; end: 'from' | 'to' }, riserEnd?: string) {
     const pts = [...draft.points, ...(extra ?? [])]
     // elimină punctele consecutive identice (ex. de la dublu-click)
     const clean: number[] = []
@@ -237,7 +252,7 @@ export default function PlanCanvas(props: Props) {
       if (n && Math.hypot(clean[n - 2] - pts[i], clean[n - 1] - pts[i + 1]) < 0.5) continue
       clean.push(pts[i], pts[i + 1])
     }
-    if (clean.length >= 4) onAddCable(clean, draft.from, to, via)
+    if (clean.length >= 4) onAddCable(clean, draft.from, to, via, riserEnd ?? draft.riser)
     setDraft({ points: [] })
   }
 
@@ -288,6 +303,15 @@ export default function PlanCanvas(props: Props) {
             rotation: w?.angle ?? 0,
             width: tool.arch === 'door' ? 0.9 : 1.2,
           })
+        } else if (tool.arch === 'riser') {
+          // nume propus: o ghenă existentă pe alt nivel care lipsește de aici, altfel următoarea liberă (G1, G2...)
+          const here = new Set(levelArch.filter((a) => a.kind === 'riser').map((a) => a.text))
+          const elsewhere = [...new Set(project.arch.filter((a) => a.kind === 'riser' && a.levelId !== level.id).map((a) => a.text ?? ''))].filter((n) => n && !here.has(n))
+          let n = 1
+          while (here.has(`G${n}`)) n++
+          const suggestion = elsewhere[0] ?? `G${n}`
+          const name = window.prompt('Numele trecerii între niveluri (același nume pe fiecare nivel):', suggestion)
+          if (name) onAddArch({ kind: 'riser', x: pt.x, y: pt.y, text: name.trim(), rotation: 0 })
         } else if (tool.arch === 'label') {
           const text = window.prompt('Numele încăperii:', 'Birou')
           // înălțimea textului: cel puțin 0,45 m, dar nu mai mică decât jumătate din simbol, ca să fie citibil
@@ -297,10 +321,15 @@ export default function PlanCanvas(props: Props) {
       }
       case 'cable': {
         const dev = deviceAt(pt)
+        const rs = !dev ? riserAt(pt) : undefined
         if (!draft.points.length) {
-          setDraft(dev ? { points: [dev.x, dev.y], from: dev.id } : { points: [pt.x, pt.y] })
+          // începutul cablului: pe un echipament sau la o ghenă (traseul de continuare de pe acest nivel)
+          setDraft(dev ? { points: [dev.x, dev.y], from: dev.id } : rs ? { points: [rs.x!, rs.y!], riser: rs.text } : { points: [pt.x, pt.y] })
         } else if (dev && dev.id !== draft.from) {
           finishDraft(dev.id, [dev.x, dev.y])
+        } else if (rs && !draft.riser) {
+          // capătul cablului la ghenă: continuă pe alt nivel
+          finishDraft(undefined, [rs.x!, rs.y!], undefined, rs.text)
         } else if (!dev && cableAt(pt)) {
           // ramificație pe un cablu existent: merge pe traseul lui până la echipamentul central
           const hit = cableAt(pt)!
@@ -1013,6 +1042,9 @@ export default function PlanCanvas(props: Props) {
           )}
           {tool.kind === 'arch' && tool.arch === 'label' && <>Click pe plan pentru a adăuga numele unei încăperi. Esc = gata.</>}
           {tool.kind === 'arch' && tool.arch === 'dim' && <>Click pe capetele cotei; lungimea se calculează singură. Esc = gata.</>}
+          {tool.kind === 'arch' && tool.arch === 'riser' && (
+            <>Click pentru a pune ghena (trecerea între niveluri). Pune-o cu același nume pe fiecare nivel prin care trec cablurile. Esc = gata.</>
+          )}
           {tool.kind === 'cable' && (
             <>
               Click pe echipamentul de start, apoi puncte de traseu; click pe echipamentul final pentru a termina — sau pe alt cablu, pentru o

@@ -51,6 +51,7 @@ Principii:
 - **Modificările trec prin istoric**: `h.commit(p => ...)`, nu se modifică starea direct.
 - **Textul din PDF se desenează pe canvas** (nu cu fonturile jsPDF), ca diacriticele să apară corect.
 - **Ramificații de cablu** (`Cable.via`): un cablu terminat pe alt cablu merge pe traseul acestuia până la capătul cu echipament central; `to` = acel echipament, iar lungimea (`cablePixels`) include porțiunea comună.
+- **Ghene / treceri între niveluri** (`ArchElement` cu `kind: 'riser'`, `Cable.riser`): un cablu terminat la ghenă pe un nivel continuă pe cablul de pe alt nivel care pleacă de la aceeași ghenă (același nume, același sistem) spre un echipament central (`riserHost`); capetele logice vin din `cableEnds`, lungimea adaugă `verticalMeters` (înălțimile nivelurilor, implicit 3 m) și traseul comun, iar traseul comun (`isRiserRoute`) nu se numără separat în jurnal.
 - În Konva nu se folosește `opacity` pe forme mari (conurile camerelor): la export apar tăiate. Se folosesc culori `rgba(...)`.
 
 ## Convenții de proiectare (din proiectele reale ale utilizatorului)
