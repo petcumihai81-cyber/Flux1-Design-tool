@@ -6,9 +6,11 @@ import type { Diagram, DiagramEdge, DiagramNode, Project, Selection, Sheet } fro
 import { SYSTEMS, onSymbolImage, systemById } from './symbols'
 import { deviceImage } from './symbolLibrary'
 import { NODE_H, NODE_W, blockLayout, nodeTexts } from './blockLayout'
-import { cableEnds, deviceInfo, uid } from './project'
+import { cableEnds, deviceInfo, drawAreaMm, uid } from './project'
 import { GRID, alignNodes, diagramBounds, distributeNodes, edgePath, materialize, moveSegment, nodeAt, pruneDiagram, snap, unplacedDevices } from './diagram'
 import type { AlignMode } from './diagram'
+import { ZoomBar } from './ZoomBar'
+import { SCREEN_PX_PER_MM, stepPercent, useZoomKeys } from './zoom'
 
 interface Props {
   project: Project
@@ -66,12 +68,30 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
     return () => ro.disconnect()
   }, [])
 
+  const [fitTick, setFitTick] = useState(0)
   useEffect(() => {
     const b = bounds
     const scale = Math.min(size.width / b.width, size.height / b.height, 1.5) * 0.92
     setView({ scale, x: (size.width - b.width * scale) / 2 - b.x * scale, y: (size.height - b.height * scale) / 2 - b.y * scale })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitSignal, sheet.id, size.width, size.height, !!diagram])
+  }, [fitSignal, fitTick, sheet.id, size.width, size.height, !!diagram])
+
+  // zoom: 100% = mărimea schemei pe planșa tipărită (încadrată în zona de desen, ca la export)
+  const [aw, ah] = drawAreaMm(sheet)
+  const fullScale = Math.min(aw / bounds.width, ah / bounds.height) * SCREEN_PX_PER_MM
+  const percent = (view.scale / fullScale) * 100
+  const zoomAtCenter = (scale: number) => {
+    const sc = Math.min(Math.max(scale, 0.05), 10)
+    const cx = size.width / 2
+    const cy = size.height / 2
+    setView((v) => {
+      const wx = (cx - v.x) / v.scale
+      const wy = (cy - v.y) / v.scale
+      return { scale: sc, x: cx - wx * sc, y: cy - wy * sc }
+    })
+  }
+  const fitAll = () => setFitTick((n) => n + 1)
+  useZoomKeys({ step: (dir) => zoomAtCenter((stepPercent(percent, dir) / 100) * fullScale), fit: fitAll, actual: () => zoomAtCenter(fullScale) })
 
   // ---------------------------------------------------------------- modificări schemă
 
@@ -700,6 +720,26 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
         </div>
       )}
 
+      <ZoomBar
+        percent={percent}
+        onPercent={(pc) => zoomAtCenter((pc / 100) * fullScale)}
+        onFit={fitAll}
+        onSelection={
+          diagram && (multi.length || sel?.kind === 'node')
+            ? () => {
+                const ids = new Set(multi.length ? multi : [sel!.id])
+                const ns = diagram.nodes.filter((n) => ids.has(n.id))
+                if (!ns.length) return
+                const x1 = Math.min(...ns.map((n) => n.x)) - 60
+                const y1 = Math.min(...ns.map((n) => n.y)) - 60
+                const x2 = Math.max(...ns.map((n) => n.x + n.w)) + 60
+                const y2 = Math.max(...ns.map((n) => n.y + n.h)) + 60
+                const sc = Math.min(size.width / (x2 - x1), size.height / (y2 - y1), fullScale * 4) * 0.95
+                setView({ scale: sc, x: (size.width - (x2 - x1) * sc) / 2 - x1 * sc, y: (size.height - (y2 - y1) * sc) / 2 - y1 * sc })
+              }
+            : undefined
+        }
+      />
       <div className="canvas-hint">
         {!diagram
           ? 'Schema se actualizează automat din plan. Apasă „Editează schema” pentru a muta liber blocurile și a adăuga legături, texte și chenare.'

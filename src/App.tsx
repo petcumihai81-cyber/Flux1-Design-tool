@@ -1382,6 +1382,9 @@ export default function App() {
                     <li><kbd>Ctrl+D</kbd> duplicare · <kbd>Del</kbd> ștergere</li>
                     <li><kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> anulare / refacere</li>
                     <li>Rotiță mouse = zoom · trage pe fundal = deplasare</li>
+                    <li>
+                      <kbd>Ctrl +</kbd> / <kbd>Ctrl −</kbd> zoom · <kbd>Ctrl 0</kbd> încadrare · <kbd>Ctrl 1</kbd> 100%
+                    </li>
                   </ul>
                 </div>
               ))}
