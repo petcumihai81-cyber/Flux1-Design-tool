@@ -14,6 +14,8 @@ import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
 import { ArchProps, CableProps, DeviceProps, GroupPanel, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
 import { loadBackground } from './background'
+import type { PdfDoc } from './background'
+import { PdfPagePicker } from './PdfPagePicker'
 import { readDxf } from './dxfImport'
 import type { DxfDrawing } from './dxfImport'
 import { DxfImportDialog } from './DxfImportDialog'
@@ -551,6 +553,9 @@ export default function App() {
   /** Nivelul pe care se încarcă următorul plan de fundal (implicit: nivelul planșei curente) */
   const bgTarget = useRef<string | null>(null)
 
+  /** PDF cu mai multe pagini: alegerea paginii */
+  const [pdfPick, setPdfPick] = useState<{ doc: PdfDoc; fileName: string; resolve: (page: number | null) => void } | null>(null)
+
   /** Planul DXF citit, în așteptarea alegerii straturilor și a unității */
   const [dxfImport, setDxfImport] = useState<{ drawing: DxfDrawing; fileName: string; targetId: string } | null>(null)
 
@@ -579,9 +584,12 @@ export default function App() {
     }
     setBusy('Se încarcă planul…')
     try {
-      const bg = await loadBackground(file, (count) => {
-        const a = window.prompt(`PDF-ul are ${count} pagini. Ce pagină încarc?`, '1')
-        return a == null ? null : parseInt(a, 10) || 1
+      const bg = await loadBackground(file, async (doc) => {
+        setBusy(null)
+        const page = await new Promise<number | null>((resolve) => setPdfPick({ doc, fileName: file.name, resolve }))
+        setPdfPick(null)
+        if (page != null) setBusy('Se încarcă planul…')
+        return page
       })
       if (!bg) return
       h.commit((p) => ({
@@ -1245,6 +1253,7 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {helpOpen && <HelpDialog onClose={closeHelp} />}
+      {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}
       {dxfImport && (
         <DxfImportDialog
           drawing={dxfImport.drawing}

@@ -25,7 +25,7 @@ const SECTIONS: Section[] = [
     img: 'help/01-scara.webp',
     steps: [
       <>
-        Apasă <B>Încarcă plan</B> și alege planul clădirii (PDF, imagine sau DXF). La un PDF cu mai multe pagini, alegi pagina. Un plan DXF
+        Apasă <B>Încarcă plan</B> și alege planul clădirii (PDF, imagine sau DXF). La un PDF cu mai multe pagini apar miniaturile paginilor (cu formatul fiecăreia): click pe planul dorit și se încarcă doar pagina aceea. Un plan DXF
         vine deja calibrat — sari peste pasul următor.
       </>,
       <>
