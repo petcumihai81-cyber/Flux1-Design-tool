@@ -235,6 +235,72 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
               ),
             ),
           )}
+      {/* uși / ferestre selectate: mânere la capete, care alunecă de-a lungul peretelui */}
+      {interactive &&
+        arch
+          .filter((a) => a.id === selectedId && (a.kind === 'door' || a.kind === 'window') && a.x != null && a.y != null)
+          .map((a) => {
+            const width = a.width ?? (a.kind === 'door' ? 0.9 : 1.2)
+            const rot = ((a.rotation ?? 0) * Math.PI) / 180
+            const ux = Math.cos(rot)
+            const uy = Math.sin(rot)
+            const half = (width * ppm) / 2
+            const ends = [-1, 1].map((sgn) => ({ sgn, x: a.x! + ux * half * sgn, y: a.y! + uy * half * sgn }))
+            return (
+              <Group key={'gw' + a.id}>
+                {ends.map((end) => {
+                  const fixed = ends.find((e) => e.sgn !== end.sgn)!
+                  return (
+                    <Rect
+                      key={end.sgn}
+                      x={end.x}
+                      y={end.y}
+                      width={11 * k}
+                      height={11 * k}
+                      offsetX={5.5 * k}
+                      offsetY={5.5 * k}
+                      rotation={a.rotation ?? 0}
+                      fill="#1e88e5"
+                      stroke="#fff"
+                      strokeWidth={1.5 * k}
+                      draggable
+                      onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = 'ew-resize')}
+                      onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+                      onDragStart={(e) => {
+                        e.cancelBubble = true
+                        checkpoint()
+                      }}
+                      onDragMove={(e) => {
+                        e.cancelBubble = true
+                        // proiecția pe direcția peretelui; capătul opus rămâne fix
+                        const along = (e.target.x() - fixed.x) * ux * end.sgn + (e.target.y() - fixed.y) * uy * end.sgn
+                        const w = Math.max(0.3, Math.round((along / ppm) * 20) / 20)
+                        const cx = fixed.x + ux * end.sgn * ((w * ppm) / 2)
+                        const cy = fixed.y + uy * end.sgn * ((w * ppm) / 2)
+                        patch(a.id, { width: w, x: cx, y: cy })
+                      }}
+                      onDragEnd={(e) => {
+                        e.cancelBubble = true
+                      }}
+                    />
+                  )
+                })}
+                <Text
+                  x={a.x! - uy * 0.45 * ppm}
+                  y={a.y! + ux * 0.45 * ppm}
+                  text={fmtM(width)}
+                  fontSize={13 * k}
+                  fontStyle="bold"
+                  fill="#1565c0"
+                  width={120 * k}
+                  offsetX={60 * k}
+                  offsetY={6 * k}
+                  align="center"
+                  listening={false}
+                />
+              </Group>
+            )
+          })}
       {/* mâner de redimensionare pentru textul selectat (colțul din dreapta-jos) */}
       {interactive &&
         arch

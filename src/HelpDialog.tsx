@@ -116,8 +116,8 @@ const SECTIONS: Section[] = [
         existenți (<K>Shift</K> = liber). Click pe primul punct închide conturul; dublu-click sau <K>Enter</K> termină.
       </>,
       <>
-        <B>Ușă</B> și <B>Fereastră</B>: click pe un perete — se așază pe el, aliniate. Din panoul din dreapta: lățimea golului, „Întoarce sensul”,
-        „Schimbă balamaua”.
+        <B>Ușă</B> și <B>Fereastră</B>: click pe un perete — se așază pe el, aliniate. Lățimea se schimbă trăgând de pătratele albastre de la
+        capete (alunecă pe direcția peretelui, rotunjit la 5 cm) sau din panoul din dreapta; tot acolo „Întoarce sensul” și „Schimbă balamaua”.
       </>,
       <>
         <B>Text încăpere</B> pentru numele spațiilor și <B>Cotă</B> (două click-uri; lungimea se calculează singură). Textul se editează cu
