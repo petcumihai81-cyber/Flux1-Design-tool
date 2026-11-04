@@ -210,17 +210,70 @@ export function symbolSvg(def: SymbolDef, color?: string, noGlyph = false): stri
   return `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 40 40">${body}</svg>`
 }
 
-export const symbolDataUrl = (def: SymbolDef, noGlyph = false): string =>
-  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(symbolSvg(def, undefined, noGlyph))
+export const symbolDataUrl = (def: SymbolDef, noGlyph = false, color?: string): string =>
+  'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(symbolSvg(def, color, noGlyph))
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>()
 const loadedImages = new Map<string, HTMLImageElement>()
+const listeners = new Set<() => void>()
 
-/** Imaginea simbolului, dacă e deja încărcată (vezi preloadSymbols) */
-export const symbolImage = (type: string) => loadedImages.get(type)
+/** Anunță când s-a încărcat o imagine nouă de simbol (culori / simboluri personalizate se încarcă la cerere) */
+export function onSymbolImage(f: () => void) {
+  listeners.add(f)
+  return () => {
+    listeners.delete(f)
+  }
+}
+
+/** Încarcă (cu cache) o imagine de simbol după cheie; `make` dă sursa (data URL), eventual asincron */
+export function loadCachedImage(key: string, make: () => string | Promise<string>): Promise<HTMLImageElement> {
+  let p = imageCache.get(key)
+  if (!p) {
+    p = Promise.resolve(make()).then(
+      (src) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => {
+            loadedImages.set(key, img)
+            resolve(img)
+            listeners.forEach((f) => f())
+          }
+          img.onerror = reject
+          img.src = src
+        }),
+    )
+    p.catch(() => imageCache.delete(key))
+    imageCache.set(key, p)
+  }
+  return p
+}
+
+/** Imaginea din cache, dacă e încărcată; altfel pornește încărcarea și întoarce undefined (vezi onSymbolImage) */
+export function cachedImage(key: string, make: () => string | Promise<string>): HTMLImageElement | undefined {
+  const img = loadedImages.get(key)
+  if (img) return img
+  loadCachedImage(key, make).catch(() => null)
+  return undefined
+}
+
+const svgUrl = (svg: string) => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg)
+
+/** Cheia de cache a unui simbol standard: tip, culoare (dacă nu e cea a sistemului), doar contur */
+function stdKey(type: string, color?: string, shapeOnly = false) {
+  const def = symbolByType(type)
+  const own = color && def && color.toLowerCase() !== systemById(def.system).color.toLowerCase() ? '|' + color.toLowerCase() : ''
+  return type + (shapeOnly ? '|contur' : '') + own
+}
+
+/** Imaginea simbolului (culoarea sistemului sau una proprie), dacă e deja încărcată */
+export const symbolImage = (type: string, color?: string, shapeOnly = false) => {
+  const def = symbolByType(type)
+  if (!def) return undefined
+  return cachedImage(stdKey(type, color, shapeOnly), () => svgUrl(symbolSvg(def, color, shapeOnly)))
+}
 
 /** Doar conturul simbolului, fără text (pentru rotire cu textul păstrat drept) */
-export const symbolShapeImage = (type: string) => loadedImages.get(type + '|contur')
+export const symbolShapeImage = (type: string, color?: string) => symbolImage(type, color, true)
 
 export const preloadSymbols = () =>
   Promise.all(
@@ -230,25 +283,11 @@ export const preloadSymbols = () =>
     ]),
   )
 
-/** Încarcă (cu cache) imaginea unui simbol, pentru Konva și pentru export */
-export function loadSymbolImage(type: string, shapeOnly = false): Promise<HTMLImageElement> {
-  const key = shapeOnly ? type + '|contur' : type
-  let p = imageCache.get(key)
-  if (!p) {
-    const def = symbolByType(type)
-    if (!def) return Promise.reject(new Error('Simbol necunoscut: ' + type))
-    p = new Promise((resolve, reject) => {
-      const img = new Image()
-      img.onload = () => {
-        loadedImages.set(key, img)
-        resolve(img)
-      }
-      img.onerror = reject
-      img.src = symbolDataUrl(def, shapeOnly)
-    })
-    imageCache.set(key, p)
-  }
-  return p
+/** Încarcă (cu cache) imaginea unui simbol standard, pentru Konva și pentru export */
+export function loadSymbolImage(type: string, shapeOnly = false, color?: string): Promise<HTMLImageElement> {
+  const def = symbolByType(type)
+  if (!def) return Promise.reject(new Error('Simbol necunoscut: ' + type))
+  return loadCachedImage(stdKey(type, color, shapeOnly), () => svgUrl(symbolSvg(def, color, shapeOnly)))
 }
 
 /** Simbolurile care se pot oglindi: cele desenate cu orientare (nu camerele — direcția lor o dă conul — și nu cele simetrice cu text) */

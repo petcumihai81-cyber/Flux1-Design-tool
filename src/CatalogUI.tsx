@@ -4,6 +4,7 @@ import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './sym
 import { ACCESSORY_KINDS, SEED_CATALOG, isAccessory, itemSystem, kindName, newCatalogItem, parseSpecs, saveDefaultCatalog } from './catalog'
 import { batteryCalc, fmt, poeCalc, powerCalc, storageCalc } from './calc'
 import { uid } from './project'
+import { symbolThumb } from './symbolLibrary'
 
 // ------------------------------------------------------------------ câmpuri numerice
 
@@ -136,9 +137,14 @@ export function CatalogDialog({
                   </div>
                   {items.map((c) => {
                     const def = symbolByType(c.type)
+                    const csym = c.symbolId ? project.customSymbols.find((x) => x.id === c.symbolId) : undefined
                     return (
                       <button key={c.id} className={'cat-item' + (c.id === selId ? ' on' : '')} onClick={() => setSelId(c.id)}>
-                        {def ? <img src={symbolDataUrl(def)} alt="" /> : <span className="acc-ico">{kindName(c.type).slice(0, 3)}</span>}
+                        {def ? (
+                          <img src={csym ? symbolThumb(csym, csym.recolor ? systemById(def.system).color : undefined) : symbolDataUrl(def)} alt="" />
+                        ) : (
+                          <span className="acc-ico">{kindName(c.type).slice(0, 3)}</span>
+                        )}
                         <span>
                           <b>{c.model || '(fără model)'}</b>
                           <small>
@@ -194,6 +200,21 @@ export function CatalogDialog({
                     <TextField label="Prefix simbol" value={sel.prefix} placeholder={symbolByType(sel.type)?.prefix} onChange={(v) => patch({ prefix: v })} />
                   )}
                 </div>
+                {symbolByType(sel.type) && project.customSymbols.some((c) => c.base === sel.type) && (
+                  <label className="field">
+                    <span>Simbol pe plan</span>
+                    <select value={sel.symbolId ?? ''} onChange={(e) => patch({ symbolId: e.target.value || undefined })}>
+                      <option value="">Standard: {symbolByType(sel.type)!.name}</option>
+                      {project.customSymbols
+                        .filter((c) => c.base === sel.type)
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            Personalizat: {c.name}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                )}
                 <TextField label="Denumire (în liste)" value={sel.denumire} onChange={(v) => patch({ denumire: v })} />
                 <div className="row2">
                   <TextField label="Model" value={sel.model} onChange={(v) => patch({ model: v })} />
