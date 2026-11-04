@@ -8,9 +8,11 @@ import { groupBounds, itemsInRect, sameItem, snapshot, toggleItem, translateGrou
 import type { Item, Snapshot } from './group'
 import { fmtM, newWall, snapPoint, wallAt, wallVertices } from './arch'
 import { glyphLayout, onSymbolImage, symbolByType, systemById } from './symbols'
+import { ZoomBar } from './ZoomBar'
+import { SCREEN_PX_PER_MM, stepPercent, useZoomKeys } from './zoom'
 import { archLayer, layerLocked, layerVisible } from './layers'
 import { deviceColor, deviceImage } from './symbolLibrary'
-import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, UNCALIBRATED_PX_PER_M } from './project'
+import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, paperMmPerPx, UNCALIBRATED_PX_PER_M } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = UNCALIBRATED_PX_PER_M
@@ -139,6 +141,31 @@ export default function PlanCanvas(props: Props) {
     return () => ro.disconnect()
   }, [])
 
+  /** Încadrează dreptunghiul dat în ecran (cu limită de mărire) */
+  const fitBounds = (b: { x: number; y: number; width: number; height: number }, maxScale = Infinity) => {
+    const scale = Math.min(size.width / Math.max(b.width, 1), size.height / Math.max(b.height, 1), maxScale) * 0.95
+    setView({ scale, x: (size.width - b.width * scale) / 2 - b.x * scale, y: (size.height - b.height * scale) / 2 - b.y * scale })
+  }
+
+  /** Zoom la scara dată, păstrând fix punctul din centrul ecranului */
+  const zoomAtCenter = (scale: number) => {
+    const sc = Math.min(Math.max(scale, 0.02), 40)
+    const cx = size.width / 2
+    const cy = size.height / 2
+    setView((v) => {
+      const wx = (cx - v.x) / v.scale
+      const wy = (cy - v.y) / v.scale
+      return { scale: sc, x: cx - wx * sc, y: cy - wy * sc }
+    })
+  }
+
+  // procentul de zoom: 100% = mărimea planșei tipărite (paperMmPerPx × px ecran pe mm)
+  const paperK = paperMmPerPx(project, sheet)
+  const fullScale = paperK ? paperK * SCREEN_PX_PER_MM : 1
+  const percent = (view.scale / fullScale) * 100
+  const fitAll = () => setFitAllTick((n) => n + 1)
+  const [fitAllTick, setFitAllTick] = useState(0)
+
   // Încadrare în ecran
   useEffect(() => {
     const c = contentBounds(project, undefined, level.id)
@@ -162,7 +189,15 @@ export default function PlanCanvas(props: Props) {
       y: (size.height - b.height * scale) / 2 - b.y * scale,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fitSignal, level.id, level.background?.src, size.width > 0])
+  }, [fitSignal, fitAllTick, level.id, level.background?.src, size.width > 0])
+
+  /** Mărește pe selecția curentă (element sau grup) */
+  const zoomToSelection = () => {
+    const items = multi.length ? multi : selection ? [selection] : []
+    const b = items.length ? groupBounds(project, items, S * 3) : null
+    if (b) fitBounds(b, fullScale * 4)
+  }
+  useZoomKeys({ step: (dir) => zoomAtCenter((stepPercent(percent, dir) / 100) * fullScale), fit: fitAll, actual: () => zoomAtCenter(fullScale) })
 
   // Resetare desen temporar la schimbarea uneltei
   useEffect(() => {
@@ -1140,6 +1175,12 @@ export default function PlanCanvas(props: Props) {
           )
         })()}
 
+      <ZoomBar
+        percent={percent}
+        onPercent={(pc) => zoomAtCenter((pc / 100) * fullScale)}
+        onFit={fitAll}
+        onSelection={selection || multi.length ? zoomToSelection : undefined}
+      />
       {tool.kind !== 'select' && (
         <div className="canvas-hint">
           {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}

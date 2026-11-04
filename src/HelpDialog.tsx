@@ -43,6 +43,10 @@ const SECTIONS: Section[] = [
         <B>Deschide</B>, inclusiv pe alt calculator.
       </>,
       <>Navigare: rotița mouse-ului = zoom, tragi de fundal = deplasare, <K>F</K> = încadrare în ecran.</>,
+      <>
+        <B>Bara de zoom</B> (dreapta jos): <B>−</B> / <B>+</B>, procentul (click = presetări 10–400%, dublu-click = scrii procentul), ⤢
+        încadrare, ⌖ mărire pe elementul selectat. <B>100% = mărimea reală a planșei tipărite</B> (1 mm pe hârtie = 1 mm pe ecran).
+      </>,
     ],
   },
   {
@@ -448,6 +452,10 @@ const SECTIONS: Section[] = [
       </>,
       <>
         <K>Ctrl+Z</K> / <K>Ctrl+Y</K> anulare / refacere · <K>Ctrl+S</K> salvare · <K>Del</K> ștergere
+      </>,
+      <>
+        Zoom: <K>Ctrl +</K> / <K>Ctrl −</K> mărește / micșorează · <K>Ctrl 0</K> încadrare · <K>Ctrl 1</K> 100% (mărime reală) · rotița
+        mouse-ului = zoom în punctul indicat
       </>,
       <>
         <K>Ctrl+C</K> / <K>Ctrl+X</K> / <K>Ctrl+V</K> copiere / tăiere / lipire · <K>Ctrl+D</K> duplicare · click dreapta = meniu

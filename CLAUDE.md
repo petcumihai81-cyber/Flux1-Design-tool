@@ -46,6 +46,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `background.ts` + `PdfPagePicker.tsx` | Încărcarea planului de fundal (PDF prin pdf.js sau imagine); la PDF cu mai multe pagini, alegerea paginii din miniaturi |
 | `dxfImport.ts` + `DxfImportDialog.tsx` | Import DXF ca fundal: cititor propriu (ASCII R12…2018, UTF-8 sau Windows-1250), blocuri explodate (INSERT, DIMENSION), linii / polilinii cu bulge, arce, elipse, spline, hașuri, texte; dialog cu straturi, unitate (`$INSUNITS` sau ghicită) și previzualizare; randat în PNG la ≤ 100 px/m (max. ~6000 px), cu `pxPerMeter` setat direct |
 | `arch.ts` + `ArchShapes.tsx` | Schița de arhitectură (`Project.arch`): pereți cu grosime reală, uși, ferestre, texte, cote; lipire de vârfuri și aliniere ortogonală; schiță fără plan = 50 px/m |
+| `ZoomBar.tsx` + `zoom.ts` | Bara de zoom (plan și schemă): procent raportat la planșa tipărită (`paperMmPerPx` × 96/25,4 px/mm; la schemă, încadrarea în `drawAreaMm`), presetări, încadrare, mărire pe selecție; scurtături `useZoomKeys` |
 | `PdfPreview.tsx` | Previzualizarea paginilor înainte de descărcarea PDF |
 | `HelpDialog.tsx` + `public/help/*.webp` | Ghidul din aplicație (butonul „?”), cu secțiuni „cum fac…” și capturi de ecran; se deschide singur la prima vizită |
 | `App.tsx` | Starea aplicației, bara de unelte, planșe, scurtături, export |

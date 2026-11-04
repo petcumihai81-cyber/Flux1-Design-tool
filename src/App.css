@@ -352,3 +352,15 @@ button.unsaved { border-color: #f9a825; }
 .sheet-tab.drop-before::before { left: -3px; }
 .sheet-tab.drop-after::after { right: -3px; }
 .sheet-rename { margin: 4px 6px; padding: 3px 6px; font-size: 13px; width: 220px; border: 1px solid #1e88e5; border-radius: 4px; }
+
+/* Bara de zoom */
+.zoom-bar { position: absolute; right: 12px; bottom: 12px; display: flex; align-items: center; gap: 2px; background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.12); z-index: 5; }
+.zoom-bar > button { border: none; background: transparent; min-width: 28px; height: 28px; padding: 0 6px; font-size: 16px; border-radius: 5px; cursor: pointer; color: #37474f; }
+.zoom-bar > button:hover { background: #eef2f6; }
+.zoom-bar .zoom-pct { font-size: 13px; min-width: 56px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.zoom-input { width: 56px; height: 26px; font-size: 13px; text-align: center; padding: 0 4px; }
+.zoom-sep { width: 1px; height: 20px; background: var(--line); margin: 0 3px; }
+.zoom-menu { position: absolute; right: 0; bottom: calc(100% + 6px); background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,0.16); padding: 4px; display: flex; flex-direction: column; min-width: 170px; }
+.zoom-menu button { border: none; background: transparent; text-align: left; padding: 5px 10px; border-radius: 5px; font-size: 13px; }
+.zoom-menu button:hover { background: #eef2f6; }
+.zoom-menu button.on { color: #1565c0; font-weight: 600; }
