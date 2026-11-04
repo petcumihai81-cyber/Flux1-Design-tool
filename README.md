@@ -50,7 +50,9 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 |---|---|
 | `V` / `C` / `F` | selectare / cablu / încadrare în ecran |
 | `R`, `Shift+R` | rotire ±15° |
+| `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | copiere / tăiere / lipire echipament (păstrează modelul, zona, conul camerei) |
 | `Ctrl+D` | duplicare echipament |
+| Click dreapta | meniu: copiază, taie, lipește aici, duplică, rotește 90°, șterge |
 | `Del` | ștergere |
 | `Ctrl+Z` / `Ctrl+Y` | anulare / refacere |
 | `Ctrl+S` | salvare proiect |

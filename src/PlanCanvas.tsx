@@ -20,6 +20,8 @@ interface Props {
   onAddDevice: (type: string, x: number, y: number, catalogId?: string) => void
   onAddCable: (points: number[], from?: string, to?: string) => void
   onScaleMeasured: (pixels: number) => void
+  /** Click dreapta: poziția pe ecran, pe plan și elementul de sub cursor */
+  onContext: (info: { clientX: number; clientY: number; x: number; y: number; target: Selection }) => void
   checkpoint: () => void
   update: (fn: (p: Project) => Project) => void
 }
@@ -70,7 +72,7 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, checkpoint, update } = props
+  const { project, sheet, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onContext, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
@@ -327,6 +329,21 @@ export default function PlanCanvas(props: Props) {
           if (e.target === stageRef.current) setView((v) => ({ ...v, x: e.target.x(), y: e.target.y() }))
         }}
         onWheel={onWheel}
+        onContextMenu={(e) => {
+          e.evt.preventDefault()
+          const pt = pointer()
+          if (!pt) return
+          const dev = deviceAt(pt)
+          const name = e.target.name?.() ?? ''
+          const target: Selection = dev
+            ? { kind: 'device', id: dev.id }
+            : name.startsWith('cable:')
+              ? { kind: 'cable', id: name.slice(6) }
+              : null
+          setDraft({ points: [] })
+          setScalePts([])
+          onContext({ clientX: e.evt.clientX, clientY: e.evt.clientY, x: pt.x, y: pt.y, target })
+        }}
         onClick={onStageClick}
         onDblClick={() => tool.kind === 'cable' && finishDraft()}
         onMouseMove={() => {
@@ -377,6 +394,7 @@ export default function PlanCanvas(props: Props) {
                 dash={c.system === 'INC' ? [S * 0.4, S * 0.15] : undefined}
                 lineCap="round"
                 lineJoin="round"
+                name={'cable:' + c.id}
                 hitStrokeWidth={Math.max(S * 0.4, 8 * k)}
                 listening={isSelect}
                 onClick={(e) => {
