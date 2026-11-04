@@ -120,7 +120,8 @@ const SECTIONS: Section[] = [
         „Schimbă balamaua”.
       </>,
       <>
-        <B>Text încăpere</B> pentru numele spațiilor și <B>Cotă</B> (două click-uri; lungimea se calculează singură).
+        <B>Text încăpere</B> pentru numele spațiilor și <B>Cotă</B> (două click-uri; lungimea se calculează singură). Textul se editează cu
+        dublu-click (sau <K>F2</K>), se mărește trăgând de pătratul albastru din colț, iar din click dreapta ai A+ / A−.
       </>,
       <>Elementele se selectează, se mută, se duplică și se șterg ca echipamentele (inclusiv din click dreapta). Vârfurile pereților se trag cu mânerele albastre.</>,
     ],
@@ -139,7 +140,8 @@ const SECTIONS: Section[] = [
     img: 'help/05-meniu.webp',
     steps: [
       <>
-        Click dreapta pe un echipament: <B>Copiază</B>, <B>Taie</B>, <B>Lipește aici</B>, <B>Duplică</B>, <B>Rotește 90°</B>, <B>Șterge</B>.
+        Click dreapta pe un echipament: <B>Copiază</B>, <B>Taie</B>, <B>Lipește aici</B>, <B>Duplică</B>, <B>Rotește 90°</B>, <B>Șterge</B>. La
+        simbolurile cu orientare (detectoare, contacte, sirene, cititoare) ai și <B>Oglindește orizontal / vertical</B>.
       </>,
       <>Click dreapta pe o zonă goală: <B>Lipește aici</B>, exact unde ai dat click.</>,
       <>Copia păstrează modelul din catalog, zona, partiția și conul camerei și primește următorul număr liber.</>,

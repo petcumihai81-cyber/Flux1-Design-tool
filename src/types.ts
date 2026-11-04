@@ -21,6 +21,9 @@ export interface Device {
   /** Tip zonă: întârziere / instantanee / 24h... */
   zoneType?: string
   notes: string
+  /** Oglindire simbol (orizontal / vertical) */
+  flipX?: boolean
+  flipY?: boolean
   /** Doar camere: unghi de vizualizare (grade) */
   fov?: number
   /** Doar camere: distanța de vizualizare (m) */

@@ -19,6 +19,8 @@ interface Props {
   selectedId?: string
   interactive: boolean
   onSelect: (id: string) => void
+  /** Dublu-click pe un text: editare directă pe plan */
+  onEditText: (id: string) => void
   checkpoint: () => void
   update: (fn: (p: Project) => Project) => void
 }
@@ -35,7 +37,7 @@ function arcPoints(cx: number, cy: number, r: number, a0: number, a1: number, n 
   return pts
 }
 
-export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, interactive, onSelect, checkpoint, update }: Props) {
+export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, interactive, onSelect, onEditText, checkpoint, update }: Props) {
   const patch = (id: string, p: Partial<ArchElement>) =>
     update((pr) => ({ ...pr, arch: pr.arch.map((a) => (a.id === id ? { ...a, ...p } : a)) }))
 
@@ -134,7 +136,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
         if (a.kind === 'label') {
           const h = (a.size ?? 0.45) * ppm
           // lățimea aproximativă a textului, ca zona de click să nu acopere pereții vecini
-          const labelW = Math.max(h * 2, [...(a.text ?? '')].length * h * 0.66)
+          const labelW = Math.max(h * 2, [...(a.text ?? '')].length * h * 0.58)
           return (
             <Text
               key={a.id}
@@ -152,6 +154,11 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
               offsetX={labelW / 2}
               offsetY={h / 2}
               align="center"
+              onDblClick={(e) => {
+                if (!interactive) return
+                e.cancelBubble = true
+                onEditText(a.id)
+              }}
             />
           )
         }
@@ -228,6 +235,51 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, inter
               ),
             ),
           )}
+      {/* mâner de redimensionare pentru textul selectat (colțul din dreapta-jos) */}
+      {interactive &&
+        arch
+          .filter((a) => a.id === selectedId && a.kind === 'label' && a.x != null && a.y != null)
+          .map((a) => {
+            const len = Math.max(3, [...(a.text ?? '')].length)
+            // distanța centru → colț, pentru o înălțime de 1 m
+            const unit = ppm * Math.hypot(Math.max(1, len * 0.58) / 2, 0.5)
+            const size = a.size ?? 0.45
+            const rot = ((a.rotation ?? 0) * Math.PI) / 180
+            const lx = (Math.max(1, len * 0.58) / 2) * size * ppm
+            const ly = 0.5 * size * ppm
+            const hx = a.x! + lx * Math.cos(rot) - ly * Math.sin(rot)
+            const hy = a.y! + lx * Math.sin(rot) + ly * Math.cos(rot)
+            return (
+              <Rect
+                key={'rs' + a.id}
+                x={hx}
+                y={hy}
+                width={11 * k}
+                height={11 * k}
+                offsetX={5.5 * k}
+                offsetY={5.5 * k}
+                fill="#1e88e5"
+                stroke="#fff"
+                strokeWidth={1.5 * k}
+                draggable
+                onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = 'nwse-resize')}
+                onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+                onDragStart={(e) => {
+                  e.cancelBubble = true
+                  checkpoint()
+                }}
+                onDragMove={(e) => {
+                  e.cancelBubble = true
+                  const d = Math.hypot(e.target.x() - a.x!, e.target.y() - a.y!)
+                  const s = Math.max(0.1, Math.round((d / unit) * 20) / 20)
+                  patch(a.id, { size: s })
+                }}
+                onDragEnd={(e) => {
+                  e.cancelBubble = true
+                }}
+              />
+            )
+          })}
       {/* lungimea peretelui selectat */}
       {arch
         .filter((a) => a.id === selectedId && a.kind === 'wall' && a.points && a.points.length >= 4)

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
-import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
+import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableMeters, cablePixels, catalogItem, deviceSystem, levelOf } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
@@ -242,6 +242,16 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
       <Field label="Rotire (°)">
         <Num value={d.rotation} min={0} max={359} step={5} onChange={(v) => onChange({ rotation: ((v % 360) + 360) % 360 })} />
       </Field>
+      {canMirror(d.type) && (
+        <div className="inline">
+          <button className={d.flipX ? 'on' : ''} onClick={() => onChange({ flipX: !d.flipX })} title="Oglindește orizontal">
+            ⇋ Oglindă orizontală
+          </button>
+          <button className={d.flipY ? 'on' : ''} onClick={() => onChange({ flipY: !d.flipY })} title="Oglindește vertical">
+            ⇵ Verticală
+          </button>
+        </div>
+      )}
       {def.camera && (
         <>
           <Field label="Unghi vizualizare (°)">
@@ -312,6 +322,7 @@ export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; 
           <Field label="Text">
             <input value={a.text ?? ''} onChange={(e) => onChange({ text: e.target.value })} />
           </Field>
+          <p className="hint">Pe plan: dublu-click pe text = editare, pătratul albastru din colț = mărime. Click dreapta = A+ / A−.</p>
           <Field label="Înălțime litere (m)">
             <Num value={a.size ?? 0.45} min={0.1} max={3} step={0.05} onChange={(v) => onChange({ size: Math.max(0.1, v) })} />
           </Field>
