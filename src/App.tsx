@@ -217,6 +217,46 @@ export default function App() {
     setSelection({ kind: 'device', id })
   }, [selection, project.devices, h])
 
+  // ---------------------------------------------------------------- copiere / lipire
+
+  /** Echipamentul copiat (cu toate datele: model din catalog, zonă, con cameră...) */
+  const [clipboard, setClipboard] = useState<Device | null>(null)
+  const pasteCount = useRef(0)
+  const [ctxMenu, setCtxMenu] = useState<{ clientX: number; clientY: number; x: number; y: number; target: Selection } | null>(null)
+
+  const selectedDevice = selection?.kind === 'device' ? project.devices.find((d) => d.id === selection.id) : undefined
+
+  const copySelection = (cut = false) => {
+    if (!selectedDevice) return
+    setClipboard({ ...selectedDevice })
+    pasteCount.current = 0
+    if (cut) deleteSelection()
+    notify(`${cut ? 'Tăiat' : 'Copiat'}: ${selectedDevice.label}`)
+  }
+
+  /** Lipește echipamentul copiat la poziția dată sau decalat față de original */
+  const paste = (at?: { x: number; y: number }) => {
+    if (!clipboard || sheet.kind !== 'plan') return
+    pasteCount.current++
+    const id = uid()
+    const sys = symbolByType(clipboard.type)?.system
+    h.commit((p) => {
+      const off = p.symbolSize * 1.5 * pasteCount.current
+      const d: Device = {
+        ...clipboard,
+        id,
+        x: at?.x ?? clipboard.x + off,
+        y: at?.y ?? clipboard.y + off,
+        label: nextLabel(devicePrefix(clipboard.type, catalogItem(p, clipboard.catalogId)), p.devices.map((x) => x.label), p.numberPad),
+      }
+      const sheets = p.sheets.map((sh) =>
+        sh.id === p.activeSheetId && sys && !sh.systems.includes(sys) ? { ...sh, systems: SYSTEMS.map((x) => x.id).filter((x) => x === sys || sh.systems.includes(x)) } : sh,
+      )
+      return { ...p, sheets, devices: [...p.devices, d] }
+    })
+    setSelection({ kind: 'device', id })
+  }
+
   const onScaleMeasured = (pixels: number) => {
     setTool({ kind: 'select' })
     if (pixels < 2) return notify('Segment prea scurt.')
@@ -421,11 +461,18 @@ export default function App() {
       } else if (mod && e.key.toLowerCase() === 'd') {
         e.preventDefault()
         duplicateSelection()
+      } else if (mod && (e.key.toLowerCase() === 'c' || e.key.toLowerCase() === 'x') && sheet.kind === 'plan' && selectedDevice) {
+        e.preventDefault()
+        copySelection(e.key.toLowerCase() === 'x')
+      } else if (mod && e.key.toLowerCase() === 'v' && sheet.kind === 'plan' && clipboard) {
+        e.preventDefault()
+        paste()
       } else if (mod && e.key.toLowerCase() === 's') {
         e.preventDefault()
         saveJson()
       } else if (e.key === 'Escape') {
-        if (tool.kind !== 'select') setTool({ kind: 'select' })
+        if (ctxMenu) setCtxMenu(null)
+        else if (tool.kind !== 'select') setTool({ kind: 'select' })
         else setSelection(null)
       } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection && sheet.kind === 'plan') {
         e.preventDefault()
@@ -547,6 +594,11 @@ export default function App() {
               onAddDevice={addDevice}
               onAddCable={addCable}
               onScaleMeasured={onScaleMeasured}
+              onContext={(info) => {
+                setTool({ kind: 'select' })
+                if (info.target) select(info.target)
+                setCtxMenu(info)
+              }}
               checkpoint={h.checkpoint}
               update={h.update}
             />
@@ -664,6 +716,65 @@ export default function App() {
         <MemoriuDialog project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onClose={() => setMemoOpen(false)} notify={notify} />
       )}
       {busy && <div className="overlay">{busy}</div>}
+      {ctxMenu && (
+        <div className="ctx-back" onMouseDown={() => setCtxMenu(null)} onContextMenu={(e) => { e.preventDefault(); setCtxMenu(null) }}>
+          <div
+            className="ctx-menu"
+            style={{ left: Math.min(ctxMenu.clientX, window.innerWidth - 230), top: Math.min(ctxMenu.clientY, window.innerHeight - 260) }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const close = (fn: () => void) => () => {
+                fn()
+                setCtxMenu(null)
+              }
+              const t = ctxMenu.target
+              const dev = t?.kind === 'device' ? project.devices.find((d) => d.id === t.id) : undefined
+              const pasteBtn = (
+                <button disabled={!clipboard} onClick={close(() => paste({ x: ctxMenu.x, y: ctxMenu.y }))}>
+                  Lipește aici{clipboard ? ` (${devicePrefix(clipboard.type, catalogItem(project, clipboard.catalogId))})` : ''}
+                  <kbd>Ctrl+V</kbd>
+                </button>
+              )
+              if (dev)
+                return (
+                  <>
+                    <div className="ctx-title">{dev.label}</div>
+                    <button onClick={close(() => copySelection())}>
+                      Copiază<kbd>Ctrl+C</kbd>
+                    </button>
+                    <button onClick={close(() => copySelection(true))}>
+                      Taie<kbd>Ctrl+X</kbd>
+                    </button>
+                    {pasteBtn}
+                    <button onClick={close(duplicateSelection)}>
+                      Duplică<kbd>Ctrl+D</kbd>
+                    </button>
+                    <button onClick={close(() => rotateSelection(90))}>
+                      Rotește 90°<kbd>R</kbd>
+                    </button>
+                    <div className="ctx-sep" />
+                    <button className="danger-item" onClick={close(deleteSelection)}>
+                      Șterge<kbd>Del</kbd>
+                    </button>
+                  </>
+                )
+              if (t?.kind === 'cable')
+                return (
+                  <>
+                    <div className="ctx-title">Cablu {project.cables.find((c) => c.id === t.id)?.code}</div>
+                    {pasteBtn}
+                    <div className="ctx-sep" />
+                    <button className="danger-item" onClick={close(deleteSelection)}>
+                      Șterge cablul<kbd>Del</kbd>
+                    </button>
+                  </>
+                )
+              return pasteBtn
+            })()}
+          </div>
+        </div>
+      )}
       {toast && <div className="toast">{toast}</div>}
     </div>
   )
