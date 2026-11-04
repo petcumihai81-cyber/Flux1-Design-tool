@@ -241,6 +241,13 @@ export interface Level {
    * Lipsește la fișierele vechi: zona se centrează pe desen.
    */
   pageCenter?: { x: number; y: number }
+  /** Planul de fundal: deplasare (px plan), rotire (grade, în jurul centrului), estompare 0…0,9 și blocare */
+  bgX?: number
+  bgY?: number
+  bgRotation?: number
+  bgFade?: number
+  /** Lipsă = blocat */
+  bgLocked?: boolean
 }
 
 export interface Sheet {

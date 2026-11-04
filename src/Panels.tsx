@@ -761,6 +761,37 @@ export function LevelPanel({
       )}
       {!frame && !level.background && <p className="hint">Scrie scara planșei (ex. 1:100) ca să vezi zona de desen pe pagina albă.</p>}
       {level.background && (
+        <>
+          <Field label={`Estompare plan: ${Math.round((level.bgFade ?? 0) * 100)}%`}>
+            <input
+              type="range"
+              min={0}
+              max={90}
+              step={5}
+              value={Math.round((level.bgFade ?? 0) * 100)}
+              onChange={(e) => onChange({ bgFade: parseInt(e.target.value, 10) / 100 })}
+              title="Planul devine mai șters (ca o copie decolorată), iar simbolurile ies în evidență; se vede la fel în PDF"
+            />
+          </Field>
+          <label className="check">
+            <input type="checkbox" checked={level.bgLocked !== false} onChange={(e) => onChange({ bgLocked: e.target.checked })} />
+            Plan blocat (nu se poate muta)
+          </label>
+          {level.bgLocked === false && (
+            <>
+              <p className="hint">
+                Trage planul cu mouse-ul (unealta Selectare) ca să-l aliniezi. Echipamentele, cablurile și schița rămân pe loc. Blochează-l
+                când ai terminat.
+              </p>
+              <Field label="Rotire plan (grade)">
+                <Num value={level.bgRotation ?? 0} min={-180} max={180} step={0.5} onChange={(v) => onChange({ bgRotation: Math.max(-180, Math.min(180, v)) })} />
+              </Field>
+              <button onClick={() => onChange({ bgX: 0, bgY: 0, bgRotation: 0 })}>Readu planul în poziția inițială</button>
+            </>
+          )}
+        </>
+      )}
+      {level.background && (
         <button onClick={() => window.confirm('Scoți planul de fundal? Echipamentele și schița rămân.') && onChange({ background: null })}>
           Scoate fundalul (pagină albă)
         </button>

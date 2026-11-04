@@ -591,6 +591,9 @@ export default function App() {
             ? {
                 ...l,
                 background: bg,
+                bgX: 0,
+                bgY: 0,
+                bgRotation: 0,
                 pxPerMeter: null,
                 symbolSize: p.devices.some((d) => d.levelId === l.id) ? l.symbolSize : Math.max(16, Math.round(Math.max(bg.width, bg.height) / 50)),
               }
@@ -1253,7 +1256,7 @@ export default function App() {
             h.commit((p) => {
               const next = {
                 ...p,
-                levels: p.levels.map((l) => (l.id === targetId ? { ...l, background: bg, pxPerMeter: ppm } : l)),
+                levels: p.levels.map((l) => (l.id === targetId ? { ...l, background: bg, pxPerMeter: ppm, bgX: 0, bgY: 0, bgRotation: 0 } : l)),
               }
               // simbolurile ~6 mm pe planșa curentă (dacă arată nivelul), altfel ~0,5 m
               const sh = activeSheet(next)

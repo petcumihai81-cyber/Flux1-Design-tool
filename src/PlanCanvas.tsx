@@ -103,6 +103,8 @@ export default function PlanCanvas(props: Props) {
   const S = level.symbolSize
   const ppm = level.pxPerMeter ?? FALLBACK_PX_PER_M
   const frame = pageFrame(project, sheet)
+  /** Planul de fundal se poate trage cu mouse-ul (deblocat din panoul Nivel) */
+  const bgUnlocked = level.bgLocked === false && tool.kind === 'select'
   const frameOut = frame ? outsideFrame(project, sheet) : false
   const levelArch = useMemo(() => project.arch.filter((a) => a.levelId === level.id), [project.arch, level.id])
   const hidden = useMemo(() => new Set(ALL_SYSTEMS.filter((s) => !sheet.systems.includes(s))), [sheet.systems])
@@ -563,7 +565,35 @@ export default function PlanCanvas(props: Props) {
         {/* Fundal */}
         <Layer listening={!!bgImage}>
           {bgImage && level.background && (
-            <KImage name="background" image={bgImage} width={level.background.width} height={level.background.height} />
+            <Group
+              x={(level.bgX ?? 0) + level.background.width / 2}
+              y={(level.bgY ?? 0) + level.background.height / 2}
+              offsetX={level.background.width / 2}
+              offsetY={level.background.height / 2}
+              rotation={level.bgRotation ?? 0}
+              draggable={bgUnlocked}
+              onMouseEnter={(e) => bgUnlocked && (e.target.getStage()!.container().style.cursor = 'move')}
+              onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+              onDragStart={() => checkpoint()}
+              onDragMove={(e) => {
+                const bg = level.background!
+                const nx = e.target.x() - bg.width / 2
+                const ny = e.target.y() - bg.height / 2
+                update((p) => ({ ...p, levels: p.levels.map((l) => (l.id === level.id ? { ...l, bgX: nx, bgY: ny } : l)) }))
+              }}
+              onDragEnd={(e) => {
+                const bg = level.background!
+                const nx = e.target.x() - bg.width / 2
+                const ny = e.target.y() - bg.height / 2
+                update((p) => ({ ...p, levels: p.levels.map((l) => (l.id === level.id ? { ...l, bgX: nx, bgY: ny } : l)) }))
+              }}
+            >
+              <KImage name="background" image={bgImage} width={level.background.width} height={level.background.height} />
+              {/* estompare: alb semitransparent peste plan (rgba, nu opacity — vezi exportul) */}
+              {(level.bgFade ?? 0) > 0 && (
+                <Rect name="background" width={level.background.width} height={level.background.height} fill={`rgba(255,255,255,${level.bgFade})`} />
+              )}
+            </Group>
           )}
         </Layer>
 
@@ -747,6 +777,22 @@ export default function PlanCanvas(props: Props) {
 
         {/* Elemente de interfață (ascunse la export) */}
         <Layer name="ui">
+          {/* planul de fundal deblocat: conturul lui (nu apare la export) */}
+          {level.background && level.bgLocked === false && (
+            <Rect
+              x={(level.bgX ?? 0) + level.background.width / 2}
+              y={(level.bgY ?? 0) + level.background.height / 2}
+              offsetX={level.background.width / 2}
+              offsetY={level.background.height / 2}
+              rotation={level.bgRotation ?? 0}
+              width={level.background.width}
+              height={level.background.height}
+              stroke="#1e88e5"
+              strokeWidth={2 * k}
+              dash={[10 * k, 6 * k]}
+              listening={false}
+            />
+          )}
           {/* pagină albă: zona de desen a planșei, la scara din cartuș */}
           {frame && (
             <Group listening={false}>

@@ -215,6 +215,24 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'fundal',
+    title: 'Planul de fundal: estompare, aliniere, blocare',
+    steps: [
+      <>
+        În tab-ul <B>Proiect</B>, la <B>Nivel</B>: <B>Estompare plan</B> (0–90%) face planul mai șters, ca o copie decolorată, iar simbolurile ies
+        în evidență. Se vede la fel și în PDF.
+      </>,
+      <>
+        Planul e <B>blocat</B> implicit, ca să nu-l miști din greșeală. Debifează <B>Plan blocat</B> și trage-l cu mouse-ul (unealta{' '}
+        <B>Selectare</B>) ca să-l aliniezi; <B>Rotire plan</B> îndreaptă un plan scanat strâmb. Echipamentele, cablurile și schița rămân pe loc.
+      </>,
+      <>
+        Bifează din nou <B>Plan blocat</B> când ai terminat. <B>Readu planul în poziția inițială</B> anulează mutarea și rotirea; scara
+        calibrată rămâne aceeași.
+      </>,
+    ],
+  },
+  {
     id: 'import-dxf',
     title: 'Plan DXF de la arhitect',
     intro: 'Planul primit în format CAD se încarcă direct, la scara reală.',

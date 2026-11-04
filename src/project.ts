@@ -326,9 +326,20 @@ export function nextCableCode(system: SystemId, cables: Cable[]): string {
   return nextLabel(prefix, cables.map((c) => c.code))
 }
 
+/** Dreptunghiul ocupat de planul de fundal, după deplasare și rotire */
+export function backgroundBounds(level: Level) {
+  const bg = level.background!
+  const cx = (level.bgX ?? 0) + bg.width / 2
+  const cy = (level.bgY ?? 0) + bg.height / 2
+  const r = ((level.bgRotation ?? 0) * Math.PI) / 180
+  const w = Math.abs(bg.width * Math.cos(r)) + Math.abs(bg.height * Math.sin(r))
+  const h = Math.abs(bg.width * Math.sin(r)) + Math.abs(bg.height * Math.cos(r))
+  return { x: cx - w / 2, y: cy - h / 2, width: w, height: h }
+}
+
 export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS, levelId?: string) {
   const level = levelOf(p, levelId)
-  if (level.background) return { x: 0, y: 0, width: level.background.width, height: level.background.height }
+  if (level.background) return backgroundBounds(level)
   const hidden = new Set(ALL_SYSTEMS.filter((s) => !systems.includes(s)))
   const xs: number[] = []
   const ys: number[] = []
