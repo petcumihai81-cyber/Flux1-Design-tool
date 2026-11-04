@@ -59,7 +59,8 @@ Butonul **?** din bara de sus deschide ghidul de utilizare, cu pași și capturi
 | `R`, `Shift+R` | rotire ±15° |
 | `Ctrl+C` / `Ctrl+X` / `Ctrl+V` | copiere / tăiere / lipire echipament (păstrează modelul, zona, conul camerei) |
 | `Ctrl+D` | duplicare echipament |
-| Click dreapta | meniu: copiază, taie, lipește aici, duplică, rotește 90°, șterge |
+| Click dreapta | meniu: copiază, taie, lipește aici, duplică, rotește 90°, oglindește, șterge; la texte: editare, A+ / A− |
+| `F2` / dublu-click pe text | editarea textului direct pe plan |
 | `Del` | ștergere |
 | `Ctrl+Z` / `Ctrl+Y` | anulare / refacere |
 | `Ctrl+S` | salvare proiect |

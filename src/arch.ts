@@ -4,6 +4,7 @@ import { nearestOnPolyline } from './project'
 /** Scara implicită pentru schițe fără plan de fundal: 1 m = 50 px */
 export const SKETCH_PX_PER_M = 50
 
+
 export const ARCH_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
   { tool: 'wall-ext', name: 'Perete exterior', hint: '25 cm' },
   { tool: 'wall-int', name: 'Perete interior', hint: '12 cm' },

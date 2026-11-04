@@ -25,6 +25,9 @@ interface Props {
   onAddCable: (points: number[], from?: string, to?: string, via?: { cableId: string; end: 'from' | 'to' }) => void
   onScaleMeasured: (pixels: number) => void
   onAddArch: (el: NewArch) => void
+  /** Textul de încăpere editat direct pe plan (id) */
+  editTextId: string | null
+  onEditText: (id: string | null) => void
   /** Click dreapta: poziția pe ecran, pe plan și elementul de sub cursor */
   onContext: (info: { clientX: number; clientY: number; x: number; y: number; target: Selection }) => void
   checkpoint: () => void
@@ -77,7 +80,7 @@ function moveDevice(p: Project, id: string, x: number, y: number): Project {
 }
 
 export default function PlanCanvas(props: Props) {
-  const { project, sheet, level, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
+  const { editTextId, onEditText, project, sheet, level, tool, selection, stageRef, fitSignal, onSelect, onAddDevice, onAddCable, onScaleMeasured, onAddArch, onContext, checkpoint, update } = props
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
@@ -275,7 +278,8 @@ export default function PlanCanvas(props: Props) {
           })
         } else if (tool.arch === 'label') {
           const text = window.prompt('Numele încăperii:', 'Birou')
-          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: 0.45, rotation: 0 })
+          // înălțimea textului: cel puțin 0,45 m, dar nu mai mică decât jumătate din simbol, ca să fie citibil
+          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: Math.round(Math.max(0.45, (S * 0.5) / ppm) * 20) / 20, rotation: 0 })
         }
         break
       }
@@ -476,6 +480,8 @@ export default function PlanCanvas(props: Props) {
             arch={levelArch}
             ppm={ppm}
             k={k}
+            symbolSize={S}
+            onEditText={(id) => onEditText(id)}
             selectedId={selection?.kind === 'arch' ? selection.id : undefined}
             interactive={isSelect}
             onSelect={(id) => onSelect({ kind: 'arch', id })}
@@ -605,6 +611,8 @@ export default function PlanCanvas(props: Props) {
                     offsetX={S / 2}
                     offsetY={S / 2}
                     rotation={d.rotation}
+                    scaleX={d.flipX ? -1 : 1}
+                    scaleY={d.flipY ? -1 : 1}
                   />
                 )}
                 {glyph && (
@@ -839,6 +847,37 @@ export default function PlanCanvas(props: Props) {
           )}
         </Layer>
       </Stage>
+
+      {editTextId &&
+        (() => {
+          const el = project.arch.find((x) => x.id === editTextId)
+          const st = stageRef.current
+          if (!el || el.x == null || el.y == null || !st) return null
+          const pt = st.getAbsoluteTransform().point({ x: el.x, y: el.y })
+          const fs = Math.max(12, Math.min(40, (el.size ?? 0.45) * ppm * view.scale))
+          return (
+            <input
+              className="text-edit"
+              autoFocus
+              defaultValue={el.text ?? ''}
+              style={{ left: pt.x, top: pt.y, fontSize: fs }}
+              onFocus={(e) => e.target.select()}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Escape') onEditText(null)
+                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+              }}
+              onBlur={(e) => {
+                const v = e.target.value.trim()
+                if (v && v !== el.text) {
+                  checkpoint()
+                  update((p) => ({ ...p, arch: p.arch.map((x) => (x.id === el.id ? { ...x, text: v } : x)) }))
+                }
+                onEditText(null)
+              }}
+            />
+          )
+        })()}
 
       {tool.kind !== 'select' && (
         <div className="canvas-hint">

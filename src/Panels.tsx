@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ArchElement, ArchTool, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
 import { ARCH_NAMES, ARCH_TOOLS, archIconUrl, fmtM } from './arch'
-import { SYMBOLS, SYSTEMS, symbolByType, symbolDataUrl, systemById } from './symbols'
+import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableMeters, cablePixels, catalogItem, deviceSystem, levelOf } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
@@ -242,6 +242,16 @@ export function DeviceProps({ d, project, onChange, onDelete }: { d: Device; pro
       <Field label="Rotire (°)">
         <Num value={d.rotation} min={0} max={359} step={5} onChange={(v) => onChange({ rotation: ((v % 360) + 360) % 360 })} />
       </Field>
+      {canMirror(d.type) && (
+        <div className="inline">
+          <button className={d.flipX ? 'on' : ''} onClick={() => onChange({ flipX: !d.flipX })} title="Oglindește orizontal">
+            ⇋ Oglindă orizontală
+          </button>
+          <button className={d.flipY ? 'on' : ''} onClick={() => onChange({ flipY: !d.flipY })} title="Oglindește vertical">
+            ⇵ Verticală
+          </button>
+        </div>
+      )}
       {def.camera && (
         <>
           <Field label="Unghi vizualizare (°)">
@@ -312,6 +322,7 @@ export function ArchProps({ a, project, onChange, onDelete }: { a: ArchElement; 
           <Field label="Text">
             <input value={a.text ?? ''} onChange={(e) => onChange({ text: e.target.value })} />
           </Field>
+          <p className="hint">Pe plan: dublu-click pe text = editare, pătratul albastru din colț = mărime. Click dreapta = A+ / A−.</p>
           <Field label="Înălțime litere (m)">
             <Num value={a.size ?? 0.45} min={0.1} max={3} step={0.05} onChange={(v) => onChange({ size: Math.max(0.1, v) })} />
           </Field>
@@ -544,19 +555,28 @@ export function SheetPanel({ sheet, levels, onChange }: { sheet: Sheet; levels: 
 /** Nivelul planșei curente: nume, plan de fundal, scară, mărimea simbolurilor */
 export function LevelPanel({
   level,
+  paperMmPerPx,
+  suggested,
   canDelete,
   onChange,
+  onFitSymbols,
   onLoadPlan,
   onCalibrate,
   onDelete,
 }: {
   level: Level
+  /** mm pe hârtie per pixel de plan, pentru planșa curentă */
+  paperMmPerPx: number | null
+  /** Mărimea propusă pentru simboluri (~6 mm pe planșă) */
+  suggested: number | null
   canDelete: boolean
   onChange: (patch: Partial<Level>) => void
+  onFitSymbols: (size: number) => void
   onLoadPlan: () => void
   onCalibrate: () => void
   onDelete: () => void
 }) {
+  const paperMm = paperMmPerPx ? level.symbolSize * paperMmPerPx : null
   return (
     <div className="props">
       <h4>Nivel (plan)</h4>
@@ -580,15 +600,27 @@ export function LevelPanel({
           <button onClick={onCalibrate}>Calibrează</button>
         </div>
       </Field>
-      <Field label={`Mărime simboluri (${level.symbolSize})`}>
+      <Field
+        label={`Mărime simboluri: ${level.symbolSize} px${level.pxPerMeter ? ` ≈ ${(level.symbolSize / level.pxPerMeter).toFixed(2).replace('.', ',')} m` : ''}${paperMm ? ` · ${paperMm.toFixed(1).replace('.', ',')} mm pe planșă` : ''}`}
+      >
         <input
           type="range"
-          min={8}
-          max={Math.max(120, level.symbolSize)}
+          min={6}
+          max={Math.max(120, level.symbolSize * 2, suggested ? suggested * 2 : 0)}
           value={level.symbolSize}
           onChange={(e) => onChange({ symbolSize: parseInt(e.target.value, 10) })}
         />
       </Field>
+      {paperMm != null && (paperMm > 11 || paperMm < 3.5) && (
+        <p className="warn">
+          Simbolurile ies de ~{paperMm.toFixed(0)} mm pe planșă (uzual ~6 mm): {paperMm > 11 ? 'sunt prea mari, iar ușile, ferestrele și textele par mici lângă ele' : 'sunt prea mici pentru tipărire'}.
+        </p>
+      )}
+      {suggested != null && (
+        <button onClick={() => onFitSymbols(suggested)} title="Simbolurile ies ~6 mm pe planșa tipărită, în formatul planșei curente; textele prea mici se măresc odată cu ele">
+          Potrivește simbolurile la planșă (~6 mm)
+        </button>
+      )}
       {canDelete && (
         <button className="danger" onClick={onDelete}>
           Șterge nivelul

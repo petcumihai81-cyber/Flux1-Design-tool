@@ -5,8 +5,8 @@ import './App.css'
 import type { ArchElement, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
-import { activeSheet, levelOf, newLevel, sheetLevel, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
-import { SYSTEMS, defaultCableType, symbolByType, systemById } from './symbols'
+import { activeSheet, levelOf, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
+import { SYSTEMS, canMirror, defaultCableType, symbolByType, systemById } from './symbols'
 import PlanCanvas from './PlanCanvas'
 import BlockCanvas from './BlockCanvas'
 import { ArchProps, CableProps, DeviceProps, LevelPanel, ListsPanel, Palette, ProjectPanel, SheetPanel } from './Panels'
@@ -43,6 +43,7 @@ export default function App() {
   /** Nivelul planșei curente (la schemele bloc: primul nivel) */
   const level = sheetLevel(project, sheet)
   const [catalogOpen, setCatalogOpen] = useState(false)
+  const [editTextId, setEditTextId] = useState<string | null>(null)
   const [preview, setPreview] = useState<{ pages: PreviewPage[]; name: string; title: string } | null>(null)
   const [memoOpen, setMemoOpen] = useState(false)
   // ghidul se deschide singur la prima vizită
@@ -339,11 +340,12 @@ export default function App() {
     if (answer == null) return
     const m = parseFloat(answer.replace(',', '.'))
     if (!(m > 0)) return notify('Valoare invalidă.')
+    const ppm = pixels / m
     h.commit((p) => {
       const lvl = sheetLevel(p, activeSheet(p))
-      return { ...p, levels: p.levels.map((l) => (l.id === lvl.id ? { ...l, pxPerMeter: pixels / m } : l)) }
+      return { ...p, levels: p.levels.map((l) => (l.id === lvl.id ? { ...l, pxPerMeter: ppm } : l)) }
     })
-    notify(`Scară calibrată: ${(pixels / m).toFixed(2)} px/m`)
+    notify(`Scară calibrată: ${ppm.toFixed(2)} px/m.`)
   }
 
   /** Nivelul pe care se încarcă următorul plan de fundal (implicit: nivelul planșei curente) */
@@ -642,6 +644,9 @@ export default function App() {
       } else if ((e.key === 'Delete' || (e.key === 'Backspace' && tool.kind !== 'cable')) && selection && sheet.kind === 'plan') {
         e.preventDefault()
         deleteSelection()
+      } else if (e.key === 'F2' && selection?.kind === 'arch' && project.arch.find((a) => a.id === selection.id)?.kind === 'label') {
+        e.preventDefault()
+        setEditTextId(selection.id)
       } else if (e.key.toLowerCase() === 'r' && !mod) {
         rotateSelection(e.shiftKey ? -15 : 15)
       } else if (e.key.toLowerCase() === 'v' && !mod) {
@@ -772,6 +777,8 @@ export default function App() {
               onAddCable={addCable}
               onScaleMeasured={onScaleMeasured}
               onAddArch={addArch}
+              editTextId={editTextId}
+              onEditText={setEditTextId}
               onContext={(info) => {
                 setTool({ kind: 'select' })
                 if (info.target) select(info.target)
@@ -894,8 +901,22 @@ export default function App() {
             {tab === 'proiect' && sheet.kind === 'plan' && (
               <LevelPanel
                 level={level}
+                paperMmPerPx={paperMmPerPx(project, sheet)}
+                suggested={symbolForPaper(project, sheet)}
                 canDelete={project.levels.length > 1}
                 onChange={(patch) => patchLevel(level.id, patch)}
+                onFitSymbols={(size) =>
+                  h.commit((p) => {
+                    const ppm = levelOf(p, level.id).pxPerMeter ?? SKETCH_PX_PER_M
+                    const minText = Math.round(((size * 0.5) / ppm) * 20) / 20
+                    return {
+                      ...p,
+                      levels: p.levels.map((l) => (l.id === level.id ? { ...l, symbolSize: size } : l)),
+                      // textele de încăpere prea mici cresc odată cu simbolurile
+                      arch: p.arch.map((a) => (a.levelId === level.id && a.kind === 'label' && (a.size ?? 0.45) < minText ? { ...a, size: minText } : a)),
+                    }
+                  })
+                }
                 onLoadPlan={() => {
                   bgTarget.current = level.id
                   bgInput.current?.click()
@@ -980,6 +1001,12 @@ export default function App() {
                     <button onClick={close(() => rotateSelection(90))}>
                       Rotește 90°<kbd>R</kbd>
                     </button>
+                    {canMirror(dev.type) && (
+                      <>
+                        <button onClick={close(() => patchDevice(dev.id, { flipX: !dev.flipX }))}>Oglindește orizontal ⇋</button>
+                        <button onClick={close(() => patchDevice(dev.id, { flipY: !dev.flipY }))}>Oglindește vertical ⇵</button>
+                      </>
+                    )}
                     <div className="ctx-sep" />
                     <button className="danger-item" onClick={close(deleteSelection)}>
                       Șterge<kbd>Del</kbd>
@@ -991,6 +1018,17 @@ export default function App() {
                 return (
                   <>
                     <div className="ctx-title">{el ? ARCH_NAMES[el.kind] : 'Element'}</div>
+                    {el?.kind === 'label' && (
+                      <>
+                        <button onClick={close(() => setEditTextId(el.id))}>
+                          Editează textul<kbd>dublu-click</kbd>
+                        </button>
+                        <button onClick={close(() => patchArch(el.id, { size: Math.round((el.size ?? 0.45) * 1.25 * 20) / 20 }))}>Mărește textul A+</button>
+                        <button onClick={close(() => patchArch(el.id, { size: Math.max(0.1, Math.round(((el.size ?? 0.45) / 1.25) * 20) / 20) }))}>
+                          Micșorează textul A−
+                        </button>
+                      </>
+                    )}
                     <button onClick={close(duplicateSelection)}>
                       Duplică<kbd>Ctrl+D</kbd>
                     </button>

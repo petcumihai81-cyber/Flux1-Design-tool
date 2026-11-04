@@ -251,6 +251,12 @@ export function loadSymbolImage(type: string, shapeOnly = false): Promise<HTMLIm
   return p
 }
 
+/** Simbolurile care se pot oglindi: cele desenate cu orientare (nu camerele — direcția lor o dă conul — și nu cele simetrice cu text) */
+export const canMirror = (type: string) => {
+  const def = symbolByType(type)
+  return !!def && def.shape === 'custom' && !def.camera
+}
+
 /** Tipul de cablu implicit între două echipamente */
 export function defaultCableType(fromType?: string, toType?: string): string {
   const a = fromType ? symbolByType(fromType) : undefined
