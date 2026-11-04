@@ -27,6 +27,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Traseele legăturilor se ajustează manual (segmente trase cu mouse-ul, capete care alunecă pe laturile blocurilor); selecție multiplă
   (Shift+click / Shift+dreptunghi), mutare în grup, aliniere și distribuire.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
+- **File de planșe ca în Excel**: click dreapta (deschide, redenumește, duplică, mută, renumerotează, șterge), dublu-click pentru redenumire, reordonare prin tragere.
 - **Straturi** (ca în AutoCAD / Photoshop), pe fiecare planșă: fundal, arhitectură (pereți, goluri, texte, cote, ghene) și, pe fiecare sistem, echipamente, etichete, trasee, conuri — cu arată / ascunde (inclusiv în PDF, DXF și legendă) și blocare la selecție.
 - **Culoarea simbolurilor și simboluri personalizate**: culoare proprie pe echipament (proprietăți, click dreapta, selecție multiplă); simboluri încărcate (SVG, PNG, ICO, JPG, WebP), aduse la mărimea celorlalte, cu fundal transparent și recolorare, care se comportă ca un simbol standard ales (con, cabluri, liste, calcule); bibliotecă proprie pentru proiectele noi.
 - **Verificare înainte de predare**: erori (scară necalibrată, cabluri nelegate, zone lipsă, consumuri lipsă, UPS / HDD / PoE insuficiente, numerotare dublă) și atenționări (modele, fișe tehnice, cartuș, memoriu), fiecare cu buton care duce la locul problemei.

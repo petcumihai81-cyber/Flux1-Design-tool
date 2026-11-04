@@ -84,6 +84,12 @@ export default function App() {
     }
   }
   const [sheetMenu, setSheetMenu] = useState<{ left: number; bottom: number } | null>(null)
+  /** Meniul de click dreapta pe fila unei planșe */
+  const [sheetCtx, setSheetCtx] = useState<{ id: string; left: number; top: number } | null>(null)
+  /** Fila redenumită direct (dublu-click) */
+  const [renaming, setRenaming] = useState<string | null>(null)
+  /** Tragerea unei file: planșa trasă și locul de inserare (indexul înaintea căruia ajunge) */
+  const [tabDrag, setTabDrag] = useState<{ id: string; over: number | null } | null>(null)
   const [tool, setTool] = useState<Tool>({ kind: 'select' })
   const [selection, setSelection] = useState<Selection>(null)
   /** Selecția multiplă de pe plan (cu ≥ 2 elemente); când e activă, `selection` e gol */
@@ -850,6 +856,40 @@ export default function App() {
     setFitSignal((n) => n + 1)
   }
 
+  /** Mută planșa la poziția `to` (indexul înaintea căruia ajunge, în lista inițială) */
+  const moveSheet = (id: string, to: number) =>
+    h.commit((p) => {
+      const from = p.sheets.findIndex((x) => x.id === id)
+      if (from < 0) return p
+      const target = Math.max(0, Math.min(p.sheets.length, to))
+      if (target === from || target === from + 1) return p
+      const sheets = [...p.sheets]
+      const [sh] = sheets.splice(from, 1)
+      sheets.splice(target > from ? target - 1 : target, 0, sh)
+      return { ...p, sheets }
+    })
+
+  /** Copie a planșei (cu schema bloc editată și straturile ei), pusă imediat după ea */
+  const duplicateSheet = (id: string) => {
+    const nid = uid()
+    h.commit((p) => {
+      const i = p.sheets.findIndex((x) => x.id === id)
+      if (i < 0) return p
+      const src = p.sheets[i]
+      const copy: Sheet = { ...structuredClone(src), id: nid, nr: nextSheetNr(p), titlu: `${src.titlu} (copie)` }
+      const sheets = [...p.sheets]
+      sheets.splice(i + 1, 0, copy)
+      return { ...p, sheets, activeSheetId: nid }
+    })
+    setSelection(null)
+    setTool({ kind: 'select' })
+    setFitSignal((n) => n + 1)
+  }
+
+  /** Numerele planșelor în ordinea filelor: P01, P02… */
+  const renumberSheets = () =>
+    h.commit((p) => ({ ...p, sheets: p.sheets.map((sh, i) => ({ ...sh, nr: 'P' + String(i + 1).padStart(2, '0') })) }))
+
   // ---------------------------------------------------------------- export
 
   const fileBase = () => `${project.title.nrProiect || 'proiect'}`
@@ -1158,26 +1198,112 @@ export default function App() {
             />
           )}
           <nav className="sheet-bar">
-            {project.sheets.map((sh) => (
-              <div key={sh.id} className={'sheet-tab' + (sh.id === sheet.id ? ' on' : '')}>
-                <button
-                  onClick={() => sh.id !== sheet.id && setActiveSheet(sh.id)}
-                  title={`${sh.titlu} · ${formatLabel(sh)}`}
-                >
-                  <span className="sheet-kind">{sh.kind === 'bloc' ? '⊞' : '▭'}</span>
-                  <b>{sh.nr}</b> {sh.titlu}
-                  <small>
-                    {formatLabel(sh)}
-                    {sh.kind === 'plan' && project.levels.length > 1 ? ` · ${levelOf(project, sh.levelId).name}` : ''}
-                  </small>
-                </button>
-                {sh.id === sheet.id && project.sheets.length > 1 && (
+            {project.sheets.map((sh, idx) => (
+              <div
+                key={sh.id}
+                className={
+                  'sheet-tab' +
+                  (sh.id === sheet.id ? ' on' : '') +
+                  (tabDrag?.id === sh.id ? ' dragging' : '') +
+                  (tabDrag && tabDrag.over === idx ? ' drop-before' : '') +
+                  (tabDrag && tabDrag.over === idx + 1 && idx === project.sheets.length - 1 ? ' drop-after' : '')
+                }
+                draggable={renaming !== sh.id}
+                onDragStart={(e) => {
+                  e.dataTransfer.setData('text/sheet-id', sh.id)
+                  e.dataTransfer.effectAllowed = 'move'
+                  setTabDrag({ id: sh.id, over: null })
+                }}
+                onDragOver={(e) => {
+                  if (!tabDrag) return
+                  e.preventDefault()
+                  const r = e.currentTarget.getBoundingClientRect()
+                  const over = e.clientX < r.left + r.width / 2 ? idx : idx + 1
+                  if (over !== tabDrag.over) setTabDrag({ ...tabDrag, over })
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  if (tabDrag?.over != null) moveSheet(tabDrag.id, tabDrag.over)
+                  setTabDrag(null)
+                }}
+                onDragEnd={() => setTabDrag(null)}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  setSheetCtx({ id: sh.id, left: Math.min(e.clientX, window.innerWidth - 250), top: Math.max(8, e.clientY - 330) })
+                }}
+              >
+                {renaming === sh.id ? (
+                  <input
+                    className="sheet-rename"
+                    autoFocus
+                    defaultValue={sh.titlu}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={(e) => {
+                      const v = e.target.value.trim()
+                      if (v && v !== sh.titlu) patchSheet(sh.id, { titlu: v })
+                      setRenaming(null)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                      if (e.key === 'Escape') setRenaming(null)
+                    }}
+                  />
+                ) : (
+                  <button
+                    onClick={() => sh.id !== sheet.id && setActiveSheet(sh.id)}
+                    onDoubleClick={() => setRenaming(sh.id)}
+                    title={`${sh.titlu} · ${formatLabel(sh)}\nDublu-click = redenumire · click dreapta = meniu · trage = mută`}
+                  >
+                    <span className="sheet-kind">{sh.kind === 'bloc' ? '⊞' : '▭'}</span>
+                    <b>{sh.nr}</b> {sh.titlu}
+                    <small>
+                      {formatLabel(sh)}
+                      {sh.kind === 'plan' && project.levels.length > 1 ? ` · ${levelOf(project, sh.levelId).name}` : ''}
+                    </small>
+                  </button>
+                )}
+                {sh.id === sheet.id && project.sheets.length > 1 && renaming !== sh.id && (
                   <button className="sheet-x" title="Șterge planșa" onClick={() => deleteSheet(sh.id)}>
                     ×
                   </button>
                 )}
               </div>
             ))}
+            {sheetCtx &&
+              (() => {
+                const sh = project.sheets.find((x) => x.id === sheetCtx.id)
+                if (!sh) return null
+                const i = project.sheets.indexOf(sh)
+                const n = project.sheets.length
+                const close = (fn: () => void) => () => {
+                  fn()
+                  setSheetCtx(null)
+                }
+                return (
+                  <div className="ctx-back" onMouseDown={() => setSheetCtx(null)} onContextMenu={(e) => { e.preventDefault(); setSheetCtx(null) }}>
+                    <div className="ctx-menu" style={{ left: sheetCtx.left, top: sheetCtx.top }} onMouseDown={(e) => e.stopPropagation()}>
+                      <div className="ctx-title">
+                        {sh.nr} {sh.titlu}
+                      </div>
+                      <button disabled={sh.id === sheet.id} onClick={close(() => setActiveSheet(sh.id))}>Deschide</button>
+                      <button onClick={close(() => setRenaming(sh.id))}>Redenumește…</button>
+                      <button onClick={close(() => duplicateSheet(sh.id))}>Duplică planșa</button>
+                      <div className="ctx-sep" />
+                      <button disabled={i === 0} onClick={close(() => moveSheet(sh.id, i - 1))}>Mută la stânga ◂</button>
+                      <button disabled={i === n - 1} onClick={close(() => moveSheet(sh.id, i + 2))}>Mută la dreapta ▸</button>
+                      <button disabled={i === 0} onClick={close(() => moveSheet(sh.id, 0))}>Mută la început ⇤</button>
+                      <button disabled={i === n - 1} onClick={close(() => moveSheet(sh.id, n))}>Mută la sfârșit ⇥</button>
+                      <button onClick={close(renumberSheets)} title="Numerele planșelor devin P01, P02… în ordinea filelor">
+                        Renumerotează planșele în ordine
+                      </button>
+                      <div className="ctx-sep" />
+                      <button className="danger-item" disabled={n < 2} onClick={close(() => deleteSheet(sh.id))}>
+                        Șterge planșa
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
             <div className="sheet-add">
               <button
                 onClick={(e) => {

@@ -344,3 +344,11 @@ button.unsaved { border-color: #f9a825; }
 .ly-name { flex: 1; }
 .ly-group-name { flex: 1; border: none; background: none; text-align: left; font-weight: 600; padding: 0; display: flex; justify-content: space-between; cursor: pointer; font-size: 13px; }
 .ly-count { color: #8a96a3; font-size: 12px; min-width: 18px; text-align: right; }
+
+/* File de planșe: tragere, redenumire */
+.sheet-tab { position: relative; }
+.sheet-tab.dragging { opacity: 0.45; }
+.sheet-tab.drop-before::before, .sheet-tab.drop-after::after { content: ''; position: absolute; top: 2px; bottom: 2px; width: 3px; background: #1e88e5; border-radius: 2px; }
+.sheet-tab.drop-before::before { left: -3px; }
+.sheet-tab.drop-after::after { right: -3px; }
+.sheet-rename { margin: 4px 6px; padding: 3px 6px; font-size: 13px; width: 220px; border: 1px solid #1e88e5; border-radius: 4px; }
