@@ -102,13 +102,14 @@ Principii:
 ## Ghidul din aplicație
 
 - Când se schimbă interfața sau se adaugă o funcție, se actualizează și secțiunea corespunzătoare din `HelpDialog.tsx`.
-- Capturile din `public/help/` (01–16) se regenerează cu Playwright pe `vite preview`, pe un plan demonstrativ (birouri 20 × 12 m, 100 px/m, cotă de 10 m), cu viewport 1400×860 și deviceScaleFactor 1.25, apoi se convertesc în WebP (calitate ~82, lățime max. 1500 px). `16-export-dxf` e randarea `ezdxf` a unui DXF exportat. Scripturile sunt temporare, nu se pun în repo.
+- Capturile din `public/help/` (01–19) se regenerează cu Playwright pe `vite preview`, pe un plan demonstrativ (birouri 20 × 12 m, 100 px/m, cotă de 10 m), cu viewport 1400×860 și deviceScaleFactor 1.25, apoi se convertesc în WebP (calitate ~82, lățime max. 1500 px). `16-export-dxf` e randarea `ezdxf` a unui DXF exportat. Scripturile sunt temporare, nu se pun în repo.
 
 ## Git
 
 - Lucrul se face pe ramuri, cu pull request (draft) către `main`; nu se face push direct pe `main`.
 - Mesajele de commit și descrierile PR se scriu în română.
 
-## Direcții următoare (discutate cu utilizatorul)
+## Backlog
 
-- (nimic în așteptare — se completează la cererea utilizatorului)
+- Ideile și lucrurile de făcut sunt în **`BACKLOG.md`** (pe priorități P1–P3), împreună cu lista funcțiilor realizate (cu numărul PR-ului).
+- La începutul unei sesiuni se citește `BACKLOG.md`. Când utilizatorul propune ceva nou, se adaugă acolo; când un PR se unește, elementul trece la „Realizat”.

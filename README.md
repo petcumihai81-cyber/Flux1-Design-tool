@@ -87,6 +87,10 @@ cablul merge pe același traseu până la switch / NVR / centrală, iar lungimea
 La un cablu selectat, capetele se pot trage pe alt echipament (sau cablu), dublu-click pe cablu adaugă un punct de traseu,
 iar „De la” / „La” se pot alege și din listă.
 
+## Planuri
+
+Ideile și lucrurile de făcut, pe priorități, sunt în [BACKLOG.md](BACKLOG.md), împreună cu lista funcțiilor realizate.
+
 ## Dezvoltare
 
 ```bash
