@@ -54,7 +54,18 @@ export interface CustomSymbol {
 
 /** Element de arhitectură desenat manual (schiță): perete, ușă, fereastră, text încăpere, cotă */
 /** riser = trecere verticală între niveluri (ghenă); același nume pe niveluri diferite = aceeași ghenă */
-export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim' | 'riser'
+export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table'
+
+/** Tabel așezat pe planșă, generat din proiect */
+export interface SheetTable {
+  kind: 'echipamente' | 'zone' | 'cctv' | 'cabluri'
+  /** Doar un sistem (lipsă = toate) */
+  system?: SystemId
+  /** Doar elementele nivelului pe care stă tabelul */
+  levelOnly?: boolean
+  /** Înălțimea textului pe hârtie (mm) */
+  fontMm?: number
+}
 
 export interface ArchElement {
   id: string
@@ -76,6 +87,18 @@ export interface ArchElement {
   /** Text: conținut și înălțimea literelor (m) */
   text?: string
   size?: number
+  /** Zonă (dreptunghi / elipsă) și imagine: înălțimea (m); lățimea e `width`; poziția (x, y) e centrul */
+  height?: number
+  /** Zonă: contur, umplere și opacitatea umplerii (0…1), contur punctat, afișarea ariei */
+  stroke?: string
+  fill?: string
+  fillOpacity?: number
+  dashed?: boolean
+  showArea?: boolean
+  /** Imagine (data URL); în browser se păstrează separat, în IndexedDB */
+  src?: string
+  /** Tabel generat din proiect */
+  table?: SheetTable
 }
 
 export interface Cable {
@@ -332,7 +355,7 @@ export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
 /** Element de arhitectură nou (id-ul și nivelul se completează la adăugare) */
 export type NewArch = Omit<ArchElement, 'id' | 'levelId'>
 
-export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim' | 'riser'
+export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table'
 
 export type Tool =
   | { kind: 'select' }

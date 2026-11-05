@@ -1,5 +1,5 @@
-import type { ArchElement, ArchTool, NewArch } from './types'
-import { nearestOnPolyline } from './project'
+import type { ArchElement, ArchTool, Device, NewArch, Project } from './types'
+import { levelOf, nearestOnPolyline } from './project'
 
 /** Scara implicită pentru schițe fără plan de fundal: 1 m = 50 px */
 export const SKETCH_PX_PER_M = 50
@@ -17,6 +17,14 @@ export const ARCH_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
 
 /** Pictogramele uneltelor de arhitectură (SVG 40×40) */
 export const ARCH_ICONS: Record<ArchTool, string> = {
+  rect: '<rect x="4" y="8" width="32" height="24" rx="1" fill="rgba(21,101,192,0.15)" stroke="#1565c0" stroke-width="2" stroke-dasharray="4 2"/>',
+  ellipse: '<ellipse cx="20" cy="20" rx="16" ry="11" fill="rgba(46,125,50,0.15)" stroke="#2e7d32" stroke-width="2" stroke-dasharray="4 2"/>',
+  image:
+    '<rect x="4" y="7" width="32" height="26" rx="2" fill="#fff" stroke="#455a64" stroke-width="2"/><circle cx="13" cy="15" r="3" fill="#ffb300"/>' +
+    '<path d="M6 31 L16 21 L22 27 L27 22 L34 31 Z" fill="#78909c"/>',
+  table:
+    '<rect x="3" y="7" width="34" height="26" fill="#fff" stroke="#455a64" stroke-width="2"/><rect x="3" y="7" width="34" height="7" fill="#cfd8dc"/>' +
+    '<path d="M3 20.5 H37 M3 27 H37 M14 7 V33 M28 7 V33" stroke="#455a64" stroke-width="1.3"/>',
   riser:
     '<circle cx="20" cy="20" r="16" fill="#fff" stroke="#455a64" stroke-width="2.4"/>' +
     '<path d="M14 17 L20 9 L26 17 M14 23 L20 31 L26 23" fill="none" stroke="#455a64" stroke-width="2.4" stroke-linejoin="round"/>',
@@ -44,7 +52,19 @@ export const ARCH_NAMES: Record<ArchElement['kind'], string> = {
   label: 'Text încăpere',
   dim: 'Cotă',
   riser: 'Trecere între niveluri (ghenă)',
+  rect: 'Zonă dreptunghi',
+  ellipse: 'Zonă elipsă',
+  image: 'Imagine',
+  table: 'Tabel pe planșă',
 }
+
+/** Uneltele de adnotare: zone, imagini, tabele (paleta „Zone, imagini, tabele”) */
+export const ANNOT_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
+  { tool: 'rect', name: 'Zonă dreptunghi', hint: 'arie m²' },
+  { tool: 'ellipse', name: 'Zonă elipsă', hint: 'arie m²' },
+  { tool: 'image', name: 'Imagine', hint: 'PNG, JPG, logo' },
+  { tool: 'table', name: 'Tabel pe planșă', hint: 'liste, zone' },
+]
 
 export const newWall = (points: number[], thickness: number): NewArch => ({ kind: 'wall', points, thickness })
 
@@ -107,3 +127,21 @@ export function snapPoint(
 }
 
 export const fmtM = (m: number) => m.toFixed(2).replace('.', ',') + ' m'
+
+/** Echipamentele de pe nivel aflate în interiorul unei zone (dreptunghi / elipsă, eventual rotită) */
+export function devicesInZone(p: Project, a: ArchElement): Device[] {
+  if (a.x == null || a.y == null) return []
+  const ppm = levelOf(p, a.levelId).pxPerMeter ?? 50
+  const hw = ((a.width ?? 4) * ppm) / 2
+  const hh = ((a.height ?? 3) * ppm) / 2
+  const r = (-(a.rotation ?? 0) * Math.PI) / 180
+  return p.devices.filter((d) => {
+    if (d.levelId !== a.levelId) return false
+    const dx = d.x - a.x!
+    const dy = d.y - a.y!
+    const lx = dx * Math.cos(r) - dy * Math.sin(r)
+    const ly = dx * Math.sin(r) + dy * Math.cos(r)
+    return a.kind === 'ellipse' ? (lx / hw) ** 2 + (ly / hh) ** 2 <= 1 : Math.abs(lx) <= hw && Math.abs(ly) <= hh
+  })
+}
+

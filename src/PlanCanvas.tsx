@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Circle, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
+import { Circle, Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Level, NewArch, Project, Selection, Sheet, Tool } from './types'
 import ArchShapes from './ArchShapes'
@@ -11,8 +11,9 @@ import { glyphLayout, onSymbolImage, symbolByType, systemById } from './symbols'
 import { ZoomBar } from './ZoomBar'
 import { SCREEN_PX_PER_MM, stepPercent, useZoomKeys } from './zoom'
 import { archLayer, layerLocked, layerVisible } from './layers'
+import { prepareImage } from './images'
 import { deviceColor, deviceImage } from './symbolLibrary'
-import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, paperMmPerPx, UNCALIBRATED_PX_PER_M } from './project'
+import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, paperMmPerPx, sheetDrawBounds, UNCALIBRATED_PX_PER_M } from './project'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = UNCALIBRATED_PX_PER_M
@@ -98,6 +99,9 @@ export default function PlanCanvas(props: Props) {
   const [scalePts, setScalePts] = useState<Pt[]>([])
   /** Peretele sau cota în curs de desenare */
   const [archDraft, setArchDraft] = useState<number[]>([])
+  /** Unealta Imagine: punctul unde se pune imaginea aleasă */
+  const imgAt = useRef<Pt | null>(null)
+  const imgInput = useRef<HTMLInputElement>(null)
   /** Dreptunghiul de selecție (coordonate plan) */
   const [marquee, setMarquee] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null)
   /** Copia grupului la începutul tragerii */
@@ -166,18 +170,11 @@ export default function PlanCanvas(props: Props) {
   const fitAll = () => setFitAllTick((n) => n + 1)
   const [fitAllTick, setFitAllTick] = useState(0)
 
-  // Încadrare în ecran
+  // Încadrare în ecran: desenul, zona planșei (pagină albă) și tabelele de pe planșă
   useEffect(() => {
     const c = contentBounds(project, undefined, level.id)
-    const f = pageFrame(project, sheet)
-    const b =
-      c && f
-        ? (() => {
-            const x = Math.min(c.x, f.x)
-            const y = Math.min(c.y, f.y)
-            return { x, y, width: Math.max(c.x + c.width, f.x + f.width) - x, height: Math.max(c.y + c.height, f.y + f.height) - y }
-          })()
-        : (c ?? f)
+    const sd = sheetDrawBounds(project, sheet)
+    const b = c && sd ? { x: Math.min(c.x, sd.x), y: Math.min(c.y, sd.y), width: Math.max(c.x + c.width, sd.x + sd.width) - Math.min(c.x, sd.x), height: Math.max(c.y + c.height, sd.y + sd.height) - Math.min(c.y, sd.y) } : (c ?? sd)
     if (!b) {
       setView({ x: size.width / 2, y: size.height / 2, scale: 1 })
       return
@@ -356,6 +353,36 @@ export default function PlanCanvas(props: Props) {
             onAddArch({ kind: 'dim', points: [archDraft[0], archDraft[1], p.x, p.y] })
             setArchDraft([])
           }
+        } else if (tool.arch === 'rect' || tool.arch === 'ellipse') {
+          // zonă: două click-uri în colțuri opuse
+          if (!archDraft.length) setArchDraft([pt.x, pt.y])
+          else {
+            const [x0, y0] = archDraft
+            const w = Math.abs(pt.x - x0) / ppm
+            const h = Math.abs(pt.y - y0) / ppm
+            setArchDraft([])
+            if (w < 0.1 || h < 0.1) return
+            const name = window.prompt('Numele zonei (apare în zonă; gol = doar aria):', '')
+            if (name == null) return
+            onAddArch({
+              kind: tool.arch,
+              x: (pt.x + x0) / 2,
+              y: (pt.y + y0) / 2,
+              width: Math.round(w * 20) / 20,
+              height: Math.round(h * 20) / 20,
+              rotation: 0,
+              text: name.trim(),
+              stroke: '#1565c0',
+              fillOpacity: 0.12,
+              dashed: true,
+              showArea: true,
+            })
+          }
+        } else if (tool.arch === 'image') {
+          imgAt.current = pt
+          imgInput.current?.click()
+        } else if (tool.arch === 'table') {
+          onAddArch({ kind: 'table', x: pt.x, y: pt.y, rotation: 0, table: { kind: 'echipamente', fontMm: 2.5 } })
         } else if (tool.arch === 'door' || tool.arch === 'window') {
           const w = wallAt(levelArch, pt.x, pt.y, 0.5 * ppm)
           onAddArch({
@@ -661,6 +688,8 @@ export default function PlanCanvas(props: Props) {
               onSelect={() => {}}
               checkpoint={checkpoint}
               update={update}
+              project={project}
+              pxPerMm={paperK ? 1 / paperK : ppm / 10}
             />
           </Layer>
         )}
@@ -677,6 +706,8 @@ export default function PlanCanvas(props: Props) {
             groupIds={archGroup}
             checkpoint={checkpoint}
             update={update}
+            project={project}
+            pxPerMm={paperK ? 1 / paperK : ppm / 10}
           />
         </Layer>
 
@@ -1107,7 +1138,32 @@ export default function PlanCanvas(props: Props) {
             />
           )}
 
-          {tool.kind === 'arch' && archDraft.length > 0 && cursor && (() => {
+          {/* zonă în desenare: dreptunghi / elipsă între primul click și cursor */}
+          {tool.kind === 'arch' && (tool.arch === 'rect' || tool.arch === 'ellipse') && archDraft.length === 2 && cursor && (() => {
+            const [x0, y0] = archDraft
+            const w = Math.abs(cursor.x - x0)
+            const h = Math.abs(cursor.y - y0)
+            const props = { stroke: '#1565c0', strokeWidth: 2 * k, dash: [8 * k, 5 * k], fill: 'rgba(21,101,192,0.08)', listening: false }
+            return (
+              <>
+                {tool.arch === 'rect' ? (
+                  <Rect x={Math.min(x0, cursor.x)} y={Math.min(y0, cursor.y)} width={w} height={h} {...props} />
+                ) : (
+                  <Ellipse x={(x0 + cursor.x) / 2} y={(y0 + cursor.y) / 2} radiusX={w / 2} radiusY={h / 2} {...props} />
+                )}
+                <Text
+                  x={cursor.x + 10 * k}
+                  y={cursor.y + 10 * k}
+                  text={`${(w / ppm).toFixed(2).replace('.', ',')} × ${(h / ppm).toFixed(2).replace('.', ',')} m`}
+                  fontSize={13 * k}
+                  fontStyle="bold"
+                  fill="#1565c0"
+                  listening={false}
+                />
+              </>
+            )
+          })()}
+          {tool.kind === 'arch' && tool.arch !== 'rect' && tool.arch !== 'ellipse' && archDraft.length > 0 && cursor && (() => {
             const c = archSnap(cursor, false)
             const n = archDraft.length
             const pts = [...archDraft, c.x, c.y]
@@ -1144,6 +1200,26 @@ export default function PlanCanvas(props: Props) {
         </Layer>
       </Stage>
 
+      <input
+        ref={imgInput}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.png,.jpg,.jpeg,.webp,.gif,.svg"
+        hidden
+        onChange={async (e) => {
+          const f = e.target.files?.[0]
+          e.target.value = ''
+          const at = imgAt.current
+          if (!f || !at) return
+          try {
+            const img = await prepareImage(f)
+            // lățimea propusă: ~60 mm pe planșa tipărită
+            const wm = paperK ? (60 / paperK) / ppm : 4
+            onAddArch({ kind: 'image', x: at.x, y: at.y, width: Math.round(wm * 100) / 100, height: Math.round(((wm * img.h) / img.w) * 100) / 100, rotation: 0, src: img.src, text: f.name })
+          } catch (err) {
+            window.alert('Imaginea nu a putut fi citită: ' + (err as Error).message)
+          }
+        }}
+      />
       {editTextId &&
         (() => {
           const el = project.arch.find((x) => x.id === editTextId)
@@ -1196,6 +1272,11 @@ export default function PlanCanvas(props: Props) {
           )}
           {tool.kind === 'arch' && tool.arch === 'label' && <>Click pe plan pentru a adăuga numele unei încăperi. Esc = gata.</>}
           {tool.kind === 'arch' && tool.arch === 'dim' && <>Click pe capetele cotei; lungimea se calculează singură. Esc = gata.</>}
+          {tool.kind === 'arch' && (tool.arch === 'rect' || tool.arch === 'ellipse') && (
+            <>Click pe un colț al zonei, apoi pe colțul opus; aria se calculează singură. Esc = gata.</>
+          )}
+          {tool.kind === 'arch' && tool.arch === 'image' && <>Click unde vrei imaginea, apoi alege fișierul (PNG, JPG, SVG…). Esc = gata.</>}
+          {tool.kind === 'arch' && tool.arch === 'table' && <>Click unde vrei colțul din stânga-sus al tabelului; tipul lui se alege în panoul din dreapta. Esc = gata.</>}
           {tool.kind === 'arch' && tool.arch === 'riser' && (
             <>Click pentru a pune ghena (trecerea între niveluri). Pune-o cu același nume pe fiecare nivel prin care trec cablurile. Esc = gata.</>
           )}

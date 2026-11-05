@@ -5,7 +5,7 @@ import './App.css'
 import type { ArchElement, Background, Cable, Device, Level, NewArch, Project, Selection, Sheet, SystemId, Tool } from './types'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
-import { backgroundKeys, deleteBackground, getBackground, putBackground } from './storage'
+import { backgroundKeys, deleteBackground, getBackground, getImage, putBackground, putImage } from './storage'
 import { ARCH_NAMES, SKETCH_PX_PER_M } from './arch'
 import { useHistory } from './history'
 import { ALL_SYSTEMS, activeSheet, contentBounds, levelOf, outsideFrame, pageFrame, newLevel, paperMmPerPx, sheetLevel, symbolForPaper, catalogItem, devicePrefix, deviceSystem, emptyProject, formatLabel, isProject, newSheet, nextCableCode, nextLabel, nextSheetNr, normalizeProject, uid } from './project'
@@ -152,6 +152,20 @@ export default function App() {
         }
         for (const l of project.levels) if (l.background) storedBgs.current.set(l.id, '')
         for (const [id, bg] of found) storedBgs.current.set(id, bg.src)
+        // imaginile de pe planșe
+        const imgs = new Map<string, string>()
+        for (const a of project.arch) {
+          if (a.kind !== 'image' || a.src) continue
+          const src = await getImage('img:' + a.id)
+          if (src) {
+            imgs.set(a.id, src)
+            storedBgs.current.set('img:' + a.id, src)
+          }
+        }
+        if (alive && imgs.size) {
+          skipDirty.current = true
+          h.update((p) => ({ ...p, arch: p.arch.map((a) => (imgs.has(a.id) && !a.src ? { ...a, src: imgs.get(a.id)! } : a)) }))
+        }
         if (alive && found.size) {
           const apply = (p: Project) => ({ ...p, levels: p.levels.map((l) => (!l.background && found.has(l.id) ? { ...l, background: found.get(l.id)! } : l)) })
           skipDirty.current = true
@@ -178,7 +192,15 @@ export default function App() {
         notify(`Atenție: ${what} nu încape în memoria browserului. Salvează proiectul în fișier (Ctrl+S) ca să nu-l pierzi.`)
       }
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...project, levels: project.levels.map((l) => ({ ...l, background: null })) }))
+        // planurile de fundal și imaginile de pe planșe stau în IndexedDB (localStorage are ~5 MB)
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            ...project,
+            levels: project.levels.map((l) => ({ ...l, background: null })),
+            arch: project.arch.map((a) => (a.kind === 'image' && a.src ? { ...a, src: undefined } : a)),
+          }),
+        )
       } catch {
         warn('proiectul')
       }
@@ -193,8 +215,21 @@ export default function App() {
             storedBgs.current.delete(l.id)
           }
         }
+        const imgs = project.arch.filter((a) => a.kind === 'image' && a.src)
+        for (const a of imgs) {
+          const key = 'img:' + a.id
+          if (storedBgs.current.get(key) !== a.src) {
+            await putImage(key, a.src!)
+            storedBgs.current.set(key, a.src!)
+          }
+        }
+        const imgIds = new Set(imgs.map((a) => 'img:' + a.id))
         for (const key of await backgroundKeys()) {
-          if (!ids.has(String(key))) await deleteBackground(String(key))
+          const k = String(key)
+          if (k.startsWith('img:') ? !imgIds.has(k) : !ids.has(k)) {
+            await deleteBackground(k)
+            storedBgs.current.delete(k)
+          }
         }
       } catch (err) {
         console.warn(err)
@@ -363,9 +398,11 @@ export default function App() {
           sheets: p.sheets.map((sh) => (sh.id === p.activeSheetId ? { ...sh, hiddenLayers: (sh.hiddenLayers ?? []).filter((k) => k !== archLayer(el)) } : sh)),
         }
       })
-      if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
+      // zonele, imaginile și tabelele se reglează imediat din panou (tab-ul Element)
+      if (el.kind === 'rect' || el.kind === 'ellipse' || el.kind === 'image' || el.kind === 'table') select({ kind: 'arch', id })
+      else if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
     },
-    [h],
+    [h, select],
   )
 
   const patchArch = (id: string, patch: Partial<ArchElement>) =>
@@ -1371,7 +1408,16 @@ export default function App() {
               ) : selCable ? (
                 <CableProps c={selCable} project={project} onChange={(patch) => patchCable(selCable.id, patch)} onDelete={deleteSelection} />
               ) : selArch ? (
-                <ArchProps a={selArch} project={project} onChange={(patch) => patchArch(selArch.id, patch)} onDelete={deleteSelection} />
+                <ArchProps
+                  a={selArch}
+                  project={project}
+                  onChange={(patch) => patchArch(selArch.id, patch)}
+                  onDelete={deleteSelection}
+                  onAssignZone={(ids, zone) => {
+                    h.commit((p) => ({ ...p, devices: p.devices.map((d) => (ids.includes(d.id) ? { ...d, zone } : d)) }))
+                    notify(`Zona „${zone}” a fost atribuită la ${ids.length} echipamente.`)
+                  }}
+                />
               ) : (
                 <div className="props">
                   <p className="hint">Selectează un echipament sau un cablu de pe plan.</p>

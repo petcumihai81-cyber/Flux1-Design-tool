@@ -1,4 +1,5 @@
-import type { Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
+import type { ArchElement, Cable, CatalogItem, Device, Level, Orientation, PageFormat, Project, Sheet, SystemId } from './types'
+import { tableData, tableLayoutPx } from './sheetTables'
 import { DEFAULT_CALC, defaultCatalog, withSeedSpecs } from './catalog'
 import { defaultCustomSymbols } from './symbolLibrary'
 import { defaultMemoriu } from './memoriuDefaults'
@@ -157,13 +158,18 @@ export function outsideFrame(p: Project, sh: Sheet): boolean {
 
 /** Ce se încadrează în pagina planșei de plan: zona de desen (pagină albă) reunită cu desenul */
 export function sheetDrawBounds(p: Project, sh: Sheet) {
-  const b = contentBounds(p, sh.systems, sheetLevel(p, sh).id)
+  const lvl = sheetLevel(p, sh)
+  const b = contentBounds(p, sh.systems, lvl.id)
   const f = pageFrame(p, sh)
-  if (!f) return b
-  if (!b) return { x: f.x, y: f.y, width: f.width, height: f.height }
-  const x = Math.min(b.x, f.x)
-  const y = Math.min(b.y, f.y)
-  return { x, y, width: Math.max(b.x + b.width, f.x + f.width) - x, height: Math.max(b.y + b.height, f.y + f.height) - y }
+  let out = !f ? b : !b ? { x: f.x, y: f.y, width: f.width, height: f.height } : unionB(b, f)
+  // tabelele: mărimea lor depinde de scara hârtiei, deci se calculează la scara desenului fără ele
+  if (out && sh.kind === 'plan' && p.arch.some((a) => a.kind === 'table' && a.levelId === lvl.id)) {
+    const [aw, ah] = drawAreaMm(sh)
+    const k0 = Math.min(aw / Math.max(out.width, 1), ah / Math.max(out.height, 1))
+    const t = tableBounds(p, lvl.id, 1 / k0)
+    if (t) out = unionB(out, t)
+  }
+  return out
 }
 
 /** Câți mm pe hârtie are un pixel de plan, când nivelul e încadrat în zona de desen a planșei */
@@ -339,9 +345,63 @@ export function backgroundBounds(level: Level) {
   return { x: cx - w / 2, y: cy - h / 2, width: w, height: h }
 }
 
+/** Colțurile unei zone / imagini (dreptunghi rotit, centrat în x, y); tabelele au mărimea lor în tableBounds */
+function annotCorners(a: ArchElement, ppm: number): number[] {
+  if ((a.kind !== 'rect' && a.kind !== 'ellipse' && a.kind !== 'image') || a.x == null || a.y == null) return []
+  const w = ((a.width ?? 4) * ppm) / 2
+  const h = ((a.height ?? 3) * ppm) / 2
+  const r = ((a.rotation ?? 0) * Math.PI) / 180
+  const c = Math.cos(r)
+  const s = Math.sin(r)
+  return [
+    [-w, -h],
+    [w, -h],
+    [w, h],
+    [-w, h],
+  ].flatMap(([x, y]) => [a.x! + x * c - y * s, a.y! + x * s + y * c])
+}
+
+/** Limitele tabelelor de pe nivel, la o anumită mărime a hârtiei (px de plan pe mm) */
+export function tableBounds(p: Project, levelId: string, pxPerMm: number) {
+  const xs: number[] = []
+  const ys: number[] = []
+  for (const a of p.arch) {
+    if (a.kind !== 'table' || !a.table || a.levelId !== levelId || a.x == null || a.y == null) continue
+    const L = tableLayoutPx(tableData(p, a.table, a.levelId), a.table.fontMm ?? 2.5, pxPerMm)
+    const r = ((a.rotation ?? 0) * Math.PI) / 180
+    for (const [x, y] of [
+      [0, 0],
+      [L.width, 0],
+      [L.width, L.height],
+      [0, L.height],
+    ]) {
+      xs.push(a.x + x * Math.cos(r) - y * Math.sin(r))
+      ys.push(a.y + x * Math.sin(r) + y * Math.cos(r))
+    }
+  }
+  if (!xs.length) return null
+  return { x: Math.min(...xs), y: Math.min(...ys), width: Math.max(...xs) - Math.min(...xs), height: Math.max(...ys) - Math.min(...ys) }
+}
+
+const unionB = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }) => {
+  const x = Math.min(a.x, b.x)
+  const y = Math.min(a.y, b.y)
+  return { x, y, width: Math.max(a.x + a.width, b.x + b.width) - x, height: Math.max(a.y + a.height, b.y + b.height) - y }
+}
+
 export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS, levelId?: string) {
   const level = levelOf(p, levelId)
-  if (level.background) return backgroundBounds(level)
+  if (level.background) {
+    // planul de fundal, plus zonele / imaginile care ies din el
+    let b = backgroundBounds(level)
+    const ppm0 = level.pxPerMeter ?? UNCALIBRATED_PX_PER_M
+    for (const a of p.arch) {
+      if (a.levelId !== level.id) continue
+      const c = annotCorners(a, ppm0)
+      for (let i = 0; i < c.length; i += 2) b = unionB(b, { x: c[i], y: c[i + 1], width: 0, height: 0 })
+    }
+    return b
+  }
   const hidden = new Set(ALL_SYSTEMS.filter((s) => !systems.includes(s)))
   const xs: number[] = []
   const ys: number[] = []
@@ -352,9 +412,11 @@ export function contentBounds(p: Project, systems: SystemId[] = ALL_SYSTEMS, lev
     xs.push(d.x)
     ys.push(d.y)
   }
+  const ppm1 = level.pxPerMeter ?? UNCALIBRATED_PX_PER_M
   for (const a of p.arch ?? []) {
     if (a.levelId !== level.id) continue
-    const pts = a.points ?? (a.x != null && a.y != null ? [a.x, a.y] : [])
+    const corners = annotCorners(a, ppm1)
+    const pts = corners.length ? corners : a.points ?? (a.x != null && a.y != null ? [a.x, a.y] : [])
     for (let i = 0; i < pts.length; i += 2) {
       xs.push(pts[i])
       ys.push(pts[i + 1])

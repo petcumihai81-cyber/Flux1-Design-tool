@@ -40,3 +40,7 @@ export const putBackground = (levelId: string, bg: Background) => tx('readwrite'
 export const getBackground = (levelId: string) => tx<Background | undefined>('readonly', (s) => s.get(levelId))
 export const deleteBackground = (levelId: string) => tx('readwrite', (s) => s.delete(levelId))
 export const backgroundKeys = () => tx<IDBValidKey[]>('readonly', (s) => s.getAllKeys())
+
+/** Imaginile de pe planșe (data URL), în același depozit, cu cheia „img:<id>” */
+export const putImage = (key: string, src: string) => tx('readwrite', (s) => s.put(src, key))
+export const getImage = (key: string) => tx<string | undefined>('readonly', (s) => s.get(key))

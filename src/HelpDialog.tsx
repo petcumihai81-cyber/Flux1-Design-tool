@@ -314,6 +314,31 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'adnotari',
+    title: 'Zone, imagini și tabele pe planșă',
+    img: 'help/19-zone-tabele.webp',
+    steps: [
+      <>
+        În paletă, <B>Zone, imagini, tabele</B>. <B>Zonă dreptunghi / elipsă</B>: click pe un colț, apoi pe colțul opus, și scrii numele
+        zonei. În zonă apar numele și <B>aria în m²</B>; din panou alegi culoarea, umplerea, conturul punctat, rotirea.
+      </>,
+      <>
+        <B>Atribuie zona celor N echipamente din interior</B> completează „Zona protejată” la echipamentele din zonă — tabelul de zone din
+        memoriu și din Excel se completează astfel dintr-o mișcare.
+      </>,
+      <>
+        <B>Imagine</B>: click unde o vrei și alegi fișierul (PNG, JPG, SVG — ex. logo, fotografie, detaliu de montaj). Trage pătratul din colț
+        pentru mărime (proporțiile se păstrează).
+      </>,
+      <>
+        <B>Tabel pe planșă</B>: click unde vrei colțul din stânga-sus, apoi alegi conținutul — lista echipamentelor, tabelul de zone, zonele
+        supravegheate video sau jurnalul de cablu — pentru toate sistemele sau unul, tot proiectul sau doar nivelul. Tabelul{' '}
+        <B>se actualizează singur</B>; pătratul din colț îi schimbă mărimea textului (în mm pe hârtie).
+      </>,
+      <>Toate se mută, se rotesc, se copiază și se șterg ca restul elementelor și au straturile lor în tab-ul Straturi. Zonele intră și în DXF.</>,
+    ],
+  },
+  {
     id: 'straturi',
     title: 'Straturi: arată / ascunde, blochează',
     intro: 'Ca în AutoCAD sau Photoshop: fiecare planșă de plan are straturi.',

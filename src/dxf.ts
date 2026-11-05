@@ -339,6 +339,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     { name: 'ARH_TEXT', color: 8 },
     { name: 'ARH_COTE', color: 7 },
     { name: 'GHENE', color: 8 },
+    { name: 'ADN_ZONE', color: 5 },
   ]
   for (const s of SYSTEMS) {
     if (!visible.has(s.id)) continue
@@ -622,6 +623,21 @@ function drawArch(
       polyline(d, 'ARH_FERESTRE', [P(-w / 2, -th / 2), P(-w / 2, th / 2)])
       polyline(d, 'ARH_FERESTRE', [P(w / 2, -th / 2), P(w / 2, th / 2)])
     }
+    return
+  }
+  if (a.kind === 'rect' || a.kind === 'ellipse') {
+    // zonă: contur (în culoarea ei) + nume și arie în centru
+    const w = a.width ?? 4
+    const h = a.height ?? 3
+    const color = a.stroke ? nearestAci(a.stroke) : undefined
+    const pts: [number, number][] = []
+    if (a.kind === 'rect') pts.push(P(-w / 2, -h / 2), P(w / 2, -h / 2), P(w / 2, h / 2), P(-w / 2, h / 2))
+    else for (let i = 0; i < 48; i++) pts.push(P((Math.cos((i / 48) * Math.PI * 2) * w) / 2, (Math.sin((i / 48) * Math.PI * 2) * h) / 2))
+    polyline(d, 'ADN_ZONE', pts, { closed: true, color })
+    const area = a.kind === 'rect' ? w * h : (Math.PI * w * h) / 4
+    const th = Math.max(0.25, m(S) * 0.4)
+    const lines = [a.text ?? '', a.showArea !== false ? `${area.toFixed(1).replace('.', ',')} mp` : ''].filter(Boolean)
+    lines.forEach((t, i) => text(d, 'ADN_ZONE', cx, cy + ((lines.length - 1) / 2 - i) * th * 1.4, th, t, { h: 1, v: 2, rot: rotDxf, color }))
     return
   }
   if (a.kind === 'label') {
