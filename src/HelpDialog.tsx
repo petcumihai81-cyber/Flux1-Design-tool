@@ -520,6 +520,24 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'tactil',
+    title: 'Pe tabletă / telefon',
+    steps: [
+      <>
+        Pe ecranul tactil: <B>atingere</B> = click (selectezi, plasezi echipamentul ales din paletă, pui punctele cablului),{' '}
+        <B>dublă atingere</B> = dublu-click (termini cablul, editezi nota).
+      </>,
+      <>
+        <B>Tragere cu un deget</B>: pe un echipament îl muți, pe gol muți planul. <B>Două degete</B>: depărtezi / apropii = zoom, le miști
+        împreună = muți planul.
+      </>,
+      <>
+        <B>Apăsare lungă</B> (o jumătate de secundă) = meniul de click dreapta: duplicare, culoare, ștergere, lipire. Din paletă, simbolul se
+        alege cu o atingere, apoi atingi locul de pe plan (tragerea din paletă merge doar cu mouse-ul).
+      </>,
+    ],
+  },
+  {
     id: 'scurtaturi',
     title: 'Scurtături și salvare',
     steps: [

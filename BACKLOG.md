@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** Export / import al bibliotecii de simboluri personalizate — PR #40.
+- [ ] **P1** Ferestre proprii ale aplicației în locul celor ale browserului (text la notă, confirmări, mesaje) — observația utilizatorului: la nota cu săgeată textul se cerea într-o fereastră a sistemului.
 
 ## De făcut
 
@@ -19,7 +19,6 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [ ] **P3** Import DXF: notele de tip MULTILEADER (acum sunt sărite, cu număr afișat în dialog).
 
 ### Telefon / tabletă
-- [ ] **P2** Suport pentru ecran tactil: zoom cu două degete, apăsare lungă în loc de click dreapta, tragere cu un deget.
 - [ ] **P3** Panouri care se strâng pe ecran mic (paleta și panoul din dreapta ca sertare).
 
 ### Calitate
@@ -65,3 +64,5 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Asistent pentru proiect nou ([#37](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/37))
 - [x] Pachet proiect .zip ([#38](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/38))
 - [x] DXF: conurile camerelor hașurate; mărimea corectă a notelor în DXF ([#39](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/39))
+- [x] Export / import al bibliotecii de simboluri personalizate ([#40](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/40))
+- [x] Suport pentru ecran tactil ([#41](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/41))

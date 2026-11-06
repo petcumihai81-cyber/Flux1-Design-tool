@@ -14,6 +14,7 @@ import { archLayer, layerLocked, layerVisible } from './layers'
 import { prepareImage } from './images'
 import { deviceColor, deviceImage } from './symbolLibrary'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, paperMmPerPx, sheetDrawBounds, UNCALIBRATED_PX_PER_M } from './project'
+import { useTouchGestures } from './touch'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = UNCALIBRATED_PX_PER_M
@@ -94,6 +95,7 @@ export default function PlanCanvas(props: Props) {
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
+  useTouchGestures(stageRef, () => view, setView, { min: 0.02, max: 40 })
   const [cursor, setCursor] = useState<Pt | null>(null)
   const [draft, setDraft] = useState<{ points: number[]; from?: string; riser?: string }>({ points: [] })
   const [scalePts, setScalePts] = useState<Pt[]>([])
