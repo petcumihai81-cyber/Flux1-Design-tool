@@ -530,7 +530,7 @@ export function ArchProps({
       <div className="props-title">
         <div>
           <b>{ARCH_NAMES[a.kind]}</b>
-          <small style={{ color: 'var(--muted)' }}>{isZone || a.kind === 'image' || a.kind === 'table' ? 'Zone, imagini, tabele' : 'Arhitectură (schiță)'}</small>
+          <small style={{ color: 'var(--muted)' }}>{isZone || a.kind === 'image' || a.kind === 'table' || a.kind === 'note' ? 'Zone, imagini, tabele' : 'Arhitectură (schiță)'}</small>
         </div>
       </div>
       {isZone && (
@@ -620,6 +620,29 @@ export function ArchProps({
               onChange({ src: img.src, text: f.name, height: ((a.width ?? 4) * img.h) / img.w })
             }}
           />
+        </>
+      )}
+      {a.kind === 'note' && (
+        <>
+          <Field label="Textul notei (Enter = rând nou)">
+            <textarea rows={3} value={a.text ?? ''} onChange={(e) => onChange({ text: e.target.value })} />
+          </Field>
+          <Field label="Mărimea textului pe hârtie (mm)">
+            <Num value={a.fontMm ?? 2.5} min={1} max={10} step={0.1} onChange={(v) => onChange({ fontMm: Math.max(1, Math.min(10, v)) })} />
+          </Field>
+          <Field label="Culoare">
+            <div className="color-row">
+              {ZONE_COLORS.map((c) => (
+                <button key={c} className={'swatch' + ((a.stroke ?? '#222222') === c ? ' on' : '')} style={{ background: c }} onClick={() => onChange({ stroke: c })} />
+              ))}
+              <input type="color" value={a.stroke ?? '#222222'} onChange={(e) => onChange({ stroke: e.target.value })} />
+            </div>
+          </Field>
+          <label className="check">
+            <input type="checkbox" checked={!!a.boxed} onChange={(e) => onChange({ boxed: e.target.checked })} />
+            Text în chenar alb (se citește bine peste plan)
+          </label>
+          <p className="hint">Trage cercurile de la capete: vârful săgeții și locul textului. Dublu-click pe text = editare pe plan.</p>
         </>
       )}
       {a.kind === 'table' && a.table && (

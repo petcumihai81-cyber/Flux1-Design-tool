@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type Konva from 'konva'
-import { Circle, Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
+import { Arrow, Circle, Ellipse, Group, Image as KImage, Layer, Line, Rect, Stage, Text, Wedge } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Device, Level, NewArch, Project, Selection, Sheet, Tool } from './types'
 import ArchShapes from './ArchShapes'
@@ -377,6 +377,15 @@ export default function PlanCanvas(props: Props) {
               dashed: true,
               showArea: true,
             })
+          }
+        } else if (tool.arch === 'note') {
+          // notă: întâi vârful săgeții (punctul indicat), apoi locul textului
+          if (!archDraft.length) setArchDraft([pt.x, pt.y])
+          else {
+            const [x0, y0] = archDraft
+            setArchDraft([])
+            const text = window.prompt('Textul notei (ex. „cablu prin tavan fals”):', '')
+            if (text && text.trim()) onAddArch({ kind: 'note', points: [x0, y0, pt.x, pt.y], text: text.trim(), fontMm: 2.5 })
           }
         } else if (tool.arch === 'image') {
           imgAt.current = pt
@@ -875,6 +884,41 @@ export default function PlanCanvas(props: Props) {
 
         {/* Elemente de interfață (ascunse la export) */}
         <Layer name="ui">
+          {/* nota selectată: mânere la vârful săgeții și la text, deasupra simbolurilor */}
+          {isSelect &&
+            selection?.kind === 'arch' &&
+            (() => {
+              const a = levelArch.find((x) => x.id === selection.id && x.kind === 'note' && x.points && x.points.length >= 4)
+              if (!a || layerLocked(sheet, archLayer(a))) return null
+              return [0, 2].map((i) => (
+                <Circle
+                  key={'nh' + i}
+                  x={a.points![i]}
+                  y={a.points![i + 1]}
+                  radius={(i === 0 ? 6 : 5) * k}
+                  fill={i === 0 ? '#c62828' : '#fff'}
+                  stroke="#1e88e5"
+                  strokeWidth={2 * k}
+                  draggable
+                  onMouseEnter={(e) => (e.target.getStage()!.container().style.cursor = 'move')}
+                  onMouseLeave={(e) => (e.target.getStage()!.container().style.cursor = '')}
+                  onDragStart={(e) => {
+                    e.cancelBubble = true
+                    checkpoint()
+                  }}
+                  onDragMove={(e) => {
+                    e.cancelBubble = true
+                    const pts = [...a.points!]
+                    pts[i] = e.target.x()
+                    pts[i + 1] = e.target.y()
+                    update((p) => ({ ...p, arch: p.arch.map((x) => (x.id === a.id ? { ...x, points: pts } : x)) }))
+                  }}
+                  onDragEnd={(e) => {
+                    e.cancelBubble = true
+                  }}
+                />
+              ))
+            })()}
           {/* planul de fundal deblocat: conturul lui (nu apare la export) */}
           {level.background && level.bgLocked === false && (
             <Rect
@@ -1163,7 +1207,19 @@ export default function PlanCanvas(props: Props) {
               </>
             )
           })()}
-          {tool.kind === 'arch' && tool.arch !== 'rect' && tool.arch !== 'ellipse' && archDraft.length > 0 && cursor && (() => {
+          {tool.kind === 'arch' && tool.arch === 'note' && archDraft.length === 2 && cursor && (
+            <Arrow
+              points={[cursor.x, cursor.y, archDraft[0], archDraft[1]]}
+              stroke="#c62828"
+              fill="#c62828"
+              strokeWidth={2 * k}
+              pointerLength={12 * k}
+              pointerWidth={9 * k}
+              dash={[8 * k, 5 * k]}
+              listening={false}
+            />
+          )}
+          {tool.kind === 'arch' && tool.arch !== 'rect' && tool.arch !== 'ellipse' && tool.arch !== 'note' && archDraft.length > 0 && cursor && (() => {
             const c = archSnap(cursor, false)
             const n = archDraft.length
             const pts = [...archDraft, c.x, c.y]
@@ -1224,6 +1280,33 @@ export default function PlanCanvas(props: Props) {
         (() => {
           const el = project.arch.find((x) => x.id === editTextId)
           const st = stageRef.current
+          if (el?.kind === 'note' && el.points && st) {
+            // notă: text pe mai multe rânduri (Enter = rând nou, Ctrl+Enter sau click în afară = gata)
+            const pt = st.getAbsoluteTransform().point({ x: el.points[2], y: el.points[3] })
+            return (
+              <textarea
+                className="text-edit note-edit"
+                autoFocus
+                rows={Math.max(2, (el.text ?? '').split('\n').length + 1)}
+                defaultValue={el.text ?? ''}
+                style={{ left: pt.x, top: pt.y - 60 }}
+                onFocus={(e) => e.target.select()}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Escape') onEditText(null)
+                  if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) (e.target as HTMLTextAreaElement).blur()
+                }}
+                onBlur={(e) => {
+                  const v = e.target.value.replace(/\s+$/, '')
+                  if (v && v !== el.text) {
+                    checkpoint()
+                    update((p) => ({ ...p, arch: p.arch.map((x) => (x.id === el.id ? { ...x, text: v } : x)) }))
+                  }
+                  onEditText(null)
+                }}
+              />
+            )
+          }
           if (!el || el.x == null || el.y == null || !st) return null
           const pt = st.getAbsoluteTransform().point({ x: el.x, y: el.y })
           const fs = Math.max(12, Math.min(40, (el.size ?? 0.45) * ppm * view.scale))
@@ -1274,6 +1357,9 @@ export default function PlanCanvas(props: Props) {
           {tool.kind === 'arch' && tool.arch === 'dim' && <>Click pe capetele cotei; lungimea se calculează singură. Esc = gata.</>}
           {tool.kind === 'arch' && (tool.arch === 'rect' || tool.arch === 'ellipse') && (
             <>Click pe un colț al zonei, apoi pe colțul opus; aria se calculează singură. Esc = gata.</>
+          )}
+          {tool.kind === 'arch' && tool.arch === 'note' && (
+            <>Click pe punctul indicat (vârful săgeții), apoi unde vrei textul; scrii textul notei. Dublu-click pe notă = editare. Esc = gata.</>
           )}
           {tool.kind === 'arch' && tool.arch === 'image' && <>Click unde vrei imaginea, apoi alege fișierul (PNG, JPG, SVG…). Esc = gata.</>}
           {tool.kind === 'arch' && tool.arch === 'table' && <>Click unde vrei colțul din stânga-sus al tabelului; tipul lui se alege în panoul din dreapta. Esc = gata.</>}

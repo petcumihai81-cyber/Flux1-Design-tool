@@ -1,7 +1,7 @@
 import type { ArchElement, Project, Sheet, SystemId } from './types'
 import { archLayer, layerVisible } from './layers'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
-import { deviceSystem, sheetLevel } from './project'
+import { deviceSystem, paperMmPerPx, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 
 /**
@@ -340,6 +340,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     { name: 'ARH_COTE', color: 7 },
     { name: 'GHENE', color: 8 },
     { name: 'ADN_ZONE', color: 5 },
+    { name: 'ADN_NOTE', color: 7 },
   ]
   for (const s of SYSTEMS) {
     if (!visible.has(s.id)) continue
@@ -475,7 +476,10 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
 
   // schița de arhitectură
   const openings = arch.filter((a) => (a.kind === 'door' || a.kind === 'window') && a.x != null && a.y != null)
-  for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings)
+  // textul notelor: mm de hârtie → metri, la scara planșei
+  const paperK = paperMmPerPx(p, sheet)
+  const mmToM = paperK ? paperK / ppm : 0.1
+  for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings, mmToM)
 
   // conuri camere
   if (layerVisible(sheet, 'CCTV:conuri') && visible.has('CCTV')) {
@@ -564,7 +568,28 @@ function drawArch(
   Y: (py: number) => number,
   m: (px: number) => number,
   openings: ArchElement[],
+  mmToM: number,
 ) {
+  if (a.kind === 'note' && a.points && a.points.length >= 4) {
+    // notă: săgeată de la text la punctul indicat, linie de sprijin, textul deasupra
+    const [tx, ty, ax, ay] = [X(a.points[0]), Y(a.points[1]), X(a.points[2]), Y(a.points[3])]
+    const h = (a.fontMm ?? 2.5) * mmToM
+    const color = a.stroke ? nearestAci(a.stroke) : undefined
+    polyline(d, 'ADN_NOTE', [[ax, ay], [tx, ty]], { color })
+    const ang = Math.atan2(ay - ty, ax - tx)
+    const L = h * 1.1
+    const W = h * 0.375
+    const bx = tx + Math.cos(ang) * L
+    const by = ty + Math.sin(ang) * L
+    polyline(d, 'ADN_NOTE', [[tx, ty], [bx - Math.sin(ang) * W, by + Math.cos(ang) * W], [bx + Math.sin(ang) * W, by - Math.cos(ang) * W]], { closed: true, color })
+    const lines = (a.text ?? '').split('\n')
+    const w = Math.max(h * 2, Math.max(...lines.map((l) => [...l].length)) * h * 0.6)
+    const right = tx <= ax
+    const x0 = right ? ax : ax - w
+    polyline(d, 'ADN_NOTE', [[x0, ay], [x0 + w, ay]], { color })
+    lines.forEach((t, i) => text(d, 'ADN_NOTE', right ? x0 : x0 + w, ay + h * 0.35 + (lines.length - 1 - i) * h * 1.25, h, t, { h: right ? 0 : 2, v: 0, color }))
+    return
+  }
   if (a.kind === 'wall' && a.points) {
     const pts: [number, number][] = []
     for (let i = 0; i < a.points.length; i += 2) pts.push([X(a.points[i]), Y(a.points[i + 1])])
