@@ -457,7 +457,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
       {interactive &&
         arch
           // notele au mânerele pe stratul de interfață (deasupra simbolurilor spre care arată)
-          .filter((a) => a.id === selectedId && a.points && a.kind !== 'note')
+          .filter((a) => a.id === selectedId && a.points && a.kind !== 'note' && a.kind !== 'line')
           .map((a) =>
             a.points!.map((_, i) =>
               i % 2 ? null : (
@@ -603,6 +603,30 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
             )
           })}
       {arch.filter((a) => a.kind === 'table').map((a) => renderTable(a))}
+      {arch.filter((a) => a.kind === 'line' && a.points && a.points.length >= 4).map((a) => {
+        const color = sel(a) ? '#1565c0' : a.stroke ?? '#222222'
+        const sw = Math.max((a.widthMm ?? 0.35) * pxPerMm, 0.8 * k)
+        const head = Math.max(sw * 4, 2.2 * pxPerMm)
+        return (
+          <Arrow
+            key={a.id}
+            {...common(a)}
+            {...moveProps(a)}
+            points={a.points!}
+            stroke={color}
+            fill={color}
+            strokeWidth={sw}
+            dash={a.dashed ? [sw * 6, sw * 4] : undefined}
+            pointerAtBeginning={!!a.arrowStart}
+            pointerAtEnding={!!a.arrowEnd}
+            pointerLength={head}
+            pointerWidth={head * 0.7}
+            lineCap="round"
+            lineJoin="round"
+            hitStrokeWidth={Math.max(sw, 10 * k)}
+          />
+        )
+      })}
       {arch.filter((a) => a.kind === 'note' && a.points && a.points.length >= 4).map((a) => renderNote(a))}
       {/* zonă / imagine / tabel selectat: mâner de redimensionare în colțul din dreapta-jos */}
       {interactive &&
