@@ -22,6 +22,16 @@ export const REPO_URL = 'https://github.com/petcumihai81-cyber/Flux1-Design-tool
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.45',
+    date: '2026-11-06',
+    pr: 45,
+    title: 'Hașură configurabilă pe zone',
+    items: [
+      'Zonele (dreptunghi, elipsă, poligon) primesc hașură: diagonal, încrucișat, orizontal, vertical, carouri sau puncte, cu distanța în mm pe hârtie.',
+      'Hașura apare pe plan, în PDF și în DXF (stratul ADN_ZONE_HASURA).',
+    ],
+  },
+  {
     version: '1.44',
     date: '2026-11-06',
     pr: 44,
@@ -117,7 +127,7 @@ export const FEATURES: { group: string; items: string[] }[] = [
       'Plan de fundal PDF (orice pagină), imagine sau DXF; estompare, blocare, rotire',
       'Schiță de arhitectură: pereți, uși, ferestre, texte, cote, ghene',
       'Mai multe planșe A0–A4 cu file ca în Excel, straturi arată / ascunde / blocare',
-      'Zone (dreptunghi, elipsă, poligon) cu arie, note cu săgeată, linii, imagini, tabele',
+      'Zone (dreptunghi, elipsă, poligon) cu arie și hașură, note cu săgeată, linii, imagini, tabele',
       'Zoom raportat la planșa tipărită; ecran tactil, cu sertare pe ecran mic',
     ],
   },

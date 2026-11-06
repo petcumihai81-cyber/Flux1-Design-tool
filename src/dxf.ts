@@ -1,6 +1,7 @@
 import type { ArchElement, Project, Sheet, SystemId } from './types'
 import { archLayer, layerVisible } from './layers'
-import { polygonInfo } from './arch'
+import { pointInPolygon, polygonInfo } from './arch'
+import { HATCH_MM_DEFAULT, hatchAngles } from './hatch'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
 import { deviceSystem, paperMmPerPx, parseScale, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
@@ -272,12 +273,14 @@ function sectorPolygon(cx: number, cy: number, r: number, a0: number, a1: number
  * Hașură cu linii paralele la 45° în interiorul unui poligon (DXF R12 nu are HATCH):
  * fiecare linie se taie cu laturile poligonului, iar tronsoanele interioare se scriu ca LINE.
  */
-function hatchPolygon(d: Dxf, layer: string, poly: [number, number][], step: number, color?: number) {
+function hatchPolygon(d: Dxf, layer: string, poly: [number, number][], step: number, color?: number, angleDeg = 45) {
   if (poly.length < 3 || !(step > 0)) return
-  // coordonată de-a lungul normalei la linii (u) și de-a lungul liniilor (v), pentru direcția 45°
-  const k = Math.SQRT1_2
-  const U = ([x, y]: [number, number]) => (x - y) * k
-  const V = ([x, y]: [number, number]) => (x + y) * k
+  // direcția liniilor (dx, dy) și normala lor (nx, ny); u = poziția pe normală, v = poziția de-a lungul liniei
+  const r = (angleDeg * Math.PI) / 180
+  const [dx, dy] = [Math.cos(r), Math.sin(r)]
+  const [nx, ny] = [-dy, dx]
+  const U = ([x, y]: [number, number]) => x * nx + y * ny
+  const V = ([x, y]: [number, number]) => x * dx + y * dy
   const us = poly.map(U)
   const umin = Math.min(...us)
   const umax = Math.max(...us)
@@ -290,7 +293,7 @@ function hatchPolygon(d: Dxf, layer: string, poly: [number, number][], step: num
       const b = poly[(i + 1) % poly.length]
       const ua = us[i]
       const ub = us[(i + 1) % poly.length]
-      if (ua === ub || (u < Math.min(ua, ub)) || u >= Math.max(ua, ub)) continue
+      if (ua === ub || u < Math.min(ua, ub) || u >= Math.max(ua, ub)) continue
       const t = (u - ua) / (ub - ua)
       hits.push(V(a) + (V(b) - V(a)) * t)
     }
@@ -298,18 +301,40 @@ function hatchPolygon(d: Dxf, layer: string, poly: [number, number][], step: num
     for (let i = 0; i + 1 < hits.length; i += 2) {
       const [v0, v1] = [hits[i], hits[i + 1]]
       if (v1 - v0 < 1e-9) continue
-      // înapoi în x, y: x = (u + v)·k, y = (v − u)·k
+      // înapoi în x, y: p = u·n + v·dir
       d.pair(0, 'LINE')
       d.pair(8, layer)
       if (color != null) d.pair(62, color)
-      d.pair(10, (u + v0) * k)
-      d.pair(20, (v0 - u) * k)
+      d.pair(10, u * nx + v0 * dx)
+      d.pair(20, u * ny + v0 * dy)
       d.pair(30, 0)
-      d.pair(11, (u + v1) * k)
-      d.pair(21, (v1 - u) * k)
+      d.pair(11, u * nx + v1 * dx)
+      d.pair(21, u * ny + v1 * dy)
       d.pair(31, 0)
     }
   }
+}
+
+/** Hașură cu puncte (cercuri mici) pe o grilă, doar în interiorul poligonului */
+function dotPolygon(d: Dxf, layer: string, poly: [number, number][], step: number, color?: number) {
+  if (poly.length < 3 || !(step > 0)) return
+  const xs = poly.map((p) => p[0])
+  const ys = poly.map((p) => p[1])
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)]
+  if (((x1 - x0) / step) * ((y1 - y0) / step) > 40000) return
+  const flat = poly.flat()
+  for (let y = Math.ceil(y0 / step) * step + step / 2; y < y1; y += step)
+    for (let x = Math.ceil(x0 / step) * step + step / 2; x < x1; x += step) if (pointInPolygon(x, y, flat)) circle(d, layer, x, y, step * 0.08, color)
+}
+
+/** Hașura unei zone: modelul (unghiurile din plan, cu y în jos) devine linii / puncte DXF; `rot` = rotirea zonei (grade, plan) */
+function hatchZone(d: Dxf, a: ArchElement, poly: [number, number][], mmToM: number, color: number | undefined, rot = 0) {
+  const kind = a.hatch ?? 'none'
+  if (kind === 'none') return
+  const step = (a.hatchMm ?? HATCH_MM_DEFAULT) * mmToM
+  if (kind === 'dots') return dotPolygon(d, 'ADN_ZONE_HASURA', poly, step, color)
+  // planul are y în jos, DXF y în sus: unghiul își schimbă semnul
+  for (const ang of hatchAngles(kind)) hatchPolygon(d, 'ADN_ZONE_HASURA', poly, step, color, -(ang + rot))
 }
 
 function polyline(d: Dxf, layer: string, pts: [number, number][], opts: { closed?: boolean; width?: number; ltype?: string; color?: number } = {}) {
@@ -405,6 +430,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     { name: 'ARH_COTE', color: 7 },
     { name: 'GHENE', color: 8 },
     { name: 'ADN_ZONE', color: 5 },
+    { name: 'ADN_ZONE_HASURA', color: 5 },
     { name: 'ADN_NOTE', color: 7 },
     { name: 'ADN_LINII', color: 7 },
   ]
@@ -641,6 +667,7 @@ function drawArch(
     const pts: [number, number][] = []
     for (let i = 0; i < a.points.length; i += 2) pts.push([X(a.points[i]), Y(a.points[i + 1])])
     const color = a.stroke ? nearestAci(a.stroke) : undefined
+    hatchZone(d, a, pts, mmToM, color)
     polyline(d, 'ADN_ZONE', pts, { closed: true, color })
     const info = polygonInfo(a.points)
     const area = info.area / (ppm * ppm)
@@ -755,6 +782,7 @@ function drawArch(
     const pts: [number, number][] = []
     if (a.kind === 'rect') pts.push(P(-w / 2, -h / 2), P(w / 2, -h / 2), P(w / 2, h / 2), P(-w / 2, h / 2))
     else for (let i = 0; i < 48; i++) pts.push(P((Math.cos((i / 48) * Math.PI * 2) * w) / 2, (Math.sin((i / 48) * Math.PI * 2) * h) / 2))
+    hatchZone(d, a, pts, mmToM, color, a.rotation ?? 0)
     polyline(d, 'ADN_ZONE', pts, { closed: true, color })
     const area = a.kind === 'rect' ? w * h : (Math.PI * w * h) / 4
     const th = Math.max(0.25, m(S) * 0.4)

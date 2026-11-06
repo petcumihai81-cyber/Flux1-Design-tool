@@ -5,6 +5,7 @@ import { fmtM, polygonInfo, snapPoint, wallAt, wallVertices } from './arch'
 import { polylineLength } from './project'
 import { cachedImage } from './symbols'
 import { tableData, tableLayoutPx } from './sheetTables'
+import { HATCH_MM_DEFAULT, hatchTile } from './hatch'
 
 /**
  * Desenul elementelor de arhitectură pe plan: pereți (grosime reală), uși (cu sensul de deschidere),
@@ -123,6 +124,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
     const stroke = a.stroke ?? '#1565c0'
     const fill = a.fill ?? stroke
     const op = a.fillOpacity ?? 0.12
+    const hp = hatchProps(a, stroke)
     const area = a.kind === 'rect' ? (a.width ?? 4) * (a.height ?? 3) : Math.PI * ((a.width ?? 4) / 2) * ((a.height ?? 3) / 2)
     const fs = Math.max(symbolSize * 0.42, 0.3 * ppm)
     const lines = [a.text ?? '', a.showArea !== false ? `${area.toFixed(1).replace('.', ',')} m²` : ''].filter(Boolean).join('\n')
@@ -136,6 +138,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
     return (
       <Group key={a.id} {...common(a)} {...moveProps(a)} x={a.x} y={a.y} rotation={a.rotation ?? 0}>
         {a.kind === 'rect' ? <Rect {...shapeProps} x={-w / 2} y={-h / 2} width={w} height={h} /> : <Ellipse {...shapeProps} radiusX={w / 2} radiusY={h / 2} />}
+        {hp && (a.kind === 'rect' ? <Rect {...hp} x={-w / 2} y={-h / 2} width={w} height={h} /> : <Ellipse {...hp} radiusX={w / 2} radiusY={h / 2} />)}
         {lines && (
           <Text
             text={lines}
@@ -155,6 +158,20 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
         )}
       </Group>
     )
+  }
+
+  /** Hașura unei zone: model repetat (în culoarea conturului), peste umplere, fără să prindă click-uri */
+  const hatchProps = (a: ArchElement, color: string) => {
+    const tile = hatchTile(a.hatch ?? 'none', color, (a.hatchMm ?? HATCH_MM_DEFAULT) * pxPerMm, 0.18 * pxPerMm)
+    if (!tile) return null
+    return {
+      fillPatternImage: tile.canvas as unknown as HTMLImageElement,
+      fillPatternScale: { x: 1 / tile.res, y: 1 / tile.res },
+      fillPatternRepeat: 'repeat',
+      fillPriority: 'pattern',
+      listening: false,
+      perfectDrawEnabled: false,
+    }
   }
 
   /** Zonă poligon: contur închis prin vârfuri, cu numele și aria în centrul de greutate */
@@ -178,6 +195,10 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
           dash={a.dashed !== false ? [0.25 * ppm, 0.15 * ppm] : undefined}
           lineJoin="round"
         />
+        {(() => {
+          const hp = hatchProps(a, stroke)
+          return hp && <Line {...hp} points={pts} closed />
+        })()}
         {lines && (
           <Text
             text={lines}

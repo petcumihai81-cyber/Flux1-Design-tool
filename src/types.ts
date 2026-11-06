@@ -67,6 +67,9 @@ export interface SheetTable {
   fontMm?: number
 }
 
+/** Modelul de hașură al unei zone */
+export type HatchKind = 'none' | 'diag' | 'diag2' | 'cross' | 'horiz' | 'vert' | 'grid' | 'dots'
+
 export interface ArchElement {
   id: string
   levelId: string
@@ -95,6 +98,9 @@ export interface ArchElement {
   fillOpacity?: number
   dashed?: boolean
   showArea?: boolean
+  /** Zonă: model de hașură (lipsă = fără) și distanța dintre linii pe hârtie (mm) */
+  hatch?: HatchKind
+  hatchMm?: number
   /** Imagine (data URL); în browser se păstrează separat, în IndexedDB */
   src?: string
   /** Tabel generat din proiect */
