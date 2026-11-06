@@ -12,6 +12,7 @@ import type { AlignMode } from './diagram'
 import { ZoomBar } from './ZoomBar'
 import { SCREEN_PX_PER_MM, stepPercent, useZoomKeys } from './zoom'
 import { useTouchGestures } from './touch'
+import { askConfirm } from './dialogs'
 
 interface Props {
   project: Project
@@ -613,8 +614,8 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
               </button>
             )}
             <button
-              onClick={() => {
-                if (!window.confirm('Regenerezi schema automat? Modificările manuale din această schemă se pierd (poți reveni cu Ctrl+Z).')) return
+              onClick={async () => {
+                if (!(await askConfirm('Regenerezi schema automat? Modificările manuale din această schemă se pierd (poți reveni cu Ctrl+Z).', { title: 'Regenerează schema', okLabel: 'Regenerează', danger: true }))) return
                 change(() => materialize(project, system))
                 setSel(null)
               }}

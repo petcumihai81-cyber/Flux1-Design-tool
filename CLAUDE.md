@@ -65,6 +65,7 @@ Principii:
 - **Planul de fundal** stă în `Level.background`; poziția și aspectul în `Level.bgX/bgY` (deplasare, px plan), `bgRotation` (grade, în jurul centrului), `bgFade` (0…0,9: dreptunghi alb `rgba` peste plan, intră și în PDF) și `bgLocked` (lipsă = blocat). Limitele vin din `backgroundBounds`; la încărcarea unui plan nou poziția și rotirea se resetează.
 - **Pagină albă** (nivel fără fundal): `pageFrame` = zona de desen a planșei (`drawAreaMm`: fără chenar, legendă / cartuș, 5 mm margine) la scara din cartuș (`parseScale`), centrată în `Level.pageCenter` (lipsă = centrul desenului). Se vede pe plan ca chenar punctat (stratul `ui`), iar exportul PDF încadrează `sheetDrawBounds` (zona ∪ desen), deci scara din cartuș e reală cât timp desenul stă în zonă.
 - **Simbolurile personalizate schimbă doar aspectul**: `Device.type` rămâne tipul standard (`CustomSymbol.base`), deci sistemul, cablurile, conurile, listele și calculele merg neschimbate. Imaginile colorate / personalizate se încarcă la cerere (`cachedImage` + `onSymbolImage` pentru redesenare). În DXF se folosește blocul standard, cu culoarea ACI cea mai apropiată (`nearestAci`).
+- **Fără ferestrele browserului** (`window.prompt` / `confirm` / `alert`): se folosesc `askText`, `askConfirm`, `showAlert` din `dialogs.ts` (promisiuni), afișate de `DialogHost.tsx`, ca să arate ca restul aplicației.
 - În Konva nu se folosește `opacity` pe forme mari (conurile camerelor): la export apar tăiate. Se folosesc culori `rgba(...)`.
 
 ## Convenții de proiectare (din proiectele reale ale utilizatorului)

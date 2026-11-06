@@ -15,6 +15,7 @@ import { prepareImage } from './images'
 import { deviceColor, deviceImage } from './symbolLibrary'
 import { ALL_SYSTEMS, cableMeters, contentBounds, deviceSystem, formatLabel, nearestOnPolyline, outsideFrame, pageFrame, paperMmPerPx, sheetDrawBounds, UNCALIBRATED_PX_PER_M } from './project'
 import { useTouchGestures } from './touch'
+import { askText, showAlert } from './dialogs'
 
 /** Scara implicită dacă planul nu e calibrat (px per metru), folosită doar pentru conurile camerelor */
 export const FALLBACK_PX_PER_M = UNCALIBRATED_PX_PER_M
@@ -259,9 +260,9 @@ export default function PlanCanvas(props: Props) {
     if (isPolygonTool) {
       setArchDraft([])
       if (clean.length < 6) return
-      const name = window.prompt('Numele zonei (apare în zonă; gol = doar aria):', '')
-      if (name == null) return
-      onAddArch({ kind: 'polygon', points: clean, text: name.trim(), stroke: '#6a1b9a', fillOpacity: 0.12, dashed: true, showArea: true })
+      void askText('Zonă nouă', { label: 'Numele zonei (apare în zonă; gol = doar aria)', placeholder: 'ex. Zona 1 – Recepție', okLabel: 'Adaugă zona' }).then((name) => {
+        if (name != null) onAddArch({ kind: 'polygon', points: clean, text: name.trim(), stroke: '#6a1b9a', fillOpacity: 0.12, dashed: true, showArea: true })
+      })
       return
     }
     if (clean.length >= 4) {
@@ -391,10 +392,11 @@ export default function PlanCanvas(props: Props) {
             const h = Math.abs(pt.y - y0) / ppm
             setArchDraft([])
             if (w < 0.1 || h < 0.1) return
-            const name = window.prompt('Numele zonei (apare în zonă; gol = doar aria):', '')
-            if (name == null) return
-            onAddArch({
-              kind: tool.arch,
+            const kind = tool.arch
+            void askText('Zonă nouă', { label: 'Numele zonei (apare în zonă; gol = doar aria)', placeholder: 'ex. Zona 1 – Recepție', okLabel: 'Adaugă zona' }).then((name) => {
+              if (name == null) return
+              onAddArch({
+              kind,
               x: (pt.x + x0) / 2,
               y: (pt.y + y0) / 2,
               width: Math.round(w * 20) / 20,
@@ -405,6 +407,7 @@ export default function PlanCanvas(props: Props) {
               fillOpacity: 0.12,
               dashed: true,
               showArea: true,
+              })
             })
           }
         } else if (tool.arch === 'note') {
@@ -413,8 +416,9 @@ export default function PlanCanvas(props: Props) {
           else {
             const [x0, y0] = archDraft
             setArchDraft([])
-            const text = window.prompt('Textul notei (ex. „cablu prin tavan fals”):', '')
-            if (text && text.trim()) onAddArch({ kind: 'note', points: [x0, y0, pt.x, pt.y], text: text.trim(), fontMm: 2.5 })
+            void askText('Notă nouă', { label: 'Textul notei', placeholder: 'ex. cablu prin tavan fals', multiline: true, okLabel: 'Adaugă nota' }).then((text) => {
+              if (text && text.trim()) onAddArch({ kind: 'note', points: [x0, y0, pt.x, pt.y], text: text.trim(), fontMm: 2.5 })
+            })
           }
         } else if (tool.arch === 'image') {
           imgAt.current = pt
@@ -437,12 +441,15 @@ export default function PlanCanvas(props: Props) {
           let n = 1
           while (here.has(`G${n}`)) n++
           const suggestion = elsewhere[0] ?? `G${n}`
-          const name = window.prompt('Numele trecerii între niveluri (același nume pe fiecare nivel):', suggestion)
-          if (name) onAddArch({ kind: 'riser', x: pt.x, y: pt.y, text: name.trim(), rotation: 0 })
+          void askText('Ghenă / trecere între niveluri', { label: 'Numele (același pe fiecare nivel)', value: suggestion, okLabel: 'Adaugă' }).then((name) => {
+            if (name && name.trim()) onAddArch({ kind: 'riser', x: pt.x, y: pt.y, text: name.trim(), rotation: 0 })
+          })
         } else if (tool.arch === 'label') {
-          const text = window.prompt('Numele încăperii:', 'Birou')
           // înălțimea textului: cel puțin 0,45 m, dar nu mai mică decât jumătate din simbol, ca să fie citibil
-          if (text) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text, size: Math.round(Math.max(0.45, (S * 0.5) / ppm) * 20) / 20, rotation: 0 })
+          const size = Math.round(Math.max(0.45, (S * 0.5) / ppm) * 20) / 20
+          void askText('Text încăpere', { label: 'Numele încăperii', value: 'Birou', okLabel: 'Adaugă' }).then((text) => {
+            if (text && text.trim()) onAddArch({ kind: 'label', x: pt.x, y: pt.y, text: text.trim(), size, rotation: 0 })
+          })
         }
         break
       }
@@ -1313,7 +1320,7 @@ export default function PlanCanvas(props: Props) {
             const wm = paperK ? (60 / paperK) / ppm : 4
             onAddArch({ kind: 'image', x: at.x, y: at.y, width: Math.round(wm * 100) / 100, height: Math.round(((wm * img.h) / img.w) * 100) / 100, rotation: 0, src: img.src, text: f.name })
           } catch (err) {
-            window.alert('Imaginea nu a putut fi citită: ' + (err as Error).message)
+            void showAlert('Imaginea nu a putut fi citită: ' + (err as Error).message)
           }
         }}
       />
