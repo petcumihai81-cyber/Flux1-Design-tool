@@ -487,6 +487,26 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    id: 'sabloane',
+    title: 'Proiect nou și șabloane',
+    steps: [
+      <>
+        <B>Nou</B> deschide alegerea: <B>Proiect gol</B>, un șablon de bază (<B>Casă</B>, <B>Birou</B>, <B>Magazin</B> — câte un plan pe sistem și
+        schemele bloc) sau unul dintre <B>șabloanele tale</B>. Dublu-click pe șablon = creează direct.
+      </>,
+      <>
+        <B>Salvează proiectul curent ca șablon…</B>: păstrează planșele (format, sisteme, straturi), nivelurile, catalogul, accesoriile,
+        parametrii de calcul, datele firmei din cartuș și memoriu, logo-ul și simbolurile personalizate. Datele beneficiarului (nume, CUI,
+        adresă, vecinătăți) și planurile de fundal nu intră. Bifează <B>Include și desenul</B> pentru un proiect tip complet (echipamente,
+        cabluri, schiță).
+      </>,
+      <>
+        Șabloanele tale stau în browser; <B>Exportă fișier</B> / <B>Importă șablon…</B> le mută pe alt calculator (se poate importa și un proiect
+        .plansa.json, ca șablon).
+      </>,
+    ],
+  },
+  {
     id: 'scurtaturi',
     title: 'Scurtături și salvare',
     steps: [

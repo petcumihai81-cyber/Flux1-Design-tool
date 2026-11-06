@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** Logo-ul firmei în cartuș — PR #35.
+- [ ] **P2** Șabloane de proiect — PR #36.
 
 ## De făcut
 
@@ -15,8 +15,8 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
 
 ### Proiecte și șabloane
+- [ ] **P2** Pachet proiect .zip: „Salvează ca pachet” / „Deschide pachet” — proiectul (.json), planurile de fundal și imaginile ca fișiere (PNG / JPG, mai mici decât în JSON), simbolurile personalizate (SVG / PNG), logo-ul; opțional și exporturile pentru predare (PDF, Excel, DXF, memoriu .docx).
 - [ ] **P2** Export / import al bibliotecii de simboluri personalizate (fișier), ca să se poată muta pe alt calculator / browser fără să deschizi un proiect care le conține.
-- [ ] **P2** Șabloane de proiect („Salvează ca șablon” / „Proiect nou din șablon”): planșe, catalog, date de memoriu, straturi — ex. magazin, birou, casă.
 
 ### Export / import
 - [ ] **P2** DXF: conurile camerelor hașurate (umplute), ca în aplicație.
@@ -65,3 +65,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Note cu săgeată pe plan ([#31](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/31))
 - [x] Linii și săgeți libere pe plan ([#32](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/32))
 - [x] Zone poligonale pe planșă ([#34](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/34))
+- [x] Logo-ul firmei în cartuș ([#35](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/35))
