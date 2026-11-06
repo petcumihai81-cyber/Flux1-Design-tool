@@ -1,5 +1,6 @@
 import type { ArchElement, Project, Sheet, SystemId } from './types'
 import { archLayer, layerVisible } from './layers'
+import { polygonInfo } from './arch'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
 import { deviceSystem, paperMmPerPx, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
@@ -571,6 +572,19 @@ function drawArch(
   openings: ArchElement[],
   mmToM: number,
 ) {
+  if (a.kind === 'polygon' && a.points && a.points.length >= 6) {
+    // zonă poligon: contur închis + nume și arie în centrul de greutate
+    const pts: [number, number][] = []
+    for (let i = 0; i < a.points.length; i += 2) pts.push([X(a.points[i]), Y(a.points[i + 1])])
+    const color = a.stroke ? nearestAci(a.stroke) : undefined
+    polyline(d, 'ADN_ZONE', pts, { closed: true, color })
+    const info = polygonInfo(a.points)
+    const area = info.area / (ppm * ppm)
+    const th = Math.max(0.25, m(S) * 0.4)
+    const lines = [a.text ?? '', a.showArea !== false ? `${area.toFixed(1).replace('.', ',')} mp` : ''].filter(Boolean)
+    lines.forEach((t, i) => text(d, 'ADN_ZONE', X(info.cx), Y(info.cy) + ((lines.length - 1) / 2 - i) * th * 1.4, th, t, { h: 1, v: 2, color }))
+    return
+  }
   if (a.kind === 'line' && a.points && a.points.length >= 4) {
     // linie liberă (punctată: tipul DASHED), cu vârfuri de săgeată la capete
     const pts: [number, number][] = []

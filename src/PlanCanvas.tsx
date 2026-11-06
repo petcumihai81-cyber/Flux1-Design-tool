@@ -231,7 +231,9 @@ export default function PlanCanvas(props: Props) {
   const isWallTool = tool.kind === 'arch' && (tool.arch === 'wall-ext' || tool.arch === 'wall-int')
   /** Linie / săgeată liberă: se desenează din punct în punct, ca pereții */
   const isLineTool = tool.kind === 'arch' && (tool.arch === 'line' || tool.arch === 'arrow')
-  const isPolyTool = isWallTool || isLineTool
+  /** Zonă poligon: colțuri succesive, închisă la primul punct */
+  const isPolygonTool = tool.kind === 'arch' && tool.arch === 'polygon'
+  const isPolyTool = isWallTool || isLineTool || isPolygonTool
   const wallThickness = tool.kind === 'arch' && tool.arch === 'wall-int' ? 0.12 : 0.25
 
   /** Punctul de desen pentru pereți / cote, cu lipire de vârfuri și aliniere ortogonală (Shift = liber) */
@@ -249,6 +251,16 @@ export default function PlanCanvas(props: Props) {
       const n = clean.length
       if (n && Math.hypot(clean[n - 2] - pts[i], clean[n - 1] - pts[i + 1]) < 0.5) continue
       clean.push(pts[i], pts[i + 1])
+    }
+    // poligonul: ultimul punct identic cu primul (închidere) nu se repetă
+    if (isPolygonTool && clean.length >= 4 && Math.hypot(clean[0] - clean[clean.length - 2], clean[1] - clean[clean.length - 1]) < 0.5) clean.splice(-2, 2)
+    if (isPolygonTool) {
+      setArchDraft([])
+      if (clean.length < 6) return
+      const name = window.prompt('Numele zonei (apare în zonă; gol = doar aria):', '')
+      if (name == null) return
+      onAddArch({ kind: 'polygon', points: clean, text: name.trim(), stroke: '#6a1b9a', fillOpacity: 0.12, dashed: true, showArea: true })
+      return
     }
     if (clean.length >= 4) {
       if (isLineTool) onAddArch({ kind: 'line', points: clean, stroke: tool.kind === 'arch' && tool.arch === 'arrow' ? '#c62828' : '#222222', widthMm: 0.35, arrowEnd: tool.kind === 'arch' && tool.arch === 'arrow' })
@@ -351,6 +363,11 @@ export default function PlanCanvas(props: Props) {
           const p = archSnap(pt, free)
           // click pe primul punct = închide conturul
           if (archDraft.length >= 4 && Math.hypot(p.x - archDraft[0], p.y - archDraft[1]) < 0.5) finishWall(p)
+          else setArchDraft((d) => [...d, p.x, p.y])
+        } else if (tool.arch === 'polygon') {
+          // zonă poligon: click pe primul colț = închide zona
+          const p = archSnap(pt, free)
+          if (archDraft.length >= 6 && Math.hypot(p.x - archDraft[0], p.y - archDraft[1]) < Math.max(0.5, 10 * k)) finishWall()
           else setArchDraft((d) => [...d, p.x, p.y])
         } else if (tool.arch === 'line' || tool.arch === 'arrow') {
           // linie liberă: puncte succesive (aliniere orizontală / verticală, Shift = liber); dublu-click / Enter = gata
@@ -1366,6 +1383,12 @@ export default function PlanCanvas(props: Props) {
         <div className="canvas-hint">
           {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
+          {isPolygonTool && (
+            <>
+              Click din colț în colț pentru zona poligon (aliniere orizontală / verticală, Shift = liber). Click pe primul colț, dublu-click sau Enter
+              = închide zona; Backspace = șterge ultimul colț, Esc = renunță.
+            </>
+          )}
           {isLineTool && (
             <>
               Click din punct în punct pentru {tool.kind === 'arch' && tool.arch === 'arrow' ? 'săgeată (vârful la ultimul punct)' : 'linie'}; se aliniază

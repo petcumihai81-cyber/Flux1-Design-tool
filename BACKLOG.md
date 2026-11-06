@@ -7,16 +7,16 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- (nimic)
+- [ ] **P2** Zone poligonale — PR #34.
 
 ## De făcut
 
 ### Planșe și desen
-- [ ] **P2** Zone poligonale (pe lângă dreptunghi / elipsă), cu arie și „atribuie zona” la echipamentele din interior.
 - [ ] **P2** Logo-ul firmei în cartuș (imagine salvată în datele proiectului / proiectantului).
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
 
 ### Proiecte și șabloane
+- [ ] **P2** Export / import al bibliotecii de simboluri personalizate (fișier), ca să se poată muta pe alt calculator / browser fără să deschizi un proiect care le conține.
 - [ ] **P2** Șabloane de proiect („Salvează ca șablon” / „Proiect nou din șablon”): planșe, catalog, date de memoriu, straturi — ex. magazin, birou, casă.
 
 ### Export / import

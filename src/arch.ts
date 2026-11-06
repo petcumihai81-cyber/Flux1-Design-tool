@@ -17,6 +17,7 @@ export const ARCH_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
 
 /** Pictogramele uneltelor de arhitectură (SVG 40×40) */
 export const ARCH_ICONS: Record<ArchTool, string> = {
+  polygon: '<path d="M5 9 H24 V18 H35 V33 H5 Z" fill="rgba(106,27,154,0.15)" stroke="#6a1b9a" stroke-width="2" stroke-dasharray="4 2" stroke-linejoin="round"/>',
   line: '<path d="M5 30 L18 14 L35 22" fill="none" stroke="#455a64" stroke-width="2.4" stroke-linejoin="round"/>',
   arrow: '<path d="M5 31 L30 12" stroke="#c62828" stroke-width="2.4"/><path d="M35 8 L24 11 L31 18 Z" fill="#c62828"/>',
   note:
@@ -63,6 +64,7 @@ export const ARCH_NAMES: Record<ArchElement['kind'], string> = {
   table: 'Tabel pe planșă',
   note: 'Notă cu săgeată',
   line: 'Linie / săgeată',
+  polygon: 'Zonă poligon',
 }
 
 /** Uneltele de adnotare: zone, imagini, tabele (paleta „Zone, imagini, tabele”) */
@@ -72,6 +74,7 @@ export const ANNOT_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
   { tool: 'arrow', name: 'Săgeată', hint: 'liberă' },
   { tool: 'rect', name: 'Zonă dreptunghi', hint: 'arie m²' },
   { tool: 'ellipse', name: 'Zonă elipsă', hint: 'arie m²' },
+  { tool: 'polygon', name: 'Zonă poligon', hint: 'orice formă' },
   { tool: 'image', name: 'Imagine', hint: 'PNG, JPG, logo' },
   { tool: 'table', name: 'Tabel pe planșă', hint: 'liste, zone' },
 ]
@@ -139,7 +142,58 @@ export function snapPoint(
 export const fmtM = (m: number) => m.toFixed(2).replace('.', ',') + ' m'
 
 /** Echipamentele de pe nivel aflate în interiorul unei zone (dreptunghi / elipsă, eventual rotită) */
+/** Aria poligonului (px², formula lui Gauss) și centrul lui de greutate */
+export function polygonInfo(pts: number[]) {
+  let A = 0
+  let cx = 0
+  let cy = 0
+  const n = pts.length / 2
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = [pts[2 * i], pts[2 * i + 1]]
+    const j = (i + 1) % n
+    const [x2, y2] = [pts[2 * j], pts[2 * j + 1]]
+    const c = x1 * y2 - x2 * y1
+    A += c
+    cx += (x1 + x2) * c
+    cy += (y1 + y2) * c
+  }
+  A /= 2
+  if (Math.abs(A) < 1e-9) {
+    // degenerat: media vârfurilor
+    let sx = 0
+    let sy = 0
+    for (let i = 0; i < n; i++) {
+      sx += pts[2 * i]
+      sy += pts[2 * i + 1]
+    }
+    return { area: 0, cx: sx / Math.max(n, 1), cy: sy / Math.max(n, 1) }
+  }
+  return { area: Math.abs(A), cx: cx / (6 * A), cy: cy / (6 * A) }
+}
+
+/** Punct în poligon (regula par / impar) */
+export function pointInPolygon(x: number, y: number, pts: number[]) {
+  let inside = false
+  const n = pts.length / 2
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const [xi, yi, xj, yj] = [pts[2 * i], pts[2 * i + 1], pts[2 * j], pts[2 * j + 1]]
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+/** Aria unei zone în m² (dreptunghi, elipsă sau poligon) */
+export function zoneArea(a: ArchElement, ppm: number): number {
+  if (a.kind === 'polygon') return a.points && a.points.length >= 6 ? polygonInfo(a.points).area / (ppm * ppm) : 0
+  if (a.kind === 'ellipse') return Math.PI * ((a.width ?? 4) / 2) * ((a.height ?? 3) / 2)
+  return (a.width ?? 4) * (a.height ?? 3)
+}
+
 export function devicesInZone(p: Project, a: ArchElement): Device[] {
+  if (a.kind === 'polygon') {
+    const pts = a.points ?? []
+    return pts.length >= 6 ? p.devices.filter((d) => d.levelId === a.levelId && pointInPolygon(d.x, d.y, pts)) : []
+  }
   if (a.x == null || a.y == null) return []
   const ppm = levelOf(p, a.levelId).pxPerMeter ?? 50
   const hw = ((a.width ?? 4) * ppm) / 2
