@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** DXF: conurile camerelor hașurate — PR #39 (cu reparația mărimii textului notelor în DXF).
+- [ ] **P2** Suport pentru ecran tactil — PR #41.
 
 ## De făcut
 
@@ -22,7 +22,6 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [ ] **P3** Import DXF: notele de tip MULTILEADER (acum sunt sărite, cu număr afișat în dialog).
 
 ### Telefon / tabletă
-- [ ] **P2** Suport pentru ecran tactil: zoom cu două degete, apăsare lungă în loc de click dreapta, tragere cu un deget.
 - [ ] **P3** Panouri care se strâng pe ecran mic (paleta și panoul din dreapta ca sertare).
 
 ### Calitate
@@ -67,3 +66,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Șabloane de proiect ([#36](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/36))
 - [x] Asistent pentru proiect nou ([#37](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/37))
 - [x] Pachet proiect .zip ([#38](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/38))
+- [x] DXF: conurile camerelor hașurate; mărimea corectă a notelor în DXF ([#39](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/39))

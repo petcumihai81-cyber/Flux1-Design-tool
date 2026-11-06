@@ -11,6 +11,7 @@ import { GRID, alignNodes, diagramBounds, distributeNodes, edgePath, materialize
 import type { AlignMode } from './diagram'
 import { ZoomBar } from './ZoomBar'
 import { SCREEN_PX_PER_MM, stepPercent, useZoomKeys } from './zoom'
+import { useTouchGestures } from './touch'
 
 interface Props {
   project: Project
@@ -40,6 +41,7 @@ export default function BlockCanvas({ project, sheet, selection, stageRef, fitSi
   const wrapRef = useRef<HTMLDivElement>(null)
   const [size, setSize] = useState({ width: 800, height: 600 })
   const [view, setView] = useState({ x: 0, y: 0, scale: 1 })
+  useTouchGestures(stageRef, () => view, setView, { min: 0.05, max: 10 })
   const [mode, setMode] = useState<Mode>('select')
   const [sel, setSel] = useState<LocalSel>(null)
   const [conn, setConn] = useState<{ from: string; x: number; y: number } | null>(null)
