@@ -7,15 +7,12 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** DXF: conurile camerelor hașurate — PR #39 (cu reparația mărimii textului notelor în DXF).
+- [ ] **P2** Export / import al bibliotecii de simboluri personalizate — PR #40.
 
 ## De făcut
 
 ### Planșe și desen
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
-
-### Proiecte și șabloane
-- [ ] **P2** Export / import al bibliotecii de simboluri personalizate (fișier), ca să se poată muta pe alt calculator / browser fără să deschizi un proiect care le conține.
 
 ### Export / import
 - [ ] **P3** DXF: tabelele de pe planșă (text pe grilă) și imaginile (sau doar conturul lor, cu numele fișierului).
@@ -67,3 +64,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Șabloane de proiect ([#36](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/36))
 - [x] Asistent pentru proiect nou ([#37](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/37))
 - [x] Pachet proiect .zip ([#38](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/38))
+- [x] DXF: conurile camerelor hașurate; mărimea corectă a notelor în DXF ([#39](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/39))

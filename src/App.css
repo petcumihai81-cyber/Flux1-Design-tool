@@ -431,3 +431,5 @@ button.unsaved { border-color: #f9a825; }
 .pk-body h4 { margin: 6px 0 2px; }
 .pk-item { align-items: flex-start; padding: 4px 0; }
 .pk-item small { margin-left: 4px; }
+.pal-lib { grid-column: 1 / -1; display: flex; gap: 6px; }
+.pal-lib button { flex: 1; font-size: 12px; padding: 3px 6px; }
