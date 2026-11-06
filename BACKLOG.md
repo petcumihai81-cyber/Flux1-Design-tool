@@ -8,6 +8,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 ## În lucru
 
 - [ ] **P3** Hașură configurabilă pe zone — PR #45.
+- [ ] **P3** DXF: tabelele și imaginile de pe planșă — PR #46.
 
 ## De făcut
 
@@ -15,7 +16,6 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [ ] **Amânat** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din **Flux Hub** (agregatorul propriu al utilizatorului pentru date ONRC / ANAF), când API-ul lui va fi expus pe internet. Verificat: serviciul public ANAF răspunde, dar nu permite apeluri direct din browser (fără CORS), deci aplicația are nevoie de un intermediar — Flux Hub poate fi acela. De stabilit: adresa API-ului, autentificarea (cheie) și formatul răspunsului; în aplicație, adresa se configurează în setări.
 
 ### Export / import
-- [ ] **P3** DXF: tabelele de pe planșă (text pe grilă) și imaginile (sau doar conturul lor, cu numele fișierului).
 - [ ] **P3** Import DXF: notele de tip MULTILEADER (acum sunt sărite, cu număr afișat în dialog).
 
 ### Calitate

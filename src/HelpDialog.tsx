@@ -311,7 +311,9 @@ const SECTIONS: Section[] = [
         Fiecare lucru stă pe stratul lui: <B>ARH_PERETI</B>, <B>ARH_USI</B>, <B>ARH_FERESTRE</B>, <B>ARH_TEXT</B>, <B>ARH_COTE</B>,{' '}
         <B>GHENE</B>, iar pe fiecare sistem <B>EFR_ECHIPAMENTE</B> / <B>EFR_CABLURI</B> / <B>EFR_ETICHETE</B> (la fel CA, CCTV, INC, NET) și{' '}
         <B>CCTV_CONURI</B> (conturul conurilor) cu <B>CCTV_CONURI_HASURA</B> (hașura lor, ca umplerea din aplicație; stratul se poate îngheța în
-        CAD). Se exportă doar sistemele bifate pe planșă.
+        CAD). Adnotările au straturile <B>ADN_ZONE</B> / <B>ADN_ZONE_HASURA</B>, <B>ADN_NOTE</B>, <B>ADN_LINII</B>, <B>ADN_TABELE</B> (tabelele
+        de pe planșă, cu grilă și text, la mărimea de pe hârtie) și <B>ADN_IMAGINI</B> (formatul DXF R12 nu poate conține poze: rămân conturul,
+        un X și numele fișierului). Se exportă doar sistemele bifate pe planșă.
       </>,
       <>
         Simbolurile sunt blocuri (un bloc pe tip de echipament), deci în CAD le poți număra sau înlocui ușor. Planul de fundal (poză / PDF) nu
