@@ -17,6 +17,8 @@ export const ARCH_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
 
 /** Pictogramele uneltelor de arhitectură (SVG 40×40) */
 export const ARCH_ICONS: Record<ArchTool, string> = {
+  line: '<path d="M5 30 L18 14 L35 22" fill="none" stroke="#455a64" stroke-width="2.4" stroke-linejoin="round"/>',
+  arrow: '<path d="M5 31 L30 12" stroke="#c62828" stroke-width="2.4"/><path d="M35 8 L24 11 L31 18 Z" fill="#c62828"/>',
   note:
     '<path d="M7 33 L22 18" stroke="#c62828" stroke-width="2"/><path d="M7 33 L9 25 L14 30 Z" fill="#c62828"/>' +
     '<rect x="20" y="6" width="17" height="11" rx="1.5" fill="#fff" stroke="#455a64" stroke-width="1.4"/><path d="M23 10 H34 M23 13.5 H31" stroke="#455a64" stroke-width="1.4"/>',
@@ -60,11 +62,14 @@ export const ARCH_NAMES: Record<ArchElement['kind'], string> = {
   image: 'Imagine',
   table: 'Tabel pe planșă',
   note: 'Notă cu săgeată',
+  line: 'Linie / săgeată',
 }
 
 /** Uneltele de adnotare: zone, imagini, tabele (paleta „Zone, imagini, tabele”) */
 export const ANNOT_TOOLS: { tool: ArchTool; name: string; hint: string }[] = [
   { tool: 'note', name: 'Notă cu săgeată', hint: 'text + săgeată' },
+  { tool: 'line', name: 'Linie', hint: 'liberă' },
+  { tool: 'arrow', name: 'Săgeată', hint: 'liberă' },
   { tool: 'rect', name: 'Zonă dreptunghi', hint: 'arie m²' },
   { tool: 'ellipse', name: 'Zonă elipsă', hint: 'arie m²' },
   { tool: 'image', name: 'Imagine', hint: 'PNG, JPG, logo' },

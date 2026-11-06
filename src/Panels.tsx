@@ -530,7 +530,7 @@ export function ArchProps({
       <div className="props-title">
         <div>
           <b>{ARCH_NAMES[a.kind]}</b>
-          <small style={{ color: 'var(--muted)' }}>{isZone || a.kind === 'image' || a.kind === 'table' || a.kind === 'note' ? 'Zone, imagini, tabele' : 'Arhitectură (schiță)'}</small>
+          <small style={{ color: 'var(--muted)' }}>{isZone || a.kind === 'image' || a.kind === 'table' || a.kind === 'note' || a.kind === 'line' ? 'Zone, imagini, tabele' : 'Arhitectură (schiță)'}</small>
         </div>
       </div>
       {isZone && (
@@ -620,6 +620,38 @@ export function ArchProps({
               onChange({ src: img.src, text: f.name, height: ((a.width ?? 4) * img.h) / img.w })
             }}
           />
+        </>
+      )}
+      {a.kind === 'line' && (
+        <>
+          <Field label="Culoare">
+            <div className="color-row">
+              {ZONE_COLORS.map((c) => (
+                <button key={c} className={'swatch' + ((a.stroke ?? '#222222') === c ? ' on' : '')} style={{ background: c }} onClick={() => onChange({ stroke: c })} />
+              ))}
+              <input type="color" value={a.stroke ?? '#222222'} onChange={(e) => onChange({ stroke: e.target.value })} />
+            </div>
+          </Field>
+          <Field label="Grosime pe hârtie (mm)">
+            <div className="inline">
+              <Num value={a.widthMm ?? 0.35} min={0.1} max={3} step={0.05} onChange={(v) => onChange({ widthMm: Math.max(0.1, Math.min(3, v)) })} />
+              <button onClick={() => onChange({ widthMm: 0.25 })}>0,25</button>
+              <button onClick={() => onChange({ widthMm: 0.5 })}>0,5</button>
+            </div>
+          </Field>
+          <label className="check">
+            <input type="checkbox" checked={!!a.dashed} onChange={(e) => onChange({ dashed: e.target.checked })} />
+            Linie punctată
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={!!a.arrowStart} onChange={(e) => onChange({ arrowStart: e.target.checked })} />
+            Săgeată la început
+          </label>
+          <label className="check">
+            <input type="checkbox" checked={!!a.arrowEnd} onChange={(e) => onChange({ arrowEnd: e.target.checked })} />
+            Săgeată la sfârșit
+          </label>
+          <p className="hint">Lungime: {fmtM(len)}. Trage cercurile de pe vârfuri pentru a schimba traseul (Shift = fără aliniere).</p>
         </>
       )}
       {a.kind === 'note' && (

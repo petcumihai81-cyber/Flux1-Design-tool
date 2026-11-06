@@ -341,6 +341,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     { name: 'GHENE', color: 8 },
     { name: 'ADN_ZONE', color: 5 },
     { name: 'ADN_NOTE', color: 7 },
+    { name: 'ADN_LINII', color: 7 },
   ]
   for (const s of SYSTEMS) {
     if (!visible.has(s.id)) continue
@@ -570,6 +571,24 @@ function drawArch(
   openings: ArchElement[],
   mmToM: number,
 ) {
+  if (a.kind === 'line' && a.points && a.points.length >= 4) {
+    // linie liberă (punctată: tipul DASHED), cu vârfuri de săgeată la capete
+    const pts: [number, number][] = []
+    for (let i = 0; i < a.points.length; i += 2) pts.push([X(a.points[i]), Y(a.points[i + 1])])
+    const color = a.stroke ? nearestAci(a.stroke) : undefined
+    polyline(d, 'ADN_LINII', pts, { color, ltype: a.dashed ? 'DASHED' : undefined })
+    const head = Math.max((a.widthMm ?? 0.35) * 4, 2.2) * mmToM
+    const arrowAt = (tip: [number, number], from: [number, number]) => {
+      const ang = Math.atan2(from[1] - tip[1], from[0] - tip[0])
+      const bx = tip[0] + Math.cos(ang) * head
+      const by = tip[1] + Math.sin(ang) * head
+      const w = head * 0.35
+      polyline(d, 'ADN_LINII', [tip, [bx - Math.sin(ang) * w, by + Math.cos(ang) * w], [bx + Math.sin(ang) * w, by - Math.cos(ang) * w]], { closed: true, color })
+    }
+    if (a.arrowStart) arrowAt(pts[0], pts[1])
+    if (a.arrowEnd) arrowAt(pts[pts.length - 1], pts[pts.length - 2])
+    return
+  }
   if (a.kind === 'note' && a.points && a.points.length >= 4) {
     // notă: săgeată de la text la punctul indicat, linie de sprijin, textul deasupra
     const [tx, ty, ax, ay] = [X(a.points[0]), Y(a.points[1]), X(a.points[2]), Y(a.points[3])]

@@ -315,7 +315,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'adnotari',
-    title: 'Zone, note, imagini și tabele pe planșă',
+    title: 'Zone, note, linii, imagini și tabele pe planșă',
     img: 'help/19-zone-tabele.webp',
     steps: [
       <>
@@ -341,7 +341,12 @@ const SECTIONS: Section[] = [
         nou, Ctrl+Enter = gata); cercurile de la capete mută vârful și textul. Din panou: mărimea textului (mm pe hârtie), culoarea, chenar
         alb.
       </>,
-      <>Toate se mută, se copiază și se șterg ca restul elementelor și au straturile lor în tab-ul Straturi. Zonele și notele intră și în DXF.</>,
+      <>
+        <B>Linie</B> / <B>Săgeată</B>: click din punct în punct (se aliniază orizontal / vertical, <K>Shift</K> = liber); dublu-click sau{' '}
+        <K>Enter</K> = gata. Din panou: culoarea, grosimea (mm pe hârtie), linie punctată, săgeată la început și / sau la sfârșit; cercurile de
+        pe vârfuri schimbă traseul.
+      </>,
+      <>Toate se mută, se copiază și se șterg ca restul elementelor și au straturile lor în tab-ul Straturi. Zonele, notele și liniile intră și în DXF.</>,
     ],
   },
   {

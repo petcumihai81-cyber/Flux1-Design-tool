@@ -7,12 +7,12 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P1** Note cu săgeată (callout) pe plan — PR deschis.
+- [ ] **P1** Note cu săgeată (callout) pe plan — PR #31.
+- [ ] **P1** Linii și săgeți libere pe plan — PR #32.
 
 ## De făcut
 
 ### Planșe și desen
-- [ ] **P1** Linii și săgeți libere (adnotări) pe plan.
 - [ ] **P2** Zone poligonale (pe lângă dreptunghi / elipsă), cu arie și „atribuie zona” la echipamentele din interior.
 - [ ] **P2** Logo-ul firmei în cartuș (imagine salvată în datele proiectului / proiectantului).
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).

@@ -205,10 +205,10 @@ export default function PlanCanvas(props: Props) {
 
   // Taste pentru cablu: Enter = finalizare, Backspace = șterge ultimul punct, Esc gestionat în App
   useEffect(() => {
-    if (tool.kind !== 'cable' && !isWallTool) return
+    if (tool.kind !== 'cable' && !isPolyTool) return
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea, select')) return
-      if (isWallTool) {
+      if (isPolyTool) {
         if (e.key === 'Enter') finishWall()
         if (e.key === 'Backspace' && archDraft.length) {
           e.preventDefault()
@@ -229,6 +229,9 @@ export default function PlanCanvas(props: Props) {
   const pointer = (): Pt | null => stageRef.current?.getRelativePointerPosition() ?? null
 
   const isWallTool = tool.kind === 'arch' && (tool.arch === 'wall-ext' || tool.arch === 'wall-int')
+  /** Linie / săgeată liberă: se desenează din punct în punct, ca pereții */
+  const isLineTool = tool.kind === 'arch' && (tool.arch === 'line' || tool.arch === 'arrow')
+  const isPolyTool = isWallTool || isLineTool
   const wallThickness = tool.kind === 'arch' && tool.arch === 'wall-int' ? 0.12 : 0.25
 
   /** Punctul de desen pentru pereți / cote, cu lipire de vârfuri și aliniere ortogonală (Shift = liber) */
@@ -247,7 +250,10 @@ export default function PlanCanvas(props: Props) {
       if (n && Math.hypot(clean[n - 2] - pts[i], clean[n - 1] - pts[i + 1]) < 0.5) continue
       clean.push(pts[i], pts[i + 1])
     }
-    if (clean.length >= 4) onAddArch(newWall(clean, wallThickness))
+    if (clean.length >= 4) {
+      if (isLineTool) onAddArch({ kind: 'line', points: clean, stroke: tool.kind === 'arch' && tool.arch === 'arrow' ? '#c62828' : '#222222', widthMm: 0.35, arrowEnd: tool.kind === 'arch' && tool.arch === 'arrow' })
+      else onAddArch(newWall(clean, wallThickness))
+    }
     setArchDraft([])
   }
 
@@ -346,6 +352,10 @@ export default function PlanCanvas(props: Props) {
           // click pe primul punct = închide conturul
           if (archDraft.length >= 4 && Math.hypot(p.x - archDraft[0], p.y - archDraft[1]) < 0.5) finishWall(p)
           else setArchDraft((d) => [...d, p.x, p.y])
+        } else if (tool.arch === 'line' || tool.arch === 'arrow') {
+          // linie liberă: puncte succesive (aliniere orizontală / verticală, Shift = liber); dublu-click / Enter = gata
+          const p = archSnap(pt, free)
+          setArchDraft((d) => [...d, p.x, p.y])
         } else if (tool.arch === 'dim') {
           const p = archSnap(pt, free)
           if (!archDraft.length) setArchDraft([p.x, p.y])
@@ -606,7 +616,7 @@ export default function PlanCanvas(props: Props) {
         }}
         onClick={onStageClick}
         onDblClick={() => {
-          if (isWallTool && archDraft.length >= 4) {
+          if (isPolyTool && archDraft.length >= 4) {
             const pt = pointer()
             const n = archDraft.length
             if (pt && Math.hypot(pt.x - archDraft[n - 2], pt.y - archDraft[n - 1]) < 10 * k) finishWall()
@@ -884,19 +894,20 @@ export default function PlanCanvas(props: Props) {
 
         {/* Elemente de interfață (ascunse la export) */}
         <Layer name="ui">
-          {/* nota selectată: mânere la vârful săgeții și la text, deasupra simbolurilor */}
+          {/* nota / linia selectată: mânere pe vârfuri, deasupra simbolurilor */}
           {isSelect &&
             selection?.kind === 'arch' &&
             (() => {
-              const a = levelArch.find((x) => x.id === selection.id && x.kind === 'note' && x.points && x.points.length >= 4)
+              const a = levelArch.find((x) => x.id === selection.id && (x.kind === 'note' || x.kind === 'line') && x.points && x.points.length >= 4)
               if (!a || layerLocked(sheet, archLayer(a))) return null
-              return [0, 2].map((i) => (
+              const idx = a.points!.map((_, j) => j).filter((j) => j % 2 === 0)
+              return idx.map((i) => (
                 <Circle
                   key={'nh' + i}
                   x={a.points![i]}
                   y={a.points![i + 1]}
-                  radius={(i === 0 ? 6 : 5) * k}
-                  fill={i === 0 ? '#c62828' : '#fff'}
+                  radius={(a.kind === 'note' && i === 0 ? 6 : 5) * k}
+                  fill={a.kind === 'note' && i === 0 ? '#c62828' : '#fff'}
                   stroke="#1e88e5"
                   strokeWidth={2 * k}
                   draggable
@@ -909,8 +920,15 @@ export default function PlanCanvas(props: Props) {
                   onDragMove={(e) => {
                     e.cancelBubble = true
                     const pts = [...a.points!]
-                    pts[i] = e.target.x()
-                    pts[i + 1] = e.target.y()
+                    let q = { x: e.target.x(), y: e.target.y() }
+                    // liniile: aliniere cu vârful vecin (Shift = liber)
+                    if (a.kind === 'line') {
+                      const prev = i >= 2 ? { x: pts[i - 2], y: pts[i - 1] } : { x: pts[i + 2], y: pts[i + 3] }
+                      q = snapPoint(q, prev, [], 10 * k, e.evt.shiftKey)
+                      e.target.position(q)
+                    }
+                    pts[i] = q.x
+                    pts[i + 1] = q.y
                     update((p) => ({ ...p, arch: p.arch.map((x) => (x.id === a.id ? { ...x, points: pts } : x)) }))
                   }}
                   onDragEnd={(e) => {
@@ -1226,10 +1244,14 @@ export default function PlanCanvas(props: Props) {
             const seg = Math.hypot(c.x - archDraft[n - 2], c.y - archDraft[n - 1]) / ppm
             return (
               <>
-                <Line
+                <Arrow
                   points={pts}
                   stroke={isWallTool ? 'rgba(21,101,192,0.55)' : '#1565c0'}
+                  fill="#1565c0"
                   strokeWidth={isWallTool ? wallThickness * ppm : 1.5 * k}
+                  pointerAtEnding={tool.kind === 'arch' && tool.arch === 'arrow'}
+                  pointerLength={12 * k}
+                  pointerWidth={9 * k}
                   lineCap="square"
                   lineJoin="miter"
                   listening={false}
@@ -1344,6 +1366,12 @@ export default function PlanCanvas(props: Props) {
         <div className="canvas-hint">
           {tool.kind === 'place' && <>Click pe plan pentru a plasa <b>{(tool.catalogId && project.catalog.find((c) => c.id === tool.catalogId)?.model) || symbolByType(tool.type)?.name}</b>. Esc = gata.</>}
           {tool.kind === 'scale' && <>Click pe cele două capete ale unei cote cunoscute. Esc = anulare.</>}
+          {isLineTool && (
+            <>
+              Click din punct în punct pentru {tool.kind === 'arch' && tool.arch === 'arrow' ? 'săgeată (vârful la ultimul punct)' : 'linie'}; se aliniază
+              orizontal / vertical (Shift = liber). Dublu-click / Enter = gata, Backspace = șterge ultimul punct, Esc = renunță.
+            </>
+          )}
           {isWallTool && (
             <>
               Click din punct în punct pentru perete ({wallThickness === 0.25 ? '25' : '12'} cm). Se aliniază automat orizontal / vertical și se lipește de
