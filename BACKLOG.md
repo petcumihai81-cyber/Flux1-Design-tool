@@ -7,12 +7,11 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- (nimic)
+- [ ] **P1** Note cu săgeată (callout) pe plan — PR deschis.
 
 ## De făcut
 
 ### Planșe și desen
-- [ ] **P1** Note cu săgeată (callout) pe plan: text + săgeată spre un punct (ex. „cablu prin tavan fals”, „înălțime montaj 2,5 m”); cu straturi, PDF și DXF.
 - [ ] **P1** Linii și săgeți libere (adnotări) pe plan.
 - [ ] **P2** Zone poligonale (pe lângă dreptunghi / elipsă), cu arie și „atribuie zona” la echipamentele din interior.
 - [ ] **P2** Logo-ul firmei în cartuș (imagine salvată în datele proiectului / proiectantului).
@@ -64,3 +63,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] File de planșe ca în Excel: meniu, duplicare, redenumire, reordonare ([#27](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/27))
 - [x] Bară de zoom pe planșe: procent, presetări, încadrare, mărire pe selecție ([#28](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/28))
 - [x] Zone, imagini și tabele pe planșă ([#29](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/29))
+- [x] BACKLOG.md: ideile de făcut pe priorități și funcțiile realizate ([#30](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/30))

@@ -1,4 +1,4 @@
-import { Circle, Ellipse, Group, Image as KImage, Line, Rect, Text } from 'react-konva'
+import { Arrow, Circle, Ellipse, Group, Image as KImage, Line, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArchElement, Project } from './types'
 import { fmtM, snapPoint, wallAt, wallVertices } from './arch'
@@ -153,6 +153,55 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
             listening={false}
           />
         )}
+      </Group>
+    )
+  }
+
+  /** Notă cu săgeată: points = [vârful săgeții, locul textului]; textul stă deasupra unei linii de sprijin */
+  const renderNote = (a: ArchElement) => {
+    const [tx, ty, ax, ay] = a.points!
+    const fpx = (a.fontMm ?? 2.5) * pxPerMm
+    const lines = (a.text ?? '').split('\n')
+    const w = Math.max(fpx * 2, Math.max(...lines.map((l) => [...l].length)) * fpx * 0.6)
+    const lh = fpx * 1.25
+    const h = lines.length * lh
+    const pad = fpx * 0.35
+    // textul se așază de partea opusă vârfului
+    const right = tx <= ax
+    const x0 = right ? ax : ax - w
+    const color = sel(a) ? '#1565c0' : a.stroke ?? '#222222'
+    const sw = Math.max(fpx * 0.09, 0.8 * k)
+    return (
+      <Group key={a.id} {...common(a)} {...moveProps(a)}>
+        <Arrow
+          name={'arch:' + a.id}
+          points={[ax, ay, tx, ty]}
+          stroke={color}
+          fill={color}
+          strokeWidth={sw}
+          pointerLength={fpx * 1.1}
+          pointerWidth={fpx * 0.75}
+          hitStrokeWidth={Math.max(fpx, 10 * k)}
+        />
+        {a.boxed && <Rect x={x0 - pad} y={ay - h - pad} width={w + 2 * pad} height={h + pad} fill="#fff" stroke={color} strokeWidth={sw} />}
+        <Line name={'arch:' + a.id} points={[x0, ay, x0 + w, ay]} stroke={color} strokeWidth={sw} />
+        <Text
+          name={'arch:' + a.id}
+          x={x0}
+          y={ay - h - pad * 0.4}
+          width={w}
+          text={a.text ?? ''}
+          fontSize={fpx}
+          lineHeight={1.25}
+          fontFamily="Arial"
+          fill={color}
+          align={right ? 'left' : 'right'}
+          onDblClick={(e) => {
+            if (!interactive) return
+            e.cancelBubble = true
+            onEditText(a.id)
+          }}
+        />
       </Group>
     )
   }
@@ -407,7 +456,8 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
       {/* mânere pentru vârfurile peretelui / capetele cotei selectate */}
       {interactive &&
         arch
-          .filter((a) => a.id === selectedId && a.points)
+          // notele au mânerele pe stratul de interfață (deasupra simbolurilor spre care arată)
+          .filter((a) => a.id === selectedId && a.points && a.kind !== 'note')
           .map((a) =>
             a.points!.map((_, i) =>
               i % 2 ? null : (
@@ -553,6 +603,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
             )
           })}
       {arch.filter((a) => a.kind === 'table').map((a) => renderTable(a))}
+      {arch.filter((a) => a.kind === 'note' && a.points && a.points.length >= 4).map((a) => renderNote(a))}
       {/* zonă / imagine / tabel selectat: mâner de redimensionare în colțul din dreapta-jos */}
       {interactive &&
         arch

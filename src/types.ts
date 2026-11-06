@@ -54,7 +54,7 @@ export interface CustomSymbol {
 
 /** Element de arhitectură desenat manual (schiță): perete, ușă, fereastră, text încăpere, cotă */
 /** riser = trecere verticală între niveluri (ghenă); același nume pe niveluri diferite = aceeași ghenă */
-export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table'
+export type ArchKind = 'wall' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table' | 'note'
 
 /** Tabel așezat pe planșă, generat din proiect */
 export interface SheetTable {
@@ -99,6 +99,9 @@ export interface ArchElement {
   src?: string
   /** Tabel generat din proiect */
   table?: SheetTable
+  /** Notă: înălțimea textului pe hârtie (mm); textul se poate încadra într-un chenar alb */
+  fontMm?: number
+  boxed?: boolean
 }
 
 export interface Cable {
@@ -355,7 +358,7 @@ export type Selection = { kind: 'device' | 'cable' | 'arch'; id: string } | null
 /** Element de arhitectură nou (id-ul și nivelul se completează la adăugare) */
 export type NewArch = Omit<ArchElement, 'id' | 'levelId'>
 
-export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table'
+export type ArchTool = 'wall-ext' | 'wall-int' | 'door' | 'window' | 'label' | 'dim' | 'riser' | 'rect' | 'ellipse' | 'image' | 'table' | 'note'
 
 export type Tool =
   | { kind: 'select' }

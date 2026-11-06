@@ -315,7 +315,7 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'adnotari',
-    title: 'Zone, imagini și tabele pe planșă',
+    title: 'Zone, note, imagini și tabele pe planșă',
     img: 'help/19-zone-tabele.webp',
     steps: [
       <>
@@ -335,7 +335,13 @@ const SECTIONS: Section[] = [
         supravegheate video sau jurnalul de cablu — pentru toate sistemele sau unul, tot proiectul sau doar nivelul. Tabelul{' '}
         <B>se actualizează singur</B>; pătratul din colț îi schimbă mărimea textului (în mm pe hârtie).
       </>,
-      <>Toate se mută, se rotesc, se copiază și se șterg ca restul elementelor și au straturile lor în tab-ul Straturi. Zonele intră și în DXF.</>,
+      <>
+        <B>Notă cu săgeată</B>: click pe punctul indicat (vârful săgeții), apoi unde vrei textul, și scrii nota (ex. „cablu prin tavan fals”,
+        „înălțime montaj 2,5 m”). Textul se așază singur de partea opusă săgeții. <B>Dublu-click</B> pe notă = editare pe plan (Enter = rând
+        nou, Ctrl+Enter = gata); cercurile de la capete mută vârful și textul. Din panou: mărimea textului (mm pe hârtie), culoarea, chenar
+        alb.
+      </>,
+      <>Toate se mută, se copiază și se șterg ca restul elementelor și au straturile lor în tab-ul Straturi. Zonele și notele intră și în DXF.</>,
     ],
   },
   {

@@ -399,7 +399,7 @@ export default function App() {
         }
       })
       // zonele, imaginile și tabelele se reglează imediat din panou (tab-ul Element)
-      if (el.kind === 'rect' || el.kind === 'ellipse' || el.kind === 'image' || el.kind === 'table') select({ kind: 'arch', id })
+      if (el.kind === 'rect' || el.kind === 'ellipse' || el.kind === 'image' || el.kind === 'table' || el.kind === 'note') select({ kind: 'arch', id })
       else if (el.kind !== 'wall' && el.kind !== 'dim') setSelection({ kind: 'arch', id })
     },
     [h, select],

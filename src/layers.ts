@@ -33,6 +33,7 @@ export const ANNOT_LAYERS: LayerDef[] = [
   { key: 'adn:zone', name: 'Zone (dreptunghi / elipsă)' },
   { key: 'adn:imagini', name: 'Imagini' },
   { key: 'adn:tabele', name: 'Tabele' },
+  { key: 'adn:note', name: 'Note cu săgeată' },
 ]
 
 export const systemLayers = (sys: SystemId): LayerDef[] => [
@@ -61,6 +62,8 @@ export function archLayer(a: Pick<ArchElement, 'kind'>): LayerKey {
       return 'adn:imagini'
     case 'table':
       return 'adn:tabele'
+    case 'note':
+      return 'adn:note'
     default:
       return 'arh:ghene'
   }
