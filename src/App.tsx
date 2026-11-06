@@ -19,6 +19,9 @@ import { PdfPagePicker } from './PdfPagePicker'
 import { addToLibrary, defaultCustomSymbols, deviceSymbol, removeFromLibrary } from './symbolLibrary'
 import { CustomSymbolDialog } from './CustomSymbolDialog'
 import { archLayer } from './layers'
+import { projectFromTemplate } from './templates'
+import type { ProjectTemplate } from './templates'
+import { NewProjectDialog } from './NewProjectDialog'
 import { verifyProject } from './verify'
 import type { IssueTarget } from './verify'
 import { VerifyDialog } from './VerifyDialog'
@@ -709,9 +712,14 @@ export default function App() {
     }
   }
 
-  const newProject = () => {
+  const [newOpen, setNewOpen] = useState(false)
+
+  /** Proiect nou: gol (t = null) sau din șablon */
+  const newProject = (t: ProjectTemplate | null) => {
     if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Începi totuși un proiect nou? (Salvează întâi cu Ctrl+S dacă vrei să le păstrezi.)')) return
-    const fresh = emptyProject()
+    setNewOpen(false)
+    const fresh = t ? projectFromTemplate(t) : emptyProject()
+    if (t) notify(`Proiect nou din șablonul „${t.name}”.`)
     skipDirty.current = true
     h.reset(fresh)
     setDirty(false)
@@ -1077,7 +1085,7 @@ export default function App() {
       <header className="toolbar">
         <div className="brand">Planșe Securitate</div>
         <div className="group">
-          <button onClick={newProject} title="Proiect nou">Nou</button>
+          <button onClick={() => setNewOpen(true)} title="Proiect nou: gol sau dintr-un șablon">Nou</button>
           <button onClick={() => openInput.current?.click()} title="Deschide proiect (.json)">Deschide</button>
           <button onClick={saveJson} className={dirty ? 'unsaved' : ''} title={dirty ? 'Ai modificări nesalvate în fișier — Salvează (Ctrl+S)' : 'Salvează proiect (Ctrl+S)'}>
             Salvează{dirty && <span className="dirty-dot" />}
@@ -1554,6 +1562,7 @@ export default function App() {
           }}
         />
       )}
+      {newOpen && <NewProjectDialog project={project} onCreate={newProject} onClose={() => setNewOpen(false)} notify={notify} />}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}
       {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}
       {dxfImport && (

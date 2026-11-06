@@ -27,6 +27,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
   Traseele legăturilor se ajustează manual (segmente trase cu mouse-ul, capete care alunecă pe laturile blocurilor); selecție multiplă
   (Shift+click / Shift+dreptunghi), mutare în grup, aliniere și distribuire.
 - **Planul de fundal**: estompare reglabilă (0–90%), blocat implicit; deblocat se mută cu mouse-ul și se poate roti fin pentru aliniere.
+- **Șabloane de proiect**: „Nou” = proiect gol, șabloane de bază (casă, birou, magazin) sau șabloanele tale (salvate din proiectul curent, cu sau fără desen, fără datele beneficiarului), cu export / import ca fișier.
 - **Logo-ul firmei în cartuș** (lângă „Proiectant”, pe toate planșele), cu logo implicit pentru proiectele noi.
 - **Zone, note, linii, imagini și tabele pe planșă**: note cu săgeată (text pe mai multe rânduri, spre un punct de pe plan); linii și săgeți libere (culoare, grosime, punctat, săgeți la capete); zone dreptunghi / elipsă / poligon cu nume și arie (m²) care pot atribui zona echipamentelor din interior; imagini (logo, fotografii); tabele generate din proiect (echipamente, zone, CCTV, jurnal cablu) care se actualizează singure.
 - **Zoom** ca în draw.io: bară cu − / procent / +, presetări, procent scris, încadrare și mărire pe selecție; 100% = mărimea reală a planșei tipărite; Ctrl + / Ctrl − / Ctrl 0 / Ctrl 1.
