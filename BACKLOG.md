@@ -7,8 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P1** Note cu săgeată (callout) pe plan — PR #31.
-- [ ] **P1** Linii și săgeți libere pe plan — PR #32.
+- (nimic)
 
 ## De făcut
 
@@ -64,3 +63,5 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Bară de zoom pe planșe: procent, presetări, încadrare, mărire pe selecție ([#28](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/28))
 - [x] Zone, imagini și tabele pe planșă ([#29](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/29))
 - [x] BACKLOG.md: ideile de făcut pe priorități și funcțiile realizate ([#30](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/30))
+- [x] Note cu săgeată pe plan ([#31](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/31))
+- [x] Linii și săgeți libere pe plan ([#32](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/32))
