@@ -398,6 +398,11 @@ const SECTIONS: Section[] = [
         legendă și prefixul de numerotare.
       </>,
       <>
+        Pe alt calculator / browser: <B>Exportă</B> (sub simboluri) salvează toate simbolurile tale într-un fișier <code>.simboluri.json</code>;
+        acolo, <B>Importă…</B> le adaugă în proiect și în biblioteca browserului (pentru proiectele noi). Se pot lua simbolurile și dintr-un
+        proiect <code>.plansa.json</code>, un șablon sau un pachet <code>.zip</code>. Simbolurile deja existente nu se dublează.
+      </>,
+      <>
         Simbolul se aduce automat la mărimea celorlalte. La imagini fără transparență (JPG), fundalul alb devine transparent. <B>Se
         recolorează</B>: la SVG culorile devin culoarea sistemului / a echipamentului; la PNG merge pentru pictograme de o singură culoare.
       </>,

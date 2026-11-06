@@ -21,6 +21,8 @@ export function Palette({
   onPickArch,
   onUploadSymbol,
   onEditSymbol,
+  onExportSymbols,
+  onImportSymbols,
 }: {
   tool: Tool
   catalog: CatalogItem[]
@@ -29,6 +31,8 @@ export function Palette({
   onPickArch: (t: ArchTool) => void
   onUploadSymbol: () => void
   onEditSymbol: (id: string) => void
+  onExportSymbols: () => void
+  onImportSymbols: () => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({ ARH: false, ADN: false, CAT: true, CUSTOM: true, EFR: true, CA: true, CCTV: true, INC: true, NET: true })
   const [q, setQ] = useState('')
@@ -161,6 +165,14 @@ export function Palette({
                   <span className="plus">+</span>
                   <span className="pal-name">Încarcă simbol</span>
                 </button>
+                <div className="pal-lib">
+                  <button onClick={onExportSymbols} title="Salvează simbolurile (din proiect și din biblioteca browserului) într-un fișier .simboluri.json, pentru alt calculator">
+                    Exportă
+                  </button>
+                  <button onClick={onImportSymbols} title="Adaugă simboluri dintr-un fișier .simboluri.json, dintr-un proiect, șablon sau pachet .zip">
+                    Importă…
+                  </button>
+                </div>
               </div>
             )}
           </section>

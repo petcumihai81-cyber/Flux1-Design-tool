@@ -5,6 +5,7 @@
  * monocromă colorată (canalul alfa se păstrează).
  */
 import type { CustomSymbol, Device, Project } from './types'
+import { downloadBlob } from './download'
 import { cachedImage, loadCachedImage, loadSymbolImage, symbolByType, symbolImage, symbolSvg, systemById } from './symbols'
 
 const LIB_KEY = 'plansa-securitate:simboluri'
@@ -298,3 +299,98 @@ export const SYMBOL_COLORS = [
   { name: 'Turcoaz', c: '#00838f' },
   { name: 'Roz', c: '#ad1457' },
 ]
+
+// ---------------------------------------------------------------- export / import bibliotecă (fișier)
+
+const LIB_FORMAT = 'plansa-securitate-simboluri'
+
+/** Descarcă simbolurile ca fișier `.simboluri.json` (pentru alt calculator / browser) */
+export function exportSymbols(list: CustomSymbol[], name = 'simboluri') {
+  const body = JSON.stringify({ format: LIB_FORMAT, version: 1, symbols: list })
+  downloadBlob(new Blob([body], { type: 'application/json' }), `${name}.simboluri.json`)
+}
+
+/** Validează un simbol citit din fișier: tip de bază cunoscut, SVG curățat din nou, imagine doar ca data URL */
+function cleanSymbol(v: unknown): CustomSymbol | null {
+  if (!v || typeof v !== 'object') return null
+  const c = v as Partial<CustomSymbol>
+  if (typeof c.name !== 'string' || typeof c.base !== 'string' || !symbolByType(c.base) || typeof c.data !== 'string') return null
+  let data = c.data
+  if (c.kind === 'svg') {
+    try {
+      // SVG-ul a fost deja încadrat de aplicație: se curăță din nou (fișierul poate veni de oriunde), fără reîncadrare
+      data = data.includes('data-sym="1"') ? normalizeKeep(data) : normalizeSvg(data)
+    } catch {
+      return null
+    }
+  } else if (c.kind === 'img') {
+    if (!/^data:image\/(png|jpeg|webp|gif);base64,/.test(data)) return null
+  } else return null
+  return {
+    id: typeof c.id === 'string' && c.id ? c.id : Math.random().toString(36).slice(2, 10),
+    name: c.name.slice(0, 80),
+    base: c.base,
+    prefix: typeof c.prefix === 'string' ? c.prefix.slice(0, 12) : '',
+    kind: c.kind,
+    data,
+    recolor: !!c.recolor,
+  }
+}
+
+/** Un SVG deja normalizat de aplicație: se curăță din nou de scripturi / evenimente, fără să se reîncadreze */
+function normalizeKeep(svg: string): string {
+  if (svg.length > MAX_SVG) throw new Error('SVG prea mare.')
+  const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
+  const root = doc.documentElement
+  if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) throw new Error('SVG invalid.')
+  root.querySelectorAll('script, foreignObject, iframe, object, embed, audio, video').forEach((n) => n.remove())
+  for (const el of [root, ...Array.from(root.querySelectorAll('*'))])
+    for (const a of Array.from(el.attributes)) {
+      const n = a.name.toLowerCase()
+      const val = a.value.trim().toLowerCase()
+      if (n.startsWith('on')) el.removeAttribute(a.name)
+      else if ((n === 'href' || n === 'xlink:href') && !val.startsWith('#') && !val.startsWith('data:image/')) el.removeAttribute(a.name)
+    }
+  return new XMLSerializer().serializeToString(root)
+}
+
+/**
+ * Citește simboluri dintr-un fișier: `.simboluri.json`, un proiect `.plansa.json`, un șablon `.sablon.json`
+ * sau un pachet `.zip` (se iau simbolurile personalizate din ele).
+ */
+export async function readSymbolFile(f: File): Promise<CustomSymbol[]> {
+  let list: unknown[] | undefined
+  if (/\.zip$/i.test(f.name)) {
+    const { readPackage } = await import('./pack')
+    list = (await readPackage(f)).customSymbols
+  } else {
+    const v = JSON.parse(await f.text())
+    list = v?.format === LIB_FORMAT ? v.symbols : Array.isArray(v?.customSymbols) ? v.customSymbols : Array.isArray(v?.data?.customSymbols) ? v.data.customSymbols : undefined
+  }
+  if (!Array.isArray(list)) throw new Error('Fișierul nu conține simboluri personalizate (.simboluri.json, proiect, șablon sau pachet).')
+  const out = list.map(cleanSymbol).filter((c): c is CustomSymbol => !!c)
+  if (!out.length) throw new Error('Fișierul nu conține simboluri valide.')
+  return out
+}
+
+/**
+ * Adaugă simbolurile importate peste cele existente: cele identice (același aspect și nume) se sar,
+ * iar un id deja folosit de alt simbol primește id nou.
+ */
+export function mergeSymbols(existing: CustomSymbol[], incoming: CustomSymbol[]): { list: CustomSymbol[]; added: CustomSymbol[] } {
+  const list = [...existing]
+  const added: CustomSymbol[] = []
+  for (const s of incoming) {
+    if (list.some((c) => c.data === s.data && c.name === s.name && c.base === s.base)) continue
+    const sym = list.some((c) => c.id === s.id) ? { ...s, id: Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4) } : s
+    list.push(sym)
+    added.push(sym)
+  }
+  return { list, added }
+}
+
+/** Importă în biblioteca din browser; întoarce câte s-au adăugat (null = biblioteca e plină) */
+export function importToLibrary(incoming: CustomSymbol[]): number | null {
+  const { list, added } = mergeSymbols(defaultCustomSymbols(), incoming)
+  return saveLibrary(list) ? added.length : null
+}
