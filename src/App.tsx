@@ -715,11 +715,13 @@ export default function App() {
   const [newOpen, setNewOpen] = useState(false)
 
   /** Proiect nou: gol (t = null) sau din șablon */
-  const newProject = (t: ProjectTemplate | null) => {
+  const newProject = (t: ProjectTemplate | null) => startProject(t ? projectFromTemplate(t) : emptyProject(), t ? `Proiect nou din șablonul „${t.name}”.` : '')
+
+  /** Înlocuiește proiectul curent cu unul nou (gol, din șablon sau din asistent) */
+  const startProject = (fresh: Project, message: string) => {
     if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Începi totuși un proiect nou? (Salvează întâi cu Ctrl+S dacă vrei să le păstrezi.)')) return
     setNewOpen(false)
-    const fresh = t ? projectFromTemplate(t) : emptyProject()
-    if (t) notify(`Proiect nou din șablonul „${t.name}”.`)
+    if (message) notify(message)
     skipDirty.current = true
     h.reset(fresh)
     setDirty(false)
@@ -1562,7 +1564,7 @@ export default function App() {
           }}
         />
       )}
-      {newOpen && <NewProjectDialog project={project} onCreate={newProject} onClose={() => setNewOpen(false)} notify={notify} />}
+      {newOpen && <NewProjectDialog project={project} onCreate={newProject} onCreateProject={startProject} onClose={() => setNewOpen(false)} notify={notify} />}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}
       {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}
       {dxfImport && (

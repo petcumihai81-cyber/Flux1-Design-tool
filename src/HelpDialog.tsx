@@ -488,11 +488,18 @@ const SECTIONS: Section[] = [
   },
   {
     id: 'sabloane',
-    title: 'Proiect nou și șabloane',
+    title: 'Proiect nou, asistent și șabloane',
     steps: [
       <>
         <B>Nou</B> deschide alegerea: <B>Proiect gol</B>, un șablon de bază (<B>Casă</B>, <B>Birou</B>, <B>Magazin</B> — câte un plan pe sistem și
-        schemele bloc) sau unul dintre <B>șabloanele tale</B>. Dublu-click pe șablon = creează direct.
+        schemele bloc) sau unul dintre <B>șabloanele tale</B>. <B>Creează direct</B> (sau dublu-click pe șablon) pornește proiectul fără întrebări.
+      </>,
+      <>
+        <B>Continuă cu asistentul →</B> te poartă pas cu pas, cu <B>Înainte</B> / <B>Înapoi</B>: beneficiarul și obiectivul (CUI, sediu, CAEN),
+        <B>clădirea</B> (subsol, parter, etaje, înălțimi și planul fiecărui nivel: PDF, imagine, DXF sau pagină albă), <B>sistemele și planșele</B>
+        (un plan pe sistem sau toate pe unul, schemele bloc, format, orientare, scară — sau planșele din șablon, copiate și pe nivelurile noi),
+        datele din cartuș, datele pentru memoriu (vecinătăți, accese, construcție) și un rezumat. Orice pas se poate sări; <B>Creează acum</B> termină
+        oricând.
       </>,
       <>
         <B>Salvează proiectul curent ca șablon…</B>: păstrează planșele (format, sisteme, straturi), nivelurile, catalogul, accesoriile,
