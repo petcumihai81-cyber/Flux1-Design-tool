@@ -6,7 +6,7 @@ import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
 import { cableEnds, cableMeters, cablePixels, catalogItem, deviceSystem, isRiserRoute, levelOf, riserHost, verticalMeters } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
-import { prepareImage } from './images'
+import { defaultLogo, prepareImage, saveDefaultLogo } from './images'
 import { TABLE_KINDS } from './sheetTables'
 import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
 import { ANNOT_LAYERS, ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
@@ -1165,7 +1165,9 @@ export function LevelPanel({
   )
 }
 
-export function ProjectPanel({ project, onChange }: { project: Project; onChange: (patch: Partial<Project>) => void }) {
+export function ProjectPanel({ project, onChange, notify }: { project: Project; onChange: (patch: Partial<Project>) => void; notify: (m: string) => void }) {
+  const logo = project.title.logo
+  const [isDefault, setIsDefault] = useState(() => !!logo && defaultLogo() === logo)
   return (
     <div className="props">
       <h4>Date proiect (cartuș)</h4>
@@ -1174,6 +1176,57 @@ export function ProjectPanel({ project, onChange }: { project: Project; onChange
           <input value={project.title[key]} onChange={(e) => onChange({ title: { ...project.title, [key]: e.target.value } })} />
         </Field>
       ))}
+      <Field label="Logo firmă (în cartuș, lângă „Proiectant”)">
+        <div className="logo-row">
+          {logo ? <img className="logo-thumb" src={logo} alt="Logo" /> : <span className="hint">fără logo</span>}
+          <label className="btn-file">
+            {logo ? 'Înlocuiește…' : 'Încarcă…'}
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
+              hidden
+              onChange={async (e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ''
+                if (!f) return
+                try {
+                  const img = await prepareImage(f, 600)
+                  onChange({ title: { ...project.title, logo: img.src } })
+                  setIsDefault(false)
+                } catch (err) {
+                  notify('Logo-ul nu a putut fi citit: ' + (err as Error).message)
+                }
+              }}
+            />
+          </label>
+          {logo && (
+            <button
+              onClick={() => {
+                // gol (nu lipsă): proiectul rămâne fără logo și la redeschidere, chiar dacă există unul implicit
+                onChange({ title: { ...project.title, logo: '' } })
+                setIsDefault(false)
+              }}
+            >
+              Șterge
+            </button>
+          )}
+        </div>
+      </Field>
+      {logo && (
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={isDefault}
+            onChange={(e) => {
+              const ok = saveDefaultLogo(e.target.checked ? logo : undefined)
+              if (!ok) return notify('Logo-ul nu încape în memoria browserului.')
+              setIsDefault(e.target.checked)
+              notify(e.target.checked ? 'Logo-ul va apărea și în proiectele noi.' : 'Proiectele noi pornesc fără logo.')
+            }}
+          />
+          Folosește logo-ul și la proiectele noi
+        </label>
+      )}
 
       <h4>Numerotare și cabluri</h4>
       <label className="check">

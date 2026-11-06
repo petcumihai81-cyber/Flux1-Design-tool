@@ -237,6 +237,8 @@ export interface TitleBlock {
   data: string
   intocmit: string
   verificat: string
+  /** Logo-ul firmei proiectante (data URL, max. 600 px), desenat în cartuș lângă „Proiectant” */
+  logo?: string
 }
 
 export interface Background {

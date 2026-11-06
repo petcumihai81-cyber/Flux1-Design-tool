@@ -200,6 +200,11 @@ const SECTIONS: Section[] = [
         sistemele afișate.
       </>,
       <>
+        <B>Logo firmă</B> (tab-ul Proiect, la datele cartușului): <B>Încarcă…</B> o imagine (PNG cu fundal transparent arată cel mai bine); apare
+        pe fiecare planșă, în dreapta rândului „Proiectant”. Bifează <B>Folosește logo-ul și la proiectele noi</B> ca proiectele noi să pornească
+        cu el.
+      </>,
+      <>
         Filele de jos se folosesc ca foile din Excel: <B>click dreapta</B> pe filă = Deschide, Redenumește, <B>Duplică planșa</B>, Mută la
         stânga / dreapta / început / sfârșit, <B>Renumerotează planșele în ordine</B> (P01, P02…), Șterge. <B>Dublu-click</B> pe filă =
         redenumire; <B>tragi fila</B> cu mouse-ul ca s-o muți între celelalte.

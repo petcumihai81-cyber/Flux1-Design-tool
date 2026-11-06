@@ -1494,7 +1494,7 @@ export default function App() {
               />
             )}
             {tab === 'proiect' && (
-              <ProjectPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} />
+              <ProjectPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} notify={notify} />
             )}
             {tab === 'calcule' && (
               <CalcPanel project={project} onChange={(patch) => h.commit((p) => ({ ...p, ...patch }))} onOpenCatalog={() => setCatalogOpen(true)} />
