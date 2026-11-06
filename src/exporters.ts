@@ -9,6 +9,7 @@ import { cableMeters, catalogItem, contentBounds, sheetDrawBounds, deviceInfo, d
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { blockLayout } from './blockLayout'
 import { diagramBounds, pruneDiagram } from './diagram'
+import { downloadBlob } from './download'
 
 /** Nume de fișier sigur: fără caractere interzise și fără diacritice (ș → s), ca să fie păstrat de orice browser sau server */
 export function safeName(s: string) {
@@ -348,15 +349,7 @@ export function savePdf(pages: RenderedPage[], fileName: string) {
     if (i > 0) pdf.addPage([pg.wmm, pg.hmm], orient(pg))
     pdf.addImage(pg.canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pg.wmm, pg.hmm, undefined, 'FAST')
   })
-  // descărcare cu link atașat în pagină (numele fișierului se păstrează sigur în toate browserele)
-  const url = URL.createObjectURL(pdf.output('blob'))
-  const link = document.createElement('a')
-  link.href = url
-  link.download = `${safeName(fileName)}.pdf`
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  setTimeout(() => URL.revokeObjectURL(url), 30000)
+  downloadBlob(pdf.output('blob'), `${safeName(fileName)}.pdf`)
 }
 
 type Row = (string | number)[]
@@ -533,5 +526,6 @@ export function exportExcel(p: Project) {
   }
   XLSX.utils.book_append_sheet(wb, sheetOf(br.length ? br : [['Nu există date pentru calcule.']], [60, 10, 12, 12, 8, 14, 14]), 'Breviar calcul')
 
-  XLSX.writeFile(wb, `${safeName((p.title.nrProiect || 'proiect') + ' liste')}.xlsx`)
+  const data = XLSX.write(wb, { type: 'array', bookType: 'xlsx' }) as ArrayBuffer
+  downloadBlob(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${safeName((p.title.nrProiect || 'proiect') + ' liste')}.xlsx`)
 }
