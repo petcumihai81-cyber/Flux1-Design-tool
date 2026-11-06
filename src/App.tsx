@@ -22,6 +22,12 @@ import { archLayer } from './layers'
 import { projectFromTemplate } from './templates'
 import type { ProjectTemplate } from './templates'
 import { NewProjectDialog } from './NewProjectDialog'
+import { PackageDialog } from './PackageDialog'
+import type { PackOpts } from './PackageDialog'
+import { fileSafe, isZip, makePackage, readPackage } from './pack'
+import { captureDownloads, downloadBlob } from './download'
+import type { CapturedFile } from './download'
+import { exportMemoriu } from './memoriu'
 import { verifyProject } from './verify'
 import type { IssueTarget } from './verify'
 import { VerifyDialog } from './VerifyDialog'
@@ -683,30 +689,35 @@ export default function App() {
   }
 
   const saveJson = () => {
-    const blob = new Blob([JSON.stringify(project)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${(project.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')}.plansa.json`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    setTimeout(() => URL.revokeObjectURL(a.href), 30000)
+    downloadBlob(new Blob([JSON.stringify(project)], { type: 'application/json' }), `${(project.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')}.plansa.json`)
     setDirty(false)
   }
+
+  const [packOpen, setPackOpen] = useState(false)
 
   const openJson = async (file: File) => {
     if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Deschizi totuși alt proiect?')) return
     try {
-      const v = JSON.parse(await file.text())
-      if (!isProject(v)) throw new Error('Fișierul nu este un proiect valid.')
-      const opened = normalizeProject(v)
+      let opened: Project
+      if (isZip(file)) {
+        setBusy('Se deschide pachetul…')
+        try {
+          opened = await readPackage(file)
+        } finally {
+          setBusy(null)
+        }
+      } else {
+        const v = JSON.parse(await file.text())
+        if (!isProject(v)) throw new Error('Fișierul nu este un proiect valid.')
+        opened = normalizeProject(v)
+      }
       skipDirty.current = true
       h.reset(opened)
       setDirty(false)
       setSelection(null)
       setTool({ kind: 'select' })
       setFitSignal((n) => n + 1)
-      notify('Proiect deschis.')
+      notify(isZip(file) ? 'Pachet deschis.' : 'Proiect deschis.')
     } catch (err) {
       notify('Eroare: ' + (err as Error).message)
     }
@@ -957,9 +968,9 @@ export default function App() {
     }
   }
 
-  const doExportAllPdf = async () => {
+  /** Randează toate planșele (le afișează pe rând, apoi revine la planșa curentă) */
+  const renderAllPages = async () => {
     const original = project.activeSheetId
-    setBusy('Se generează toate planșele…')
     const pages: PreviewPage[] = []
     const skipped: string[] = []
     try {
@@ -978,20 +989,68 @@ export default function App() {
           skipped.push(sh.nr)
         }
       }
-      if (pages.length) setPreview({ pages, name: `${fileBase()} - planse`, title: 'Toate planșele' })
-      if (skipped.length) notify(`Planșe goale, sărite: ${skipped.join(', ')}.`)
     } finally {
       h.update((p) => ({ ...p, activeSheetId: original }))
       setFitSignal((n) => n + 1)
+    }
+    return { pages, skipped }
+  }
+
+  const doExportAllPdf = async () => {
+    setBusy('Se generează toate planșele…')
+    try {
+      const { pages, skipped } = await renderAllPages()
+      if (pages.length) setPreview({ pages, name: `${fileBase()} - planse`, title: 'Toate planșele' })
+      if (skipped.length) notify(`Planșe goale, sărite: ${skipped.join(', ')}.`)
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const drawioItems = () => {
+    const blocs = project.sheets.filter((sh) => sh.kind === 'bloc')
+    return blocs.length
+      ? blocs.map((sh) => ({ system: sh.systems[0], diagram: sh.diagram, name: `${sh.nr} ${sh.titlu}` }))
+      : systemsWithDevices(project).map((s) => ({ system: s, name: `Schemă bloc – ${systemById(s).name}` }))
+  }
+
+  /** Pachetul .zip: proiectul cu fișierele lui și, opțional, documentele de predare */
+  const savePackage = async (o: PackOpts) => {
+    setPackOpen(false)
+    setBusy('Se pregătește pachetul…')
+    try {
+      const extras: CapturedFile[] = []
+      if (o.pdf) {
+        setBusy('Se generează planșele pentru pachet…')
+        const { pages } = await renderAllPages()
+        if (pages.length) extras.push(...(await captureDownloads(() => savePdf(pages, `${fileBase()} - planse`))))
+        setBusy('Se pregătește pachetul…')
+      }
+      extras.push(
+        ...(await captureDownloads(async () => {
+          if (o.dxf) for (const sh of project.sheets.filter((x) => x.kind === 'plan')) exportDxf(project, sh)
+          if (o.excel) exportExcel(project)
+          if (o.drawio) {
+            const items = drawioItems()
+            if (items.length) await exportDrawio(project, items)
+          }
+          if (o.memoriu) await exportMemoriu(project)
+        })),
+      )
+      const blob = await makePackage(project, extras)
+      downloadBlob(blob, `${fileSafe(fileBase())} - pachet.zip`)
+      setDirty(false)
+      notify(`Pachet salvat (${(blob.size / 1048576).toFixed(1).replace('.', ',')} MB${extras.length ? `, ${extras.length} documente de predare` : ''}).`)
+    } catch (err) {
+      console.error(err)
+      notify('Nu am putut crea pachetul: ' + (err as Error).message)
+    } finally {
       setBusy(null)
     }
   }
 
   const doExportDrawio = () => {
-    const blocs = project.sheets.filter((sh) => sh.kind === 'bloc')
-    const items = blocs.length
-      ? blocs.map((sh) => ({ system: sh.systems[0], diagram: sh.diagram, name: `${sh.nr} ${sh.titlu}` }))
-      : systemsWithDevices(project).map((s) => ({ system: s, name: `Schemă bloc – ${systemById(s).name}` }))
+    const items = drawioItems()
     if (!items.length) return notify('Nu există echipamente pentru schemele bloc.')
     exportDrawio(project, items)
     notify(`Exportat ${items.length} ${items.length === 1 ? 'schemă bloc' : 'scheme bloc'} în draw.io.`)
@@ -1088,9 +1147,12 @@ export default function App() {
         <div className="brand">Planșe Securitate</div>
         <div className="group">
           <button onClick={() => setNewOpen(true)} title="Proiect nou: gol sau dintr-un șablon">Nou</button>
-          <button onClick={() => openInput.current?.click()} title="Deschide proiect (.json)">Deschide</button>
+          <button onClick={() => openInput.current?.click()} title="Deschide proiect (.plansa.json) sau pachet (.zip)">Deschide</button>
           <button onClick={saveJson} className={dirty ? 'unsaved' : ''} title={dirty ? 'Ai modificări nesalvate în fișier — Salvează (Ctrl+S)' : 'Salvează proiect (Ctrl+S)'}>
             Salvează{dirty && <span className="dirty-dot" />}
+          </button>
+          <button onClick={() => setPackOpen(true)} title="Salvează ca pachet .zip: proiectul, planurile, imaginile, simbolurile, logo-ul și (opțional) documentele de predare">
+            Pachet
           </button>
           <button onClick={() => bgInput.current?.click()} title="Încarcă planul clădirii (PDF, imagine sau DXF)">Încarcă plan</button>
           <button onClick={() => setCatalogOpen(true)} title="Catalog echipamente (modele, consumuri)">Catalog</button>
@@ -1152,7 +1214,7 @@ export default function App() {
         <input
           ref={openInput}
           type="file"
-          accept=".json,application/json"
+          accept=".json,.zip,application/json,application/zip"
           hidden
           onChange={(e) => {
             const f = e.target.files?.[0]
@@ -1564,6 +1626,7 @@ export default function App() {
           }}
         />
       )}
+      {packOpen && <PackageDialog project={project} onSave={savePackage} onClose={() => setPackOpen(false)} />}
       {newOpen && <NewProjectDialog project={project} onCreate={newProject} onCreateProject={startProject} onClose={() => setNewOpen(false)} notify={notify} />}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}
       {pdfPick && <PdfPagePicker doc={pdfPick.doc} fileName={pdfPick.fileName} onPick={pdfPick.resolve} />}

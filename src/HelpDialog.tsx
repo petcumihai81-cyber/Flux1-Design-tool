@@ -535,6 +535,11 @@ const SECTIONS: Section[] = [
         <B>Salvează</B> arată că ai modificări care nu sunt încă în fișierul <code>.plansa.json</code> — pentru siguranță și arhivă, salvează cu{' '}
         <K>Ctrl+S</K>.
       </>,
+      <>
+        <B>Pachet</B> salvează tot proiectul într-un singur fișier <code>.zip</code>: proiectul, planurile de fundal, imaginile de pe planșe,
+        simbolurile personalizate și logo-ul, ca fișiere separate (PNG / JPG / SVG). Opțional pui în folderul <B>predare</B> și documentele: PDF cu
+        toate planșele, DXF pe fiecare plan, Excel, draw.io, memoriul .docx. Pachetul se redeschide cu <B>Deschide</B>, ca un proiect obișnuit.
+      </>,
     ],
   },
 ]

@@ -3,6 +3,7 @@ import { symbolByType, symbolSvg, systemById } from './symbols'
 import { deviceInfo } from './project'
 import { deviceSymbol, lookDataUrl } from './symbolLibrary'
 import { materialize, pruneDiagram } from './diagram'
+import { downloadBlob } from './download'
 
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, '&#xa;')
@@ -103,9 +104,5 @@ export async function exportDrawio(p: Project, items: DrawioItem[]) {
   const pages = items.map((it, i) => diagramXml(p, it, i + 1, looks))
   const xml = `<mxfile host="Flux1-Design-tool" type="device">${pages.join('')}</mxfile>`
   const blob = new Blob([xml], { type: 'application/xml' })
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `${(p.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')} - scheme bloc.drawio`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  downloadBlob(blob, `${(p.title.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')} - scheme bloc.drawio`)
 }

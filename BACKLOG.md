@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** Asistent pentru proiect nou (pas cu pas: beneficiar, niveluri și planuri, sisteme și planșe, cartuș, memoriu, rezumat) — PR #37.
+- [ ] **P2** Pachet proiect .zip — PR #38.
 
 ## De făcut
 
@@ -15,7 +15,6 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
 
 ### Proiecte și șabloane
-- [ ] **P2** Pachet proiect .zip: „Salvează ca pachet” / „Deschide pachet” — proiectul (.json), planurile de fundal și imaginile ca fișiere (PNG / JPG, mai mici decât în JSON), simbolurile personalizate (SVG / PNG), logo-ul; opțional și exporturile pentru predare (PDF, Excel, DXF, memoriu .docx).
 - [ ] **P2** Export / import al bibliotecii de simboluri personalizate (fișier), ca să se poată muta pe alt calculator / browser fără să deschizi un proiect care le conține.
 
 ### Export / import
@@ -67,3 +66,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Zone poligonale pe planșă ([#34](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/34))
 - [x] Logo-ul firmei în cartuș ([#35](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/35))
 - [x] Șabloane de proiect ([#36](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/36))
+- [x] Asistent pentru proiect nou ([#37](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/37))

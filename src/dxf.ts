@@ -4,6 +4,7 @@ import { polygonInfo } from './arch'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
 import { deviceSystem, paperMmPerPx, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
+import { downloadBlob } from './download'
 
 /**
  * Export DXF (R12 / AC1009, cel mai compatibil) al unei planșe de plan:
@@ -549,13 +550,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/[–—]/g, '-')
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `${name}.dxf`
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
-  setTimeout(() => URL.revokeObjectURL(a.href), 30000)
+  downloadBlob(blob, `${name}.dxf`)
   const calibrated = level.pxPerMeter ? '' : ' Atenție: scara nivelului nu e calibrată, dimensiunile nu sunt reale.'
   return { ok: true, message: `DXF exportat (unitate: metru, ${devices.length} echipamente, ${cables.length} cabluri).${calibrated}` }
 }

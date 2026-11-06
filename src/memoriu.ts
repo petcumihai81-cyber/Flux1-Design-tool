@@ -18,6 +18,7 @@ import { catalogItem, deviceInfo, deviceSystem, levelOf } from './project'
 import { batteryCalc, poeCalc, powerCalc, storageCalc } from './calc'
 import { isAccessory, kindName } from './catalog'
 import { ZONE_FUNCTIONALE } from './memoriuDefaults'
+import { downloadBlob } from './download'
 
 /**
  * Generează memoriul tehnic (.docx) după tiparul documentațiilor avizate:
@@ -854,11 +855,7 @@ export async function exportMemoriu(p: Project) {
     ],
   })
   const blob = await Packer.toBlob(doc)
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = `${(t.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')} - Memoriu tehnic.docx`
-  a.click()
-  URL.revokeObjectURL(a.href)
+  downloadBlob(blob, `${(t.nrProiect || 'proiect').replace(/[\\/:*?"<>|]+/g, '_')} - Memoriu tehnic.docx`)
 }
 
 /** Câte câmpuri importante lipsesc (pentru avertizare în dialog) */
