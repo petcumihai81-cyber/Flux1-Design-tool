@@ -469,3 +469,48 @@ button.link:hover { text-decoration: underline; }
 .about-rel ul, .about-features ul { margin: 3px 0 0; padding-left: 18px; font-size: 13.5px; color: #444; }
 .about-features h4 { margin: 12px 0 4px; }
 .about-features section:first-child h4 { margin-top: 0; }
+
+/* ecran mic: paleta și panoul din dreapta devin sertare peste plan */
+.drawer-btn, .drawer-back { display: none; }
+@media (max-width: 900px) {
+  .toolbar { flex-wrap: nowrap; overflow-x: auto; gap: 8px; padding: 6px 8px; -webkit-overflow-scrolling: touch; }
+  .toolbar .group { flex-shrink: 0; }
+  .toolbar .group.right { margin-left: 0; }
+  .toolbar button { white-space: nowrap; }
+  .workspace { position: relative; overflow: hidden; }
+  .palette, .side {
+    position: absolute; top: 0; bottom: 0; z-index: 30; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+    transition: transform 0.2s ease; max-width: 86vw;
+  }
+  .palette { left: 0; width: 270px; transform: translateX(-105%); }
+  .side { right: 0; width: 320px; transform: translateX(105%); }
+  .drawer-palette .palette, .drawer-side .side { transform: none; }
+  .drawer-back { position: absolute; inset: 0; z-index: 25; background: rgba(20, 28, 38, 0.3); }
+  .drawer-palette .drawer-back, .drawer-side .drawer-back { display: block; }
+  .drawer-btn {
+    display: block; position: absolute; top: 8px; z-index: 20; padding: 7px 12px; font-weight: 600;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+  .drawer-btn.left { left: 8px; }
+  .drawer-btn.right { right: 8px; }
+  .drawer-palette .drawer-btn, .drawer-side .drawer-btn { display: none; }
+  .canvas-hint { max-width: 92%; font-size: 12px; bottom: 60px; }
+  .diagram-bar { top: 50px !important; left: 8px !important; right: 8px; flex-wrap: wrap; }
+  .diagram-props { top: 100px !important; }
+  /* ferestrele: pe toată lățimea, conținutul pe coloană */
+  .modal-back { padding: 6px; }
+  .modal { width: 100% !important; max-height: calc(100vh - 12px); }
+  .np-body { flex-direction: column; }
+  .np-list { width: auto !important; max-height: 34%; border-right: none; border-bottom: 1px solid var(--line); }
+  .wz-grid { grid-template-columns: 1fr; }
+  .np-list.wz-steps { flex-direction: row; overflow-x: auto; max-height: none; padding: 6px; gap: 4px; }
+  .wz-step { flex: 0 0 auto; padding: 6px 8px; }
+  .wz-step b { white-space: nowrap; }
+  .wz-step:not(.on) b { font-size: 0; gap: 0; }
+  .wz-step:not(.on) .wz-num { font-size: 12px; }
+  .wz-note { display: none; }
+  .modal-foot { flex-wrap: wrap; }
+  .modal-foot button { white-space: nowrap; }
+  .modal-foot > .hint { display: none; }
+  .about-info { grid-template-columns: 100px 1fr; }
+}

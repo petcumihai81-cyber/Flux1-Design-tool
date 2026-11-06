@@ -109,6 +109,8 @@ export default function App() {
   /** Selecția multiplă de pe plan (cu ≥ 2 elemente); când e activă, `selection` e gol */
   const [multi, setMulti] = useState<Item[]>([])
   const [tab, setTab] = useState<Tab>('proiect')
+  /** Ecran mic (telefon / tabletă în portret): paleta și panoul din dreapta sunt sertare peste plan */
+  const [drawer, setDrawer] = useState<'palette' | 'side' | null>(null)
   const [fitSignal, setFitSignal] = useState(0)
   const [busy, setBusy] = useState<string | null>(null)
   const [toast, setToast] = useState<string | null>(null)
@@ -1280,7 +1282,14 @@ export default function App() {
         />
       </header>
 
-      <main className="workspace">
+      <main className={'workspace' + (drawer ? ' drawer-' + drawer : '')}>
+        <div className="drawer-back" onClick={() => setDrawer(null)} />
+        <button className="drawer-btn left" onClick={() => setDrawer(drawer === 'palette' ? null : 'palette')} title="Simboluri și unelte">
+          ☰ Simboluri
+        </button>
+        <button className="drawer-btn right" onClick={() => setDrawer(drawer === 'side' ? null : 'side')} title="Proprietăți, proiect, straturi, calcule, liste">
+          Panou ⚙
+        </button>
         <Palette
           tool={tool}
           catalog={project.catalog}
@@ -1301,9 +1310,11 @@ export default function App() {
               setActiveSheet(target.id)
             }
             setSelection(null)
+            setDrawer(null)
             setTool(tool.kind === 'arch' && tool.arch === arch ? { kind: 'select' } : { kind: 'arch', arch })
           }}
           onPick={(type, catalogId, symbolId) => {
+            setDrawer(null)
             if (sheet.kind === 'bloc') {
               const sys = symbolByType(type)?.system
               const target =
