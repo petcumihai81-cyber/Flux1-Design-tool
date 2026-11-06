@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** Șabloane de proiect — PR #36.
+- [ ] **P2** Asistent pentru proiect nou (pas cu pas: beneficiar, niveluri și planuri, sisteme și planșe, cartuș, memoriu, rezumat) — PR #37.
 
 ## De făcut
 
@@ -66,3 +66,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Linii și săgeți libere pe plan ([#32](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/32))
 - [x] Zone poligonale pe planșă ([#34](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/34))
 - [x] Logo-ul firmei în cartuș ([#35](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/35))
+- [x] Șabloane de proiect ([#36](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/36))

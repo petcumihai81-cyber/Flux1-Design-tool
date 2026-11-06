@@ -391,3 +391,35 @@ button.unsaved { border-color: #f9a825; }
 .np-save { margin-top: auto; border-top: 1px solid var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 .np-save h4 { margin: 0; }
 .np-save .field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+
+/* asistentul de proiect nou */
+.modal.wizard { width: min(1000px, 100%); height: min(680px, 100%); }
+.wz-steps { width: 230px; }
+.wz-step b { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.wz-step.on b { font-weight: 700; }
+.wz-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #e3e8ee; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.wz-step.on .wz-num { background: #1976d2; color: #fff; }
+.wz-step.done .wz-num { background: #c8e6c9; color: #2e7d32; }
+.wz-note { margin-top: auto; padding: 8px; font-size: 12px; }
+.wz-detail { gap: 10px; }
+.wz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.wz-grid .field.wide { grid-column: 1 / -1; }
+.wz-grid textarea { resize: vertical; font: inherit; }
+.wz-levels { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+.wz-levels th { text-align: left; font-weight: 500; color: var(--muted); font-size: 12px; padding: 4px 6px; }
+.wz-levels td { padding: 4px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+.wz-move { white-space: nowrap; }
+.wz-move button { padding: 1px 5px; font-size: 10px; }
+.wz-plan { display: flex; align-items: center; gap: 8px; min-height: 30px; }
+.wz-file { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.wz-fs { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.wz-fs:disabled { opacity: 0.5; }
+.wz-systems { display: flex; flex-direction: column; gap: 6px; }
+.wz-sys { border: 1px solid var(--line); border-left-width: 4px; border-radius: 6px; padding: 6px 10px; }
+.wz-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.wz-radio { display: flex; flex-direction: column; gap: 6px; }
+.wz-logo { display: flex; align-items: center; gap: 10px; }
+.wz-logo img { max-height: 36px; max-width: 140px; border: 1px solid var(--line); padding: 2px; background: #fff; }
+.wz-sum { display: grid; grid-template-columns: 110px 1fr; gap: 6px 12px; margin: 0; font-size: 14px; }
+.wz-sum dt { color: var(--muted); }
+.wz-sum dd { margin: 0; }

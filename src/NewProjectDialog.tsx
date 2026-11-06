@@ -3,6 +3,7 @@ import type { Project } from './types'
 import { BUILTIN_TEMPLATES, addTemplate, exportTemplate, importTemplate, makeTemplate, removeTemplate, userTemplates } from './templates'
 import type { ProjectTemplate } from './templates'
 import { systemById } from './symbols'
+import { NewProjectWizard } from './NewProjectWizard'
 
 const EMPTY = '__gol__'
 
@@ -10,12 +11,15 @@ const EMPTY = '__gol__'
 export function NewProjectDialog({
   project,
   onCreate,
+  onCreateProject,
   onClose,
   notify,
 }: {
   project: Project
   /** null = proiect gol */
   onCreate: (t: ProjectTemplate | null) => void
+  /** Proiectul gata construit de asistent */
+  onCreateProject: (p: Project, message: string) => void
   onClose: () => void
   notify: (m: string) => void
 }) {
@@ -25,6 +29,7 @@ export function NewProjectDialog({
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   const [withDrawing, setWithDrawing] = useState(false)
+  const [wizard, setWizard] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const all = [...BUILTIN_TEMPLATES, ...mine]
   const sel = all.find((t) => t.id === selId)
@@ -52,6 +57,9 @@ export function NewProjectDialog({
     setDesc('')
     notify(`Șablonul „${t.name}” a fost salvat.`)
   }
+
+  if (wizard)
+    return <NewProjectWizard start={selId === EMPTY ? null : sel ?? null} onBack={() => setWizard(false)} onClose={onClose} onFinish={onCreateProject} notify={notify} />
 
   return (
     <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -186,8 +194,11 @@ export function NewProjectDialog({
           <span className="hint">Dublu-click pe un șablon = creează direct.</span>
           <span className="spacer" />
           <button onClick={onClose}>Renunță</button>
-          <button className="primary" onClick={() => onCreate(selId === EMPTY ? null : sel ?? null)}>
-            Creează proiectul
+          <button onClick={() => onCreate(selId === EMPTY ? null : sel ?? null)} title="Proiectul gol / șablonul, fără întrebări">
+            Creează direct
+          </button>
+          <button className="primary" onClick={() => setWizard(true)} title="Pas cu pas: beneficiar, niveluri și planuri, sisteme, cartuș, memoriu">
+            Continuă cu asistentul →
           </button>
         </footer>
       </div>
