@@ -16,7 +16,7 @@ import { ArchProps, CableProps, ColorRow, DeviceProps, GroupPanel, LayersPanel, 
 import { loadBackground } from './background'
 import type { PdfDoc } from './background'
 import { PdfPagePicker } from './PdfPagePicker'
-import { addToLibrary, defaultCustomSymbols, deviceSymbol, removeFromLibrary } from './symbolLibrary'
+import { addToLibrary, defaultCustomSymbols, deviceSymbol, exportSymbols, importToLibrary, mergeSymbols, readSymbolFile, removeFromLibrary } from './symbolLibrary'
 import { CustomSymbolDialog } from './CustomSymbolDialog'
 import { archLayer } from './layers'
 import { projectFromTemplate } from './templates'
@@ -109,6 +109,7 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null)
   const stageRef = useRef<Konva.Stage | null>(null)
   const bgInput = useRef<HTMLInputElement>(null)
+  const symImportInput = useRef<HTMLInputElement>(null)
   const openInput = useRef<HTMLInputElement>(null)
 
   const notify = (msg: string) => {
@@ -1212,6 +1213,29 @@ export default function App() {
           }}
         />
         <input
+          ref={symImportInput}
+          type="file"
+          accept=".json,.zip,application/json,application/zip"
+          hidden
+          onChange={async (e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ''
+            if (!f) return
+            try {
+              const incoming = await readSymbolFile(f)
+              const { list, added } = mergeSymbols(project.customSymbols, incoming)
+              if (added.length) h.commit((p) => ({ ...p, customSymbols: list }))
+              const lib = importToLibrary(incoming)
+              notify(
+                (added.length ? (added.length === 1 ? `Importat un simbol în proiect („${added[0].name}”)` : `Importate ${added.length} simboluri în proiect`) : 'Simbolurile erau deja în proiect') +
+                  (lib == null ? '; biblioteca din browser e plină.' : '; sunt și în biblioteca din browser, pentru proiectele noi.'),
+              )
+            } catch (err) {
+              notify('Nu am putut importa simbolurile: ' + (err as Error).message)
+            }
+          }}
+        />
+        <input
           ref={openInput}
           type="file"
           accept=".json,.zip,application/json,application/zip"
@@ -1231,6 +1255,13 @@ export default function App() {
           customSymbols={project.customSymbols}
           onUploadSymbol={() => setSymDialog({})}
           onEditSymbol={(id) => setSymDialog({ id })}
+          onExportSymbols={() => {
+            const all = mergeSymbols(project.customSymbols, defaultCustomSymbols()).list
+            if (!all.length) return notify('Nu ai simboluri personalizate de exportat.')
+            exportSymbols(all, `Simboluri ${new Date().toISOString().slice(0, 10)}`)
+            notify(all.length === 1 ? 'Exportat un simbol personalizat.' : `Exportate ${all.length} simboluri personalizate.`)
+          }}
+          onImportSymbols={() => symImportInput.current?.click()}
           onPickArch={(arch) => {
             if (sheet.kind === 'bloc') {
               const target = project.sheets.find((sh) => sh.kind === 'plan')
