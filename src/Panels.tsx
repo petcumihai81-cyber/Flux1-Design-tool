@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, SheetTable, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
+import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, SheetTable, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool, HatchKind } from './types'
 import { ANNOT_TOOLS, ARCH_NAMES, ARCH_TOOLS, archIconUrl, devicesInZone, fmtM, zoneArea } from './arch'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
@@ -11,6 +11,7 @@ import { TABLE_KINDS } from './sheetTables'
 import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
 import { ANNOT_LAYERS, ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
 import { askConfirm } from './dialogs'
+import { HATCHES, HATCH_MM_DEFAULT } from './hatch'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
@@ -583,6 +584,26 @@ export function ArchProps({
           <Field label={`Umplere: ${Math.round((a.fillOpacity ?? 0.12) * 100)}%`}>
             <input type="range" min={0} max={60} step={2} value={Math.round((a.fillOpacity ?? 0.12) * 100)} onChange={(e) => onChange({ fillOpacity: parseInt(e.target.value, 10) / 100 })} />
           </Field>
+          <div className="row2">
+            <Field label="Hașură">
+              <select value={a.hatch ?? 'none'} onChange={(e) => onChange({ hatch: e.target.value === 'none' ? undefined : (e.target.value as HatchKind) })}>
+                {HATCHES.map((h) => (
+                  <option key={h.id} value={h.id}>
+                    {h.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Distanță (mm pe hârtie)">
+              <Num
+                value={a.hatchMm ?? HATCH_MM_DEFAULT}
+                min={0.5}
+                max={20}
+                step={0.5}
+                onChange={(v) => onChange({ hatchMm: Math.min(20, Math.max(0.5, v)) })}
+              />
+            </Field>
+          </div>
           <label className="check">
             <input type="checkbox" checked={a.dashed !== false} onChange={(e) => onChange({ dashed: e.target.checked })} />
             Contur punctat

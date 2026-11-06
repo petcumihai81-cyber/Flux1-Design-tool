@@ -3,19 +3,16 @@
 Lista ideilor și a lucrurilor de făcut, discutate cu utilizatorul. Se actualizează la fiecare sesiune:
 ce se începe trece la „În lucru”, ce se unește în `main` se mută la „Realizat”, cu numărul PR-ului.
 
-Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai târziu.
+Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai târziu, **Amânat** = lăsat deoparte la cererea utilizatorului.
 
 ## În lucru
 
-- [ ] **P3** Panouri care se strâng pe ecran mic (sertare) — PR #44.
+- [ ] **P3** Hașură configurabilă pe zone — PR #45.
 
 ## De făcut
 
 ### Proiect și beneficiar
-- [ ] **P1** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din **Flux Hub** (agregatorul propriu al utilizatorului pentru date ONRC / ANAF), când API-ul lui va fi expus pe internet. Verificat: serviciul public ANAF răspunde, dar nu permite apeluri direct din browser (fără CORS), deci aplicația are nevoie de un intermediar — Flux Hub poate fi acela. De stabilit: adresa API-ului, autentificarea (cheie) și formatul răspunsului; în aplicație, adresa se configurează în setări.
-
-### Planșe și desen
-- [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
+- [ ] **Amânat** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din **Flux Hub** (agregatorul propriu al utilizatorului pentru date ONRC / ANAF), când API-ul lui va fi expus pe internet. Verificat: serviciul public ANAF răspunde, dar nu permite apeluri direct din browser (fără CORS), deci aplicația are nevoie de un intermediar — Flux Hub poate fi acela. De stabilit: adresa API-ului, autentificarea (cheie) și formatul răspunsului; în aplicație, adresa se configurează în setări.
 
 ### Export / import
 - [ ] **P3** DXF: tabelele de pe planșă (text pe grilă) și imaginile (sau doar conturul lor, cu numele fișierului).
@@ -68,3 +65,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Suport pentru ecran tactil ([#41](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/41))
 - [x] Ferestre proprii în locul celor ale browserului ([#42](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/42))
 - [x] Fereastra „Despre”: versiune, noutăți și funcții ([#43](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/43))
+- [x] Ecran mic: paleta și panoul ca sertare ([#44](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/44))

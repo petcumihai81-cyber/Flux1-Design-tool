@@ -328,7 +328,8 @@ const SECTIONS: Section[] = [
         În paletă, <B>Zone, imagini, tabele</B>. <B>Zonă dreptunghi / elipsă</B>: click pe un colț, apoi pe colțul opus, și scrii numele
         zonei. <B>Zonă poligon</B> (încăperi în formă de L, colțuri tăiate): click din colț în colț, iar click pe primul colț (sau dublu-click /{' '}
         <K>Enter</K>) închide zona; în modul Selectare, cercurile de pe colțuri schimbă forma. În zonă apar numele și <B>aria în m²</B>; din
-        panou alegi culoarea, umplerea, conturul punctat.
+        panou alegi culoarea, umplerea, conturul punctat și <B>hașura</B> (diagonal, încrucișat, orizontal, vertical, carouri, puncte), cu
+        distanța dintre linii în mm pe hârtie. Hașura apare și în PDF și în DXF (stratul <B>ADN_ZONE_HASURA</B>).
       </>,
       <>
         <B>Atribuie zona celor N echipamente din interior</B> completează „Zona protejată” la echipamentele din zonă — tabelul de zone din
