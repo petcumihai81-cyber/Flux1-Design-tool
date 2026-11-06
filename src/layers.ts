@@ -30,7 +30,7 @@ export const ARCH_LAYERS: LayerDef[] = [
 
 /** Adnotările planșei: zone desenate, imagini, tabele */
 export const ANNOT_LAYERS: LayerDef[] = [
-  { key: 'adn:zone', name: 'Zone (dreptunghi / elipsă)' },
+  { key: 'adn:zone', name: 'Zone (dreptunghi / elipsă / poligon)' },
   { key: 'adn:imagini', name: 'Imagini' },
   { key: 'adn:tabele', name: 'Tabele' },
   { key: 'adn:note', name: 'Note cu săgeată' },
@@ -58,6 +58,7 @@ export function archLayer(a: Pick<ArchElement, 'kind'>): LayerKey {
       return 'arh:cote'
     case 'rect':
     case 'ellipse':
+    case 'polygon':
       return 'adn:zone'
     case 'image':
       return 'adn:imagini'

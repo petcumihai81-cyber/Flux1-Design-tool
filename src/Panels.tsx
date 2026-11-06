@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ArchElement, ArchTool, Cable, CatalogItem, CustomSymbol, Device, SheetTable, Level, Orientation, PageFormat, Project, Sheet, SystemId, TitleBlock, Tool } from './types'
-import { ANNOT_TOOLS, ARCH_NAMES, ARCH_TOOLS, archIconUrl, devicesInZone, fmtM } from './arch'
+import { ANNOT_TOOLS, ARCH_NAMES, ARCH_TOOLS, archIconUrl, devicesInZone, fmtM, zoneArea } from './arch'
 import { alignGroup, distributeGroup } from './group'
 import type { Item } from './group'
 import { SYMBOLS, SYSTEMS, canMirror, symbolByType, symbolDataUrl, systemById } from './symbols'
@@ -522,7 +522,7 @@ export function ArchProps({
 }) {
   const ppm = levelOf(project, a.levelId).pxPerMeter ?? 50
   const len = a.points ? polyLen(a.points) / ppm : 0
-  const isZone = a.kind === 'rect' || a.kind === 'ellipse'
+  const isZone = a.kind === 'rect' || a.kind === 'ellipse' || a.kind === 'polygon'
   const inside = isZone ? devicesInZone(project, a) : []
   const imgRef = { current: null as HTMLInputElement | null }
   return (
@@ -538,21 +538,27 @@ export function ArchProps({
           <Field label="Numele zonei">
             <input value={a.text ?? ''} placeholder="ex. Zona 1 – Recepție" onChange={(e) => onChange({ text: e.target.value })} />
           </Field>
-          <div className="row2">
-            <Field label="Lățime (m)">
-              <Num value={a.width ?? 4} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ width: Math.max(0.1, v) })} />
-            </Field>
-            <Field label="Înălțime (m)">
-              <Num value={a.height ?? 3} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ height: Math.max(0.1, v) })} />
-            </Field>
-          </div>
+          {a.kind !== 'polygon' && (
+            <div className="row2">
+              <Field label="Lățime (m)">
+                <Num value={a.width ?? 4} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ width: Math.max(0.1, v) })} />
+              </Field>
+              <Field label="Înălțime (m)">
+                <Num value={a.height ?? 3} min={0.1} max={500} step={0.05} onChange={(v) => onChange({ height: Math.max(0.1, v) })} />
+              </Field>
+            </div>
+          )}
           <p className="hint">
-            Aria: <b>{((a.kind === 'rect' ? (a.width ?? 4) * (a.height ?? 3) : Math.PI * ((a.width ?? 4) / 2) * ((a.height ?? 3) / 2)) || 0).toFixed(2).replace('.', ',')} m²</b>
-            {' '}· trage pătratul din colț pentru redimensionare
+            Aria: <b>{zoneArea(a, ppm).toFixed(2).replace('.', ',')} m²</b>
+            {a.kind === 'polygon'
+              ? ` · ${(a.points?.length ?? 0) / 2} colțuri · trage cercurile de pe colțuri pentru a schimba forma`
+              : ' · trage pătratul din colț pentru redimensionare'}
           </p>
-          <Field label="Rotire (°)">
-            <Num value={a.rotation ?? 0} min={-360} max={360} step={1} onChange={(v) => onChange({ rotation: v })} />
-          </Field>
+          {a.kind !== 'polygon' && (
+            <Field label="Rotire (°)">
+              <Num value={a.rotation ?? 0} min={-360} max={360} step={1} onChange={(v) => onChange({ rotation: v })} />
+            </Field>
+          )}
           <Field label="Culoare">
             <div className="color-row">
               {ZONE_COLORS.map((c) => (

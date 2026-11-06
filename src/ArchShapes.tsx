@@ -1,7 +1,7 @@
 import { Arrow, Circle, Ellipse, Group, Image as KImage, Line, Rect, Text } from 'react-konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { ArchElement, Project } from './types'
-import { fmtM, snapPoint, wallAt, wallVertices } from './arch'
+import { fmtM, polygonInfo, snapPoint, wallAt, wallVertices } from './arch'
 import { polylineLength } from './project'
 import { cachedImage } from './symbols'
 import { tableData, tableLayoutPx } from './sheetTables'
@@ -145,6 +145,46 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
             height={h}
             align="center"
             verticalAlign="middle"
+            fontSize={fs}
+            fontStyle="bold"
+            fontFamily="Arial"
+            fill={stroke}
+            lineHeight={1.25}
+            listening={false}
+          />
+        )}
+      </Group>
+    )
+  }
+
+  /** Zonă poligon: contur închis prin vârfuri, cu numele și aria în centrul de greutate */
+  const renderPolygon = (a: ArchElement) => {
+    const pts = a.points!
+    const stroke = a.stroke ?? '#6a1b9a'
+    const info = polygonInfo(pts)
+    const area = info.area / (ppm * ppm)
+    const fs = Math.max(symbolSize * 0.42, 0.3 * ppm)
+    const lines = [a.text ?? '', a.showArea !== false ? `${area.toFixed(1).replace('.', ',')} m²` : ''].filter(Boolean).join('\n')
+    const tw = fs * 12
+    return (
+      <Group key={a.id} {...common(a)} {...moveProps(a)}>
+        <Line
+          name={'arch:' + a.id}
+          points={pts}
+          closed
+          fill={hexA(a.fill ?? stroke, a.fillOpacity ?? 0.12)}
+          stroke={sel(a) ? '#1e88e5' : stroke}
+          strokeWidth={Math.max(0.04 * ppm, 1.5 * k)}
+          dash={a.dashed !== false ? [0.25 * ppm, 0.15 * ppm] : undefined}
+          lineJoin="round"
+        />
+        {lines && (
+          <Text
+            text={lines}
+            x={info.cx - tw / 2}
+            y={info.cy - fs * 1.25}
+            width={tw}
+            align="center"
             fontSize={fs}
             fontStyle="bold"
             fontFamily="Arial"
@@ -319,6 +359,7 @@ export default function ArchShapes({ arch, ppm, k, symbolSize, selectedId, group
     <>
       {/* zonele și imaginile, sub pereți */}
       {arch.filter((a) => a.kind === 'rect' || a.kind === 'ellipse' || a.kind === 'image').map((a) => renderBox(a))}
+      {arch.filter((a) => a.kind === 'polygon' && a.points && a.points.length >= 6).map((a) => renderPolygon(a))}
       {/* pereții primii, ca ușile și ferestrele să-i „taie” */}
       {arch
         .filter((a) => a.kind === 'wall' && a.points)
