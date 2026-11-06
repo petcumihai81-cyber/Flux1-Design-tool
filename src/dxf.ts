@@ -2,7 +2,7 @@ import type { ArchElement, Project, Sheet, SystemId } from './types'
 import { archLayer, layerVisible } from './layers'
 import { polygonInfo } from './arch'
 import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
-import { deviceSystem, paperMmPerPx, sheetLevel } from './project'
+import { deviceSystem, paperMmPerPx, parseScale, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 import { downloadBlob } from './download'
 
@@ -249,6 +249,69 @@ function symbolGeometry(svg: string): { polys: Poly[]; circles: Circ[] } {
 
 // ---------------------------------------------------------------- entități
 
+/** Hașura conurilor: distanța dintre linii pe hârtie (mm) și culoarea (verde deschis, ca umplerea din aplicație) */
+const HATCH_MM = 2.5
+const HATCH_ACI = 92
+
+/** Sectorul de cerc (centru, rază, unghiuri DXF în grade) ca poligon închis */
+function sectorPolygon(cx: number, cy: number, r: number, a0: number, a1: number): [number, number][] {
+  const full = a1 - a0 >= 360
+  let span = (((a1 - a0) % 360) + 360) % 360
+  if (full || span === 0) span = 360
+  const n = Math.max(8, Math.ceil(span / 3))
+  const pts: [number, number][] = full || span === 360 ? [] : [[cx, cy]]
+  for (let i = 0; i <= n; i++) {
+    if (span === 360 && i === n) break
+    const t = ((a0 + (span * i) / n) * Math.PI) / 180
+    pts.push([cx + Math.cos(t) * r, cy + Math.sin(t) * r])
+  }
+  return pts
+}
+
+/**
+ * Hașură cu linii paralele la 45° în interiorul unui poligon (DXF R12 nu are HATCH):
+ * fiecare linie se taie cu laturile poligonului, iar tronsoanele interioare se scriu ca LINE.
+ */
+function hatchPolygon(d: Dxf, layer: string, poly: [number, number][], step: number, color?: number) {
+  if (poly.length < 3 || !(step > 0)) return
+  // coordonată de-a lungul normalei la linii (u) și de-a lungul liniilor (v), pentru direcția 45°
+  const k = Math.SQRT1_2
+  const U = ([x, y]: [number, number]) => (x - y) * k
+  const V = ([x, y]: [number, number]) => (x + y) * k
+  const us = poly.map(U)
+  const umin = Math.min(...us)
+  const umax = Math.max(...us)
+  if ((umax - umin) / step > 4000) return
+  const start = Math.ceil(umin / step) * step
+  for (let u = start; u <= umax; u += step) {
+    const hits: number[] = []
+    for (let i = 0; i < poly.length; i++) {
+      const a = poly[i]
+      const b = poly[(i + 1) % poly.length]
+      const ua = us[i]
+      const ub = us[(i + 1) % poly.length]
+      if (ua === ub || (u < Math.min(ua, ub)) || u >= Math.max(ua, ub)) continue
+      const t = (u - ua) / (ub - ua)
+      hits.push(V(a) + (V(b) - V(a)) * t)
+    }
+    hits.sort((x, y) => x - y)
+    for (let i = 0; i + 1 < hits.length; i += 2) {
+      const [v0, v1] = [hits[i], hits[i + 1]]
+      if (v1 - v0 < 1e-9) continue
+      // înapoi în x, y: x = (u + v)·k, y = (v − u)·k
+      d.pair(0, 'LINE')
+      d.pair(8, layer)
+      if (color != null) d.pair(62, color)
+      d.pair(10, (u + v0) * k)
+      d.pair(20, (v0 - u) * k)
+      d.pair(30, 0)
+      d.pair(11, (u + v1) * k)
+      d.pair(21, (v1 - u) * k)
+      d.pair(31, 0)
+    }
+  }
+}
+
 function polyline(d: Dxf, layer: string, pts: [number, number][], opts: { closed?: boolean; width?: number; ltype?: string; color?: number } = {}) {
   if (pts.length < 2) return
   d.pair(0, 'POLYLINE')
@@ -348,7 +411,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   for (const s of SYSTEMS) {
     if (!visible.has(s.id)) continue
     layers.push({ name: `${s.id}_ECHIPAMENTE`, color: ACI[s.id] }, { name: `${s.id}_CABLURI`, color: ACI[s.id], ltype: s.id === 'INC' ? 'DASHED' : undefined }, { name: `${s.id}_ETICHETE`, color: ACI[s.id] })
-    if (s.id === 'CCTV' && layerVisible(sheet, 'CCTV:conuri')) layers.push({ name: 'CCTV_CONURI', color: 3 })
+    if (s.id === 'CCTV' && layerVisible(sheet, 'CCTV:conuri')) layers.push({ name: 'CCTV_CONURI', color: 3 }, { name: 'CCTV_CONURI_HASURA', color: HATCH_ACI })
   }
 
   // blocurile simbolurilor folosite
@@ -481,11 +544,14 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   const openings = arch.filter((a) => (a.kind === 'door' || a.kind === 'window') && a.x != null && a.y != null)
   // textul notelor: mm de hârtie → metri, la scara planșei
   const paperK = paperMmPerPx(p, sheet)
-  const mmToM = paperK ? paperK / ppm : 0.1
+  // paperK = mm de hârtie pe pixel de plan, deci 1 mm de hârtie = 1 / (paperK · ppm) metri;
+  // fără desen încadrat, din scara din cartuș (1:100 → 1 mm = 0,1 m)
+  const mmToM = paperK ? 1 / (paperK * ppm) : (parseScale(sheet.scara) ?? 100) / 1000
   for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings, mmToM)
 
-  // conuri camere
+  // conuri camere: conturul pe CCTV_CONURI, hașura (linii la 45°, ca umplerea din aplicație) pe CCTV_CONURI_HASURA
   if (layerVisible(sheet, 'CCTV:conuri') && visible.has('CCTV')) {
+    const step = HATCH_MM * mmToM
     for (const dv of devices) {
       const def = symbolByType(dv.type)!
       if (!def.camera) continue
@@ -493,13 +559,16 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
       const r = dv.range ?? def.camera.range
       const cx = X(dv.x)
       const cy = Y(dv.y)
+      const own = dv.color ? nearestAci(dv.color) : undefined
       if (fov >= 360) {
+        hatchPolygon(d, 'CCTV_CONURI_HASURA', sectorPolygon(cx, cy, r, 0, 360), step, own)
         circle(d, 'CCTV_CONURI', cx, cy, r)
         continue
       }
       // unghiurile planului (în sens orar, y în jos) devin unghiuri DXF (trigonometric, y în sus)
       const a0 = -(dv.rotation + fov / 2)
       const a1 = -(dv.rotation - fov / 2)
+      hatchPolygon(d, 'CCTV_CONURI_HASURA', sectorPolygon(cx, cy, r, a0, a1), step, own)
       arc(d, 'CCTV_CONURI', cx, cy, r, a0, a1)
       for (const a of [a0, a1]) {
         const t = (a * Math.PI) / 180
