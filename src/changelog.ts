@@ -22,6 +22,16 @@ export const REPO_URL = 'https://github.com/petcumihai81-cyber/Flux1-Design-tool
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.46',
+    date: '2026-11-06',
+    pr: 46,
+    title: 'DXF: tabelele și imaginile de pe planșă',
+    items: [
+      'Tabelele (echipamente, zone, CCTV, cabluri) intră în DXF cu grilă și text, la mărimea de pe hârtie (stratul ADN_TABELE).',
+      'Imaginile apar ca un contur cu X și numele fișierului (stratul ADN_IMAGINI), pentru că DXF R12 nu poate conține poze.',
+    ],
+  },
+  {
     version: '1.45',
     date: '2026-11-06',
     pr: 45,

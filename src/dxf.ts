@@ -6,6 +6,7 @@ import { SYSTEMS, glyphLayout, symbolByType, symbolSvg } from './symbols'
 import { deviceSystem, paperMmPerPx, parseScale, sheetLevel } from './project'
 import { FALLBACK_PX_PER_M } from './PlanCanvas'
 import { downloadBlob } from './download'
+import { tableData, tableLayoutPx } from './sheetTables'
 
 /**
  * Export DXF (R12 / AC1009, cel mai compatibil) al unei planșe de plan:
@@ -405,6 +406,52 @@ function text(d: Dxf, layer: string, x: number, y: number, height: number, value
   }
 }
 
+/**
+ * Tabelul de pe planșă (echipamente, zone, CCTV, cabluri), la mărimea de pe hârtie: chenar, grilă, titlu, antet și celule.
+ * (ox, oy) = colțul stânga-sus în DXF (m); tabelul se rotește în jurul lui, ca pe plan.
+ */
+function drawTable(d: Dxf, p: Project, a: ArchElement, ox: number, oy: number, mmToM: number) {
+  const data = tableData(p, a.table!, a.levelId)
+  // tableLayoutPx primește „unități pe mm de hârtie”: cu metri pe mm, totul iese direct în metri
+  const { fpx, rowH, colW, width, height, titleH } = tableLayoutPx(data, a.table!.fontMm ?? 2.5, mmToM)
+  const rot = -(a.rotation ?? 0)
+  const r = (rot * Math.PI) / 180
+  const [c, s] = [Math.cos(r), Math.sin(r)]
+  // coordonate locale: x spre dreapta, y în jos (ca pe plan)
+  const P = (lx: number, ly: number): [number, number] => [ox + lx * c + ly * s, oy + lx * s - ly * c]
+  const L = 'ADN_TABELE'
+  const xs = colW.reduce<number[]>((acc, w) => [...acc, acc[acc.length - 1] + w], [0])
+  const rows = data.rows.length ? data.rows : [['', '(fără date)']]
+  const pad = fpx * 0.35
+  const clean = (t: string) => t.replace(/m²/g, 'mp').replace(/²/g, '2')
+  // în DXF înălțimea textului = înălțimea majusculelor (~0,72 din mărimea fontului de pe plan)
+  const th = fpx * 0.72
+  /**
+   * Textul încape în celulă: se taie cu „...” (lățimea medie a unei litere ≈ 0,75 din înălțimea majusculelor);
+   * textele scurte (nr. crt., cantități) nu se taie
+   */
+  const fit = (t: string, w: number, h: number) => {
+    const max = Math.max(1, Math.floor(w / (h * 0.75)))
+    const v = clean(t)
+    return v.length > max && v.length > 6 ? v.slice(0, Math.max(3, max - 3)) + '...' : v
+  }
+  polyline(d, L, [P(0, titleH), P(width, titleH), P(width, height), P(0, height)], { closed: true })
+  text(d, L, ...P(0, titleH / 2), th * 1.05, fit(data.title.toUpperCase(), width, th * 1.05), { v: 2, rot })
+  // antetul
+  polyline(d, L, [P(0, titleH + rowH), P(width, titleH + rowH)])
+  data.header.forEach((hd, i) => text(d, L, ...P(xs[i] + pad, titleH + rowH / 2), th, fit(hd, colW[i] - 2 * pad, th), { v: 2, rot }))
+  // rândurile
+  rows.forEach((row, ri) => {
+    const y = titleH + rowH * (ri + 1)
+    if (ri > 0) polyline(d, L, [P(0, y), P(width, y)])
+    const mid = y + rowH / 2
+    if (row.length === 1 && row[0].startsWith('§')) text(d, L, ...P(pad, mid), th, fit(row[0].slice(1), width - 2 * pad, th), { v: 2, rot })
+    else row.forEach((cell, ci) => ci < colW.length && text(d, L, ...P(xs[ci] + pad, mid), th, fit(cell, colW[ci] - 2 * pad, th), { v: 2, rot }))
+  })
+  // coloanele
+  for (const x of xs.slice(1, -1)) polyline(d, L, [P(x, titleH), P(x, height)])
+}
+
 // ---------------------------------------------------------------- export
 
 export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: string } {
@@ -431,6 +478,8 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
     { name: 'GHENE', color: 8 },
     { name: 'ADN_ZONE', color: 5 },
     { name: 'ADN_ZONE_HASURA', color: 5 },
+    { name: 'ADN_TABELE', color: 7 },
+    { name: 'ADN_IMAGINI', color: 8 },
     { name: 'ADN_NOTE', color: 7 },
     { name: 'ADN_LINII', color: 7 },
   ]
@@ -573,7 +622,7 @@ export function exportDxf(p: Project, sheet: Sheet): { ok: boolean; message: str
   // paperK = mm de hârtie pe pixel de plan, deci 1 mm de hârtie = 1 / (paperK · ppm) metri;
   // fără desen încadrat, din scara din cartuș (1:100 → 1 mm = 0,1 m)
   const mmToM = paperK ? 1 / (paperK * ppm) : (parseScale(sheet.scara) ?? 100) / 1000
-  for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings, mmToM)
+  for (const a of arch) drawArch(d, a, ppm, S, X, Y, m, openings, mmToM, p)
 
   // conuri camere: conturul pe CCTV_CONURI, hașura (linii la 45°, ca umplerea din aplicație) pe CCTV_CONURI_HASURA
   if (layerVisible(sheet, 'CCTV:conuri') && visible.has('CCTV')) {
@@ -661,7 +710,29 @@ function drawArch(
   m: (px: number) => number,
   openings: ArchElement[],
   mmToM: number,
+  p: Project,
 ) {
+  if (a.kind === 'table' && a.table && a.x != null && a.y != null) {
+    drawTable(d, p, a, X(a.x), Y(a.y), mmToM)
+    return
+  }
+  if (a.kind === 'image' && a.x != null && a.y != null) {
+    // R12 nu poate conține imagini: conturul, un X și numele fișierului, ca să se știe ce era acolo
+    const w = a.width ?? 4
+    const h = a.height ?? 3
+    const r = (-(a.rotation ?? 0) * Math.PI) / 180
+    const [c, s] = [Math.cos(r), Math.sin(r)]
+    const cx = X(a.x)
+    const cy = Y(a.y)
+    const P = (lx: number, ly: number): [number, number] => [cx + lx * c - ly * s, cy + lx * s + ly * c]
+    const corners = [P(-w / 2, h / 2), P(w / 2, h / 2), P(w / 2, -h / 2), P(-w / 2, -h / 2)]
+    polyline(d, 'ADN_IMAGINI', corners, { closed: true })
+    polyline(d, 'ADN_IMAGINI', [corners[0], corners[2]])
+    polyline(d, 'ADN_IMAGINI', [corners[1], corners[3]])
+    const th = Math.min(h * 0.12, 2.5 * mmToM)
+    text(d, 'ADN_IMAGINI', cx, cy, th, `Imagine: ${a.text || 'fără nume'}`, { h: 1, v: 2, rot: -(a.rotation ?? 0) })
+    return
+  }
   if (a.kind === 'polygon' && a.points && a.points.length >= 6) {
     // zonă poligon: contur închis + nume și arie în centrul de greutate
     const pts: [number, number][] = []
