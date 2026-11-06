@@ -7,12 +7,11 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P2** Zone poligonale — PR #34.
+- [ ] **P2** Logo-ul firmei în cartuș — PR #35.
 
 ## De făcut
 
 ### Planșe și desen
-- [ ] **P2** Logo-ul firmei în cartuș (imagine salvată în datele proiectului / proiectantului).
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
 
 ### Proiecte și șabloane
@@ -65,3 +64,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] BACKLOG.md: ideile de făcut pe priorități și funcțiile realizate ([#30](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/30))
 - [x] Note cu săgeată pe plan ([#31](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/31))
 - [x] Linii și săgeți libere pe plan ([#32](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/32))
+- [x] Zone poligonale pe planșă ([#34](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/34))

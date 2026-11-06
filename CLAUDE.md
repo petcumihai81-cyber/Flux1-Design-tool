@@ -38,7 +38,7 @@ npx vite preview --port 4173   # servește build-ul, pentru teste cu Playwright
 | `BlockCanvas.tsx` + `blockLayout.ts` + `diagram.ts` | Schema bloc: generată automat (arbore pornind de la centrală) sau editată manual (`Sheet.diagram`: blocuri legate de echipamente, texte, chenare, legături cu traseu ortogonal calculat sau manual — `DiagramEdge.points` = colțurile, capetele alunecă pe laturile blocurilor; `edgePath`, `moveSegment`, `alignNodes`, `distributeNodes`) |
 | `Panels.tsx` | Paleta, proprietăți echipament / cablu, panourile Proiect / Planșă / Liste |
 | `CatalogUI.tsx` | Dialogul de catalog și tab-ul Calcule |
-| `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș) și Excel (SheetJS) |
+| `exporters.ts` | PDF (pagină compusă pe canvas: chenar, desen, legendă, cartuș cu logo `title.logo` în rândul „Proiectant”) și Excel (SheetJS) |
 | `memoriu.ts` + `memoriuDefaults.ts` + `MemoriuDialog.tsx` | Memoriul tehnic `.docx` (biblioteca `docx`): textele standard ale proiectelor avizate + date din proiect; câmpurile lipsă devin „[DE COMPLETAT]” evidențiat cu galben |
 | `verify.ts` + `VerifyDialog.tsx` | Verificarea înainte de predare: `verifyProject` (funcție pură) întoarce erori / atenționări pe grupe, cu țintă de navigare (echipament, cablu, nivel, planșă, catalog, calcule, cartuș, memoriu); refolosește `missing` din `calc.ts`. La o regulă nouă de proiectare se adaugă și verificarea ei aici |
 | `drawio.ts` | Export al schemelor bloc în format `.drawio` |
@@ -71,7 +71,7 @@ Principii:
 - **Tabelul de zone pentru efracție**: Nr. crt. | Modul | Zona modul | Partiție | Zona protejată | Denumire echipament | Simbol echipament | Tip detecție (întârziere / instantanee / 24h).
 - **Tabelul CCTV**: Zona supravegheată | Camere alocate.
 - **Listele de echipamente**: Nr. crt. | Denumire echipament | Model | Cantitate | Producător, separat pe fiecare sistem.
-- **Proiectant implicit** în cartuș: ASL Security Solutions SRL.
+- **Proiectant implicit** în cartuș: ASL Security Solutions SRL. Logo-ul firmei: `TitleBlock.logo` (data URL ≤ 600 px); logo implicit în browser (`plansa-securitate:logo`, `defaultLogo` din `images.ts`) pentru proiectele noi; `logo: ''` = proiect fără logo (nu se mai completează din cel implicit).
 
 ## Formule de calcul (nu se modifică fără acordul utilizatorului)
 

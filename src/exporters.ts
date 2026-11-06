@@ -171,6 +171,15 @@ export async function renderSheetPage(stage: Konva.Stage, p: Project, sh: Sheet)
   const small = Math.min(Wmm, Hmm) <= 210
   const tbW = Math.min((small ? 95 : 130) * k, fw * (landscape ? 0.4 : 0.6))
   const rowH = (small ? 7.5 : 9.5) * k
+  // logo-ul firmei proiectante, în dreapta rândului „Proiectant”
+  const logoImg = t.logo
+    ? await new Promise<HTMLImageElement | null>((res) => {
+        const im = new Image()
+        im.onload = () => res(im)
+        im.onerror = () => res(null)
+        im.src = t.logo!
+      })
+    : null
   const tbRows: { label: string; value: string; big?: boolean; split?: { label: string; value: string } }[] = [
     { label: 'Proiectant', value: t.proiectant, big: true },
     { label: 'Beneficiar', value: t.beneficiar },
@@ -232,7 +241,16 @@ export async function renderSheetPage(stage: Konva.Stage, p: Project, sh: Sheet)
   tbRows.forEach((r, i) => {
     const h = heights[i]
     const cellPad = 1.5 * k
-    const drawCell = (cx: number, cw: number, label: string, value: string, big?: boolean) => {
+    const drawCell = (cx: number, cw0: number, label: string, value: string, big?: boolean) => {
+      let cw = cw0
+      if (i === 0 && logoImg && logoImg.naturalWidth > 0) {
+        // logo: cât încape pe înălțimea rândului, cel mult 40% din lățime; textul se strânge în stânga
+        const lh = h - 2 * cellPad
+        const lw = Math.min(cw0 * 0.4, (lh * logoImg.naturalWidth) / logoImg.naturalHeight)
+        const lhh = (lw * logoImg.naturalHeight) / logoImg.naturalWidth
+        ctx.drawImage(logoImg, cx + cw0 - cellPad - lw, y + (h - lhh) / 2, lw, lhh)
+        cw = cw0 - lw - cellPad
+      }
       ctx.fillStyle = '#555'
       fitText(ctx, label, cx + cellPad, y + labelSize + cellPad, cw - 2 * cellPad, labelSize)
       ctx.fillStyle = '#000'

@@ -2,6 +2,7 @@ import type { ArchElement, Cable, CatalogItem, Device, Level, Orientation, PageF
 import { tableData, tableLayoutPx } from './sheetTables'
 import { DEFAULT_CALC, defaultCatalog, withSeedSpecs } from './catalog'
 import { defaultCustomSymbols } from './symbolLibrary'
+import { defaultLogo } from './images'
 import { defaultMemoriu } from './memoriuDefaults'
 import { SYSTEMS, symbolByType } from './symbols'
 
@@ -49,6 +50,7 @@ export function emptyProject(): Project {
       data: new Date().toLocaleDateString('ro-RO'),
       intocmit: '',
       verificat: '',
+      ...(defaultLogo() ? { logo: defaultLogo() } : {}),
     },
     levels: [level],
     cableReservePct: 10,

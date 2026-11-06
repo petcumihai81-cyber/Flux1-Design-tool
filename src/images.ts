@@ -1,5 +1,5 @@
-/** Imaginile puse pe planșă: se micșorează la cel mult 1600 px; PNG dacă au transparență, altfel JPEG */
-export async function prepareImage(f: File): Promise<{ src: string; w: number; h: number }> {
+/** Imaginile puse pe planșă: se micșorează la cel mult `maxSide` px (implicit 1600); PNG dacă au transparență, altfel JPEG */
+export async function prepareImage(f: File, maxSide = 1600): Promise<{ src: string; w: number; h: number }> {
   const url = await new Promise<string>((res, rej) => {
     const r = new FileReader()
     r.onload = () => res(r.result as string)
@@ -14,7 +14,7 @@ export async function prepareImage(f: File): Promise<{ src: string; w: number; h
   })
   const w0 = im.naturalWidth || 400
   const h0 = im.naturalHeight || 300
-  const k = Math.min(1, 1600 / Math.max(w0, h0))
+  const k = Math.min(1, maxSide / Math.max(w0, h0))
   const w = Math.max(1, Math.round(w0 * k))
   const h = Math.max(1, Math.round(h0 * k))
   // SVG mic: se păstrează ca vector
@@ -33,4 +33,25 @@ export async function prepareImage(f: File): Promise<{ src: string; w: number; h
     }
   }
   return { src: alpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.85), w, h }
+}
+
+const LOGO_KEY = 'plansa-securitate:logo'
+
+/** Logo-ul implicit (salvat în browser): proiectele noi pornesc cu el în cartuș */
+export function defaultLogo(): string | undefined {
+  try {
+    return localStorage.getItem(LOGO_KEY) ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
+export function saveDefaultLogo(src: string | undefined): boolean {
+  try {
+    if (src) localStorage.setItem(LOGO_KEY, src)
+    else localStorage.removeItem(LOGO_KEY)
+    return true
+  } catch {
+    return false
+  }
 }
