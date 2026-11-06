@@ -44,8 +44,11 @@ import { MemoriuDialog } from './MemoriuDialog'
 import { HelpDialog } from './HelpDialog'
 import { askConfirm, askText } from './dialogs'
 import { DialogHost } from './DialogHost'
+import { AboutDialog } from './AboutDialog'
+import { APP_VERSION } from './changelog'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
+const SEEN_KEY = 'plansa-securitate:versiune-vazuta'
 const DIRTY_KEY = 'plansa-securitate:nesalvat'
 
 function loadStored(): Project {
@@ -698,6 +701,24 @@ export default function App() {
 
   const [packOpen, setPackOpen] = useState(false)
 
+  /** Fereastra „Despre”; versiunea văzută ultima dată (pentru semnul de noutăți) */
+  const [aboutOpen, setAboutOpen] = useState<'despre' | 'noutati' | null>(null)
+  const [seenVersion, setSeenVersion] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem(SEEN_KEY)
+    } catch {
+      return APP_VERSION
+    }
+  })
+  const markSeen = () => {
+    setSeenVersion(APP_VERSION)
+    try {
+      localStorage.setItem(SEEN_KEY, APP_VERSION)
+    } catch {
+      /* fără memorie: semnul rămâne */
+    }
+  }
+
   const openJson = async (file: File) => {
     if (dirty && !(await askConfirm('Ai modificări nesalvate în fișier. Deschizi totuși alt proiect?', { title: 'Modificări nesalvate', okLabel: 'Deschide' }))) return
     try {
@@ -1147,7 +1168,16 @@ export default function App() {
   return (
     <div className="app">
       <header className="toolbar">
-        <div className="brand">Planșe Securitate</div>
+        <button
+          className={'brand' + (seenVersion !== APP_VERSION ? ' news' : '')}
+          onClick={() => {
+            setAboutOpen(seenVersion !== APP_VERSION ? 'noutati' : 'despre')
+            markSeen()
+          }}
+          title={seenVersion !== APP_VERSION ? `Versiune nouă ${APP_VERSION} — vezi noutățile` : `Despre aplicație · versiunea ${APP_VERSION}`}
+        >
+          Planșe Securitate <span className="brand-ver">v{APP_VERSION}</span>
+        </button>
         <div className="group">
           <button onClick={() => setNewOpen(true)} title="Proiect nou: gol sau dintr-un șablon">Nou</button>
           <button onClick={() => openInput.current?.click()} title="Deschide proiect (.plansa.json) sau pachet (.zip)">Deschide</button>
@@ -1660,6 +1690,7 @@ export default function App() {
         />
       )}
       <DialogHost />
+      {aboutOpen && <AboutDialog start={aboutOpen} onClose={() => setAboutOpen(null)} />}
       {packOpen && <PackageDialog project={project} onSave={savePackage} onClose={() => setPackOpen(false)} />}
       {newOpen && <NewProjectDialog project={project} onCreate={newProject} onCreateProject={startProject} onClose={() => setNewOpen(false)} notify={notify} />}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}

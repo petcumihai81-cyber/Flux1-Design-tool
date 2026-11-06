@@ -62,6 +62,7 @@ Rulează integral în browser. Nu are server și nu trimite date nicăieri.
 - **Ecran tactil** (tabletă / telefon): atingere = click, tragere cu un deget = mutare, două degete = zoom și deplasare, apăsare lungă = meniul de click dreapta — pe plan și pe schema bloc.
 - **Pachet proiect .zip** („Pachet”): proiectul cu planurile de fundal, imaginile, simbolurile personalizate și logo-ul ca fișiere separate, plus, opțional, documentele de predare (PDF, DXF, Excel, draw.io, memoriu). Se redeschide cu „Deschide”.
 - Undo / redo, duplicare și scurtături de tastatură.
+- **Despre** (click pe numele aplicației): versiunea, noutățile pe fiecare versiune și lista funcțiilor.
 
 ## Ghid
 
