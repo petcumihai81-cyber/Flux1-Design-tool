@@ -7,7 +7,7 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P1** Fereastra „Despre”: versiune, noutăți, funcții — PR #43.
+- [ ] **P3** Panouri care se strâng pe ecran mic (sertare) — PR #44.
 
 ## De făcut
 
@@ -20,9 +20,6 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 ### Export / import
 - [ ] **P3** DXF: tabelele de pe planșă (text pe grilă) și imaginile (sau doar conturul lor, cu numele fișierului).
 - [ ] **P3** Import DXF: notele de tip MULTILEADER (acum sunt sărite, cu număr afișat în dialog).
-
-### Telefon / tabletă
-- [ ] **P3** Panouri care se strâng pe ecran mic (paleta și panoul din dreapta ca sertare).
 
 ### Calitate
 - [ ] **P3** Commit-uri semnate pe viitor (configurarea semnării, fără rescrierea istoricului existent).
@@ -70,3 +67,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] Export / import al bibliotecii de simboluri personalizate ([#40](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/40))
 - [x] Suport pentru ecran tactil ([#41](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/41))
 - [x] Ferestre proprii în locul celor ale browserului ([#42](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/42))
+- [x] Fereastra „Despre”: versiune, noutăți și funcții ([#43](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/43))

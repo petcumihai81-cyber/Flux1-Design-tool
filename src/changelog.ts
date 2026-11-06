@@ -22,6 +22,16 @@ export const REPO_URL = 'https://github.com/petcumihai81-cyber/Flux1-Design-tool
 
 export const CHANGELOG: Release[] = [
   {
+    version: '1.44',
+    date: '2026-11-06',
+    pr: 44,
+    title: 'Ecran mic: paleta și panoul ca sertare',
+    items: [
+      'Pe telefon și pe tableta ținută vertical, paleta și panoul din dreapta se deschid din butoanele „☰ Simboluri” și „Panou ⚙” și se închid la o atingere pe plan.',
+      'Bara de sus se derulează orizontal; ferestrele (asistentul, „Nou”) se așază pe coloană.',
+    ],
+  },
+  {
     version: '1.43',
     date: '2026-11-06',
     pr: 43,
@@ -108,7 +118,7 @@ export const FEATURES: { group: string; items: string[] }[] = [
       'Schiță de arhitectură: pereți, uși, ferestre, texte, cote, ghene',
       'Mai multe planșe A0–A4 cu file ca în Excel, straturi arată / ascunde / blocare',
       'Zone (dreptunghi, elipsă, poligon) cu arie, note cu săgeată, linii, imagini, tabele',
-      'Zoom raportat la planșa tipărită; ecran tactil',
+      'Zoom raportat la planșa tipărită; ecran tactil, cu sertare pe ecran mic',
     ],
   },
   {

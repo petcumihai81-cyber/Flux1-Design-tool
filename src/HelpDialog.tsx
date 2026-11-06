@@ -535,6 +535,11 @@ const SECTIONS: Section[] = [
         <B>Apăsare lungă</B> (o jumătate de secundă) = meniul de click dreapta: duplicare, culoare, ștergere, lipire. Din paletă, simbolul se
         alege cu o atingere, apoi atingi locul de pe plan (tragerea din paletă merge doar cu mouse-ul).
       </>,
+      <>
+        Pe <B>ecran mic</B> (telefon, tabletă ținută vertical): paleta se deschide din <B>☰ Simboluri</B>, iar proprietățile, proiectul,
+        straturile, calculele și listele din <B>Panou ⚙</B>. După ce alegi un simbol, paleta se închide singură; o atingere pe plan închide
+        sertarul. Bara de sus se derulează spre stânga / dreapta.
+      </>,
     ],
   },
   {
