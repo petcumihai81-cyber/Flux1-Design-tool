@@ -10,6 +10,7 @@ import { defaultLogo, prepareImage, saveDefaultLogo } from './images'
 import { TABLE_KINDS } from './sheetTables'
 import { SYMBOL_COLORS, deviceColor, deviceSymbol, symbolThumb } from './symbolLibrary'
 import { ANNOT_LAYERS, ARCH_LAYERS, archLayer, layerLocked, layerVisible, systemLayers, toggleLayerLocked, toggleLayerVisible } from './layers'
+import { askConfirm } from './dialogs'
 
 // ------------------------------------------------------------------ Paleta de simboluri
 
@@ -1134,7 +1135,7 @@ export function LevelPanel({
         </>
       )}
       {level.background && (
-        <button onClick={() => window.confirm('Scoți planul de fundal? Echipamentele și schița rămân.') && onChange({ background: null })}>
+        <button onClick={async () => (await askConfirm('Scoți planul de fundal? Echipamentele și schița rămân.', { title: 'Scoate fundalul', okLabel: 'Scoate' })) && onChange({ background: null })}>
           Scoate fundalul (pagină albă)
         </button>
       )}

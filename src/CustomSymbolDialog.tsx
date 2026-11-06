@@ -3,6 +3,7 @@ import type { CustomSymbol } from './types'
 import { SYMBOLS, SYSTEMS, symbolByType, systemById } from './symbols'
 import { normalizeRaster, normalizeSvg, recolorSvg, svgColorCount, tintRaster } from './symbolLibrary'
 import { uid } from './project'
+import { askConfirm } from './dialogs'
 
 const ACCEPT = '.svg,.png,.ico,.jpg,.jpeg,.webp,.gif,.bmp,image/svg+xml,image/png,image/x-icon,image/jpeg,image/webp,image/gif'
 
@@ -209,12 +210,13 @@ export function CustomSymbolDialog({
           {existing && onDelete && (
             <button
               className="danger"
-              onClick={() =>
-                window.confirm(
+              onClick={async () =>
+                (await askConfirm(
                   usedBy
                     ? `Ștergi simbolul „${existing.name}”? ${usedBy} echipamente revin la simbolul standard.`
                     : `Ștergi simbolul „${existing.name}”?`,
-                ) && onDelete()
+                  { title: 'Șterge simbolul', okLabel: 'Șterge', danger: true },
+                )) && onDelete()
               }
             >
               Șterge simbolul

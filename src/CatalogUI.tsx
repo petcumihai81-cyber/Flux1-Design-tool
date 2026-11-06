@@ -5,6 +5,7 @@ import { ACCESSORY_KINDS, SEED_CATALOG, isAccessory, itemSystem, kindName, newCa
 import { batteryCalc, fmt, poeCalc, powerCalc, storageCalc } from './calc'
 import { uid } from './project'
 import { symbolThumb } from './symbolLibrary'
+import { askConfirm } from './dialogs'
 
 // ------------------------------------------------------------------ câmpuri numerice
 
@@ -99,9 +100,9 @@ export function CatalogDialog({
     URL.revokeObjectURL(a.href)
   }
 
-  const remove = () => {
+  const remove = async () => {
     if (!sel) return
-    if (used.get(sel.id) && !window.confirm('Echipamentul e folosit în proiect. Îl ștergi oricum din catalog?')) return
+    if (used.get(sel.id) && !(await askConfirm('Echipamentul e folosit în proiect. Îl ștergi oricum din catalog?', { title: 'Șterge din catalog', okLabel: 'Șterge', danger: true }))) return
     onChange(catalog.filter((c) => c.id !== sel.id))
     setSelId(null)
   }
@@ -394,7 +395,7 @@ function SpecsEditor({ specs, onChange }: { specs: SpecRow[]; onChange: (s: Spec
         <button onClick={() => onChange([...specs, { label: '', value: '' }])}>+ Parametru</button>
         <button onClick={() => setPaste(paste == null ? '' : null)}>{paste == null ? 'Lipește din fișa producătorului…' : 'Renunță'}</button>
         {specs.length > 0 && (
-          <button className="danger" onClick={() => window.confirm('Ștergi toată fișa tehnică a acestui echipament?') && onChange([])}>
+          <button className="danger" onClick={async () => (await askConfirm('Ștergi toată fișa tehnică a acestui echipament?', { title: 'Șterge fișa tehnică', okLabel: 'Șterge', danger: true })) && onChange([])}>
             Golește
           </button>
         )}

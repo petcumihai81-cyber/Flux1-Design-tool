@@ -42,6 +42,8 @@ import { exportDrawio } from './drawio'
 import { CalcPanel, CatalogDialog } from './CatalogUI'
 import { MemoriuDialog } from './MemoriuDialog'
 import { HelpDialog } from './HelpDialog'
+import { askConfirm, askText } from './dialogs'
+import { DialogHost } from './DialogHost'
 
 const STORAGE_KEY = 'plansa-securitate:proiect'
 const DIRTY_KEY = 'plansa-securitate:nesalvat'
@@ -606,10 +608,10 @@ export default function App() {
 
   const applyToGroup = (fn: (p: Project, items: Item[]) => Project) => h.commit((p) => fn(p, multi))
 
-  const onScaleMeasured = (pixels: number) => {
+  const onScaleMeasured = async (pixels: number) => {
     setTool({ kind: 'select' })
     if (pixels < 2) return notify('Segment prea scurt.')
-    const answer = window.prompt('Lungimea reală a segmentului măsurat (metri):', '5')
+    const answer = await askText('Calibrare scară', { label: 'Lungimea reală a segmentului măsurat (metri)', value: '5', okLabel: 'Calibrează' })
     if (answer == null) return
     const m = parseFloat(answer.replace(',', '.'))
     if (!(m > 0)) return notify('Valoare invalidă.')
@@ -697,7 +699,7 @@ export default function App() {
   const [packOpen, setPackOpen] = useState(false)
 
   const openJson = async (file: File) => {
-    if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Deschizi totuși alt proiect?')) return
+    if (dirty && !(await askConfirm('Ai modificări nesalvate în fișier. Deschizi totuși alt proiect?', { title: 'Modificări nesalvate', okLabel: 'Deschide' }))) return
     try {
       let opened: Project
       if (isZip(file)) {
@@ -730,8 +732,8 @@ export default function App() {
   const newProject = (t: ProjectTemplate | null) => startProject(t ? projectFromTemplate(t) : emptyProject(), t ? `Proiect nou din șablonul „${t.name}”.` : '')
 
   /** Înlocuiește proiectul curent cu unul nou (gol, din șablon sau din asistent) */
-  const startProject = (fresh: Project, message: string) => {
-    if (dirty && !window.confirm('Ai modificări nesalvate în fișier. Începi totuși un proiect nou? (Salvează întâi cu Ctrl+S dacă vrei să le păstrezi.)')) return
+  const startProject = async (fresh: Project, message: string) => {
+    if (dirty && !(await askConfirm('Ai modificări nesalvate în fișier. Începi totuși un proiect nou? (Salvează întâi cu Ctrl+S dacă vrei să le păstrezi.)', { title: 'Modificări nesalvate', okLabel: 'Proiect nou' }))) return
     setNewOpen(false)
     if (message) notify(message)
     skipDirty.current = true
@@ -876,13 +878,13 @@ export default function App() {
       return { ...p, sheets, levels: p.levels.map((l) => (l.id === id ? { ...l, ...patch } : l)) }
     })
 
-  const deleteLevel = (id: string) => {
+  const deleteLevel = async (id: string) => {
     if (project.levels.length < 2) return
     const lvl = levelOf(project, id)
     const nDev = project.devices.filter((d) => d.levelId === id).length
     const nCab = project.cables.filter((c) => c.levelId === id).length
     const nSh = project.sheets.filter((s) => s.kind === 'plan' && s.levelId === id).length
-    if (!window.confirm(`Ștergi nivelul „${lvl.name}”? Se șterg și ${nSh} planșe, ${nDev} echipamente și ${nCab} cabluri de pe el (poți reveni cu Ctrl+Z).`)) return
+    if (!(await askConfirm(`Ștergi nivelul „${lvl.name}”? Se șterg și ${nSh} planșe, ${nDev} echipamente și ${nCab} cabluri de pe el (poți reveni cu Ctrl+Z).`, { title: 'Șterge nivelul', okLabel: 'Șterge', danger: true }))) return
     h.commit((p) => {
       const sheets = p.sheets.filter((s) => !(s.kind === 'plan' && s.levelId === id))
       const keep = sheets.length ? sheets : [newSheet({ levelId: p.levels.find((l) => l.id !== id)!.id })]
@@ -904,10 +906,10 @@ export default function App() {
   const addBlocSheet = (id: SystemId) =>
     addSheets(() => [newSheet({ kind: 'bloc', titlu: `Schemă bloc – ${systemById(id).name}`, systems: [id] })])
 
-  const deleteSheet = (id: string) => {
+  const deleteSheet = async (id: string) => {
     if (project.sheets.length < 2) return
     const sh = project.sheets.find((x) => x.id === id)
-    if (!sh || !window.confirm(`Ștergi planșa „${sh.nr} ${sh.titlu}”? Echipamentele de pe plan rămân.`)) return
+    if (!sh || !(await askConfirm(`Ștergi planșa „${sh.nr} ${sh.titlu}”? Echipamentele de pe plan rămân.`, { title: 'Șterge planșa', okLabel: 'Șterge', danger: true }))) return
     h.commit((p) => {
       const sheets = p.sheets.filter((x) => x.id !== id)
       return { ...p, sheets, activeSheetId: p.activeSheetId === id ? sheets[0].id : p.activeSheetId }
@@ -1657,6 +1659,7 @@ export default function App() {
           }}
         />
       )}
+      <DialogHost />
       {packOpen && <PackageDialog project={project} onSave={savePackage} onClose={() => setPackOpen(false)} />}
       {newOpen && <NewProjectDialog project={project} onCreate={newProject} onCreateProject={startProject} onClose={() => setNewOpen(false)} notify={notify} />}
       {verifyOpen && <VerifyDialog issues={issues} onGo={goToIssue} onClose={() => setVerifyOpen(false)} />}

@@ -7,9 +7,13 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P1** Ferestre proprii ale aplicației în locul celor ale browserului (text la notă, confirmări, mesaje) — observația utilizatorului: la nota cu săgeată textul se cerea într-o fereastră a sistemului.
+- [ ] **P1** Ferestre proprii ale aplicației în locul celor ale browserului (text la notă, confirmări, mesaje) — PR #42.
 
 ## De făcut
+
+### Proiect și beneficiar
+- [ ] **P1** Fereastra „Despre”: versiunea programului, jurnalul de actualizări (ce s-a schimbat la fiecare versiune) și lista funcțiilor implementate.
+- [ ] **P1** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din serviciul public ANAF (exemplu de bibliotecă: github.com/itrack/anaf). De verificat: serviciul ANAF poate să nu permită apeluri direct din browser (CORS) — atunci e nevoie de un mic proxy.
 
 ### Planșe și desen
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).

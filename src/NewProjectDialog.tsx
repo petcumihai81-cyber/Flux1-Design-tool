@@ -4,6 +4,7 @@ import { BUILTIN_TEMPLATES, addTemplate, exportTemplate, importTemplate, makeTem
 import type { ProjectTemplate } from './templates'
 import { systemById } from './symbols'
 import { NewProjectWizard } from './NewProjectWizard'
+import { askConfirm } from './dialogs'
 
 const EMPTY = '__gol__'
 
@@ -118,8 +119,8 @@ export function NewProjectDialog({
                     </button>
                     <button
                       className="danger"
-                      onClick={() => {
-                        if (!window.confirm(`Ștergi șablonul „${sel.name}”?`)) return
+                      onClick={async () => {
+                        if (!(await askConfirm(`Ștergi șablonul „${sel.name}”?`, { title: 'Șterge șablonul', okLabel: 'Șterge', danger: true }))) return
                         removeTemplate(sel.id)
                         setMine(userTemplates())
                         setSelId(EMPTY)

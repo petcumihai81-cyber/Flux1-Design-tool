@@ -433,3 +433,12 @@ button.unsaved { border-color: #f9a825; }
 .pk-item small { margin-left: 4px; }
 .pal-lib { grid-column: 1 / -1; display: flex; gap: 6px; }
 .pal-lib button { flex: 1; font-size: 12px; padding: 3px 6px; }
+
+/* ferestrele aplicației (în locul celor ale browserului) */
+.app-dialog-back { z-index: 70; }
+.modal.app-dialog { width: min(460px, 100%); height: auto; }
+.app-dialog-body { padding: 14px 16px 6px; }
+.app-dialog-body p { margin: 0 0 8px; line-height: 1.45; white-space: pre-wrap; }
+.app-dialog-body .field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+.app-dialog-body textarea { resize: vertical; font: inherit; }
+button.danger-fill { background: #c62828; border-color: #c62828; color: #fff; }
