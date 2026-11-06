@@ -7,13 +7,12 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 
 ## În lucru
 
-- [ ] **P1** Ferestre proprii ale aplicației în locul celor ale browserului (text la notă, confirmări, mesaje) — PR #42.
+- [ ] **P1** Fereastra „Despre”: versiune, noutăți, funcții — PR #43.
 
 ## De făcut
 
 ### Proiect și beneficiar
-- [ ] **P1** Fereastra „Despre”: versiunea programului, jurnalul de actualizări (ce s-a schimbat la fiecare versiune) și lista funcțiilor implementate.
-- [ ] **P1** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din serviciul public ANAF (exemplu de bibliotecă: github.com/itrack/anaf). De verificat: serviciul ANAF poate să nu permită apeluri direct din browser (CORS) — atunci e nevoie de un mic proxy.
+- [ ] **P1** Căutare după CUI la beneficiar (în panoul Proiect și în asistent): denumirea, adresa sediului, codul CAEN, din **Flux Hub** (agregatorul propriu al utilizatorului pentru date ONRC / ANAF), când API-ul lui va fi expus pe internet. Verificat: serviciul public ANAF răspunde, dar nu permite apeluri direct din browser (fără CORS), deci aplicația are nevoie de un intermediar — Flux Hub poate fi acela. De stabilit: adresa API-ului, autentificarea (cheie) și formatul răspunsului; în aplicație, adresa se configurează în setări.
 
 ### Planșe și desen
 - [ ] **P3** Hașură configurabilă pe zone (model, nu doar umplere transparentă).
@@ -70,3 +69,4 @@ Legendă priorități: **P1** = urmează, **P2** = util, **P3** = poate, mai tâ
 - [x] DXF: conurile camerelor hașurate; mărimea corectă a notelor în DXF ([#39](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/39))
 - [x] Export / import al bibliotecii de simboluri personalizate ([#40](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/40))
 - [x] Suport pentru ecran tactil ([#41](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/41))
+- [x] Ferestre proprii în locul celor ale browserului ([#42](https://github.com/petcumihai81-cyber/Flux1-Design-tool/pull/42))

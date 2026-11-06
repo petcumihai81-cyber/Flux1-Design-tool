@@ -113,6 +113,11 @@ Principii:
 - Lucrul se face pe ramuri, cu pull request (draft) către `main`; nu se face push direct pe `main`.
 - Mesajele de commit și descrierile PR se scriu în română.
 
+## Versiune și jurnal de actualizări
+
+- Versiunea = `1.<numărul PR-ului>` (ex. PR #43 → 1.43). În fiecare PR: o intrare nouă **sus** în `CHANGELOG` din `src/changelog.ts` (titlu + 1–2 rânduri pentru utilizator) și aceeași versiune în `package.json` (`1.43.0`). La o funcție nouă importantă se actualizează și `FEATURES`.
+- Versiunea, data build-ului și commit-ul intră în aplicație din `vite.config.ts` (`__APP_VERSION__`, `__BUILD_DATE__`, `__BUILD_COMMIT__`) și se văd în fereastra „Despre” (`AboutDialog.tsx`, click pe numele aplicației).
+
 ## Backlog
 
 - Ideile și lucrurile de făcut sunt în **`BACKLOG.md`** (pe priorități P1–P3), împreună cu lista funcțiilor realizate (cu numărul PR-ului).
